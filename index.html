@@ -1,0 +1,3104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Ulink Assist Console</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        /* =========================================================
+        GLOBAL
+        ========================================================= */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Inter, Segoe UI, sans-serif;
+        }
+
+        body {
+            background: #f4f6f8;
+            overflow: hidden;
+            color: #111827;
+        }
+
+        button,
+        input,
+        textarea {
+            font-family: inherit;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 20px;
+        }
+
+        /* =========================================================
+        LOGIN
+        ========================================================= */
+
+        .login-screen {
+            position: fixed;
+            inset: 0;
+            background: #f4f6f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+
+        .login-card {
+            width: 420px;
+            background: white;
+            border-radius: 28px;
+            padding: 42px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.08);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 34px;
+        }
+
+        .login-logo img {
+            width: 90px;
+            margin-bottom: 18px;
+        }
+
+        .login-logo h1 {
+            font-size: 30px;
+            font-weight: 700;
+        }
+
+        .login-logo p {
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .login-input {
+            width: 100%;
+            height: 58px;
+            border: 1px solid #d1d5db;
+            border-radius: 16px;
+            padding: 0 18px;
+            font-size: 15px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+
+        .login-btn {
+            width: 100%;
+            height: 58px;
+            border: none;
+            border-radius: 16px;
+            background: #111827;
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .login-error {
+            color: #ef4444;
+            margin-top: 16px;
+            display: none;
+        }
+
+        /* =========================================================
+        TOPBAR
+        ========================================================= */
+
+        .topbar {
+            height: 66px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 22px;
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-wrap img {
+            width: 38px;
+        }
+
+        .logo-wrap h2 {
+            font-size: 18px;
+        }
+
+        .top-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+
+        .icon-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* =========================================================
+        PROFILE DROPDOWN
+        ========================================================= */
+
+        .profile-menu-wrap {
+            position: relative;
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 54px;
+            right: 0;
+            width: 240px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+            padding: 10px;
+            display: none;
+            z-index: 9999;
+        }
+
+        .profile-dropdown.show {
+            display: block;
+        }
+
+        .profile-item {
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 14px;
+            cursor: pointer;
+        }
+
+        .profile-item:hover {
+            background: #f3f4f6;
+        }
+
+        .profile-item.logout {
+            color: #ef4444;
+        }
+
+        /* =========================================================
+        MAIN
+        ========================================================= */
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 260px 360px 1fr 340px;
+            height: calc(100vh - 66px);
+        }
+
+        /* =========================================================
+        SIDEBAR
+        ========================================================= */
+
+        .sidebar {
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            padding: 14px;
+        }
+
+        .menu-item {
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            transition: 0.2s;
+        }
+
+        .menu-item:hover {
+            background: #f3f4f6;
+        }
+
+        .menu-item.active {
+            background: #eef2f6;
+        }
+
+        .menu-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 15px;
+        }
+
+        /* =========================================================
+        SOCIAL SIDEBAR
+        ========================================================= */
+
+        .social-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+
+            width: 82px;
+            height: 100vh;
+
+            background: white;
+
+            border-right: 1px solid #e5e7eb;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            padding-top: 16px;
+
+            z-index: 999999;
+
+            transition: 0.28s;
+        }
+
+        /* COLLAPSED */
+
+        .social-sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+
+        /* =========================================================
+        TOGGLE
+        ========================================================= */
+
+        .social-toggle {
+            width: 48px;
+            height: 48px;
+
+            border-radius: 16px;
+
+            background: #f3f4f6;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            cursor: pointer;
+
+            margin-bottom: 28px;
+
+            transition: 0.2s;
+        }
+
+        .social-toggle:hover {
+            background: #e5e7eb;
+        }
+
+        /* =========================================================
+        SOCIAL ITEMS
+        ========================================================= */
+
+        .social-item {
+            width: 54px;
+            height: 54px;
+
+            border-radius: 18px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            position: relative;
+
+            margin-bottom: 20px;
+
+            cursor: pointer;
+
+            transition: 0.2s;
+
+            color: #6b7280;
+
+            font-size: 18px;
+        }
+
+        .social-item:hover {
+            background: #f3f4f6;
+        }
+
+        .social-item.active {
+            background: #111827;
+            color: white;
+        }
+
+        /* =========================================================
+        BADGE
+        ========================================================= */
+
+        .social-badge {
+            position: absolute;
+
+            top: -4px;
+            right: -2px;
+
+            width: 22px;
+            height: 22px;
+
+            border-radius: 50%;
+
+            background: #f97316;
+
+            color: white;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border: 2px solid white;
+        }
+
+        /* =========================================================
+        LAYOUT SHIFT
+        ========================================================= */
+
+        .topbar {
+            margin-left: 82px;
+        }
+
+        .main-layout {
+            margin-left: 82px;
+            width: calc(100% - 82px);
+            transition: 0.28s;
+        }
+
+        /* COLLAPSE MODE */
+
+        .social-sidebar.collapsed~.topbar {
+            margin-left: 0;
+        }
+
+        .social-sidebar.collapsed~.main-layout {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        /* =========================================================
+        CHAT LIST
+        ========================================================= */
+
+        .chat-list {
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-area {
+            padding: 18px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .search-box {
+            height: 48px;
+            background: #f3f4f6;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+        }
+
+        .search-box input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            outline: none;
+        }
+
+        /* =========================================================
+        TABS + FILTER
+        ========================================================= */
+
+        .tabs-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab {
+            padding: 10px 18px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .tab.active {
+            background: #111827;
+            color: white;
+        }
+
+        /* =========================================================
+        FILTER BUTTON
+        ========================================================= */
+
+        .filter-wrap {
+            position: relative;
+        }
+
+        .filter-btn {
+            width: 42px;
+            height: 42px;
+            border: none;
+            border-radius: 14px;
+            background: #f3f4f6;
+            cursor: pointer;
+            font-size: 16px;
+            color: #111827;
+        }
+
+        .filter-btn:hover {
+            background: #e5e7eb;
+        }
+
+        /* =========================================================
+        CHANNEL DROPDOWN
+        ========================================================= */
+
+        .channel-dropdown {
+            position: absolute;
+            top: 52px;
+            right: 0;
+            width: 220px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+            padding: 10px;
+            display: none;
+            z-index: 9999;
+        }
+
+        .channel-dropdown.show {
+            display: block;
+        }
+
+        .channel-option {
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 14px;
+            cursor: pointer;
+        }
+
+        .channel-option:hover {
+            background: #f3f4f6;
+        }
+
+        .channel-option.active {
+            background: #eef2f6;
+        }
+
+        /* =========================================================
+        CHAT ITEMS
+        ========================================================= */
+
+        .chat-items {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .chat-item {
+            display: flex;
+            gap: 14px;
+            padding: 18px;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+        }
+
+        .chat-item:hover {
+            background: #f9fafb;
+        }
+
+        .chat-item.active {
+            background: #eef2f6;
+        }
+
+        .chat-avatar {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+        }
+
+        .chat-name {
+            font-weight: 600;
+        }
+
+        .chat-preview {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        .chat-time {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .unread-badge {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #111827;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        /* =========================================================
+        CHAT WINDOW
+        ========================================================= */
+
+        .chat-window {
+            display: flex;
+            flex-direction: column;
+            background: #f9fafb;
+        }
+
+        .chat-header {
+            height: 74px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .chat-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .chat-user img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+        }
+
+        .chat-user p {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* =========================================================
+    MESSAGES
+    ========================================================= */
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .date-divider {
+            align-self: center;
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 14px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .message.incoming {
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+
+        .message.outgoing {
+            background: #111827;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 8px;
+            text-align: right;
+        }
+
+        /* =========================================================
+CHAT INPUT
+========================================================= */
+
+        .chat-input {
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+
+        .input-box {
+            flex: 1;
+            height: 54px;
+            background: #f3f4f6;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            padding: 0 18px;
+        }
+
+        .input-box input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            outline: none;
+        }
+
+        /* =========================================================
+BUTTON FIX
+========================================================= */
+
+        .input-action-btn {
+            width: 46px;
+            height: 46px;
+            min-width: 46px;
+            min-height: 46px;
+            border: none;
+            border-radius: 14px;
+            background: #f3f4f6;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #111827;
+        }
+
+        .input-action-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .send-btn {
+            width: 54px;
+            height: 54px;
+            border: none;
+            border-radius: 16px;
+            background: #111827;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* =========================================================
+EMOJI
+========================================================= */
+
+        .emoji-picker {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            width: 300px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+            padding: 14px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .emoji-picker.show {
+            display: flex;
+        }
+
+        .emoji-picker span {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .emoji-picker span:hover {
+            background: #f3f4f6;
+        }
+
+        /* =========================================================
+        PROFILE PANEL
+        ========================================================= */
+
+        .profile-panel {
+            background: white;
+            border-left: 1px solid #e5e7eb;
+            overflow-y: auto;
+        }
+
+        .profile-top {
+            padding: 32px 20px;
+            text-align: center;
+        }
+
+        .profile-top img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+        }
+
+        .profile-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 24px;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+        }
+
+        .profile-row:hover {
+            background: #f9fafb;
+        }
+
+        .profile-value {
+            color: #6b7280;
+        }
+
+        /* =========================================================
+        MEDIA & FILES
+        ========================================================= */
+
+        .media-section {
+            padding: 22px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .media-header {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .files-header {
+            margin-top: 10px;
+        }
+
+        .media-header i {
+            transition: 0.25s;
+        }
+
+        .media-header i.rotate {
+            transform: rotate(90deg);
+        }
+
+        .media-content,
+        .files-content {
+            display: none;
+        }
+
+        .media-content.show,
+        .files-content.show {
+            display: block;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .media-item {
+            height: 96px;
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .media-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-card {
+            padding: 16px;
+            border-radius: 18px;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .file-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+        }
+
+        .file-icon.pdf {
+            background: #ef4444;
+        }
+
+        .file-icon.doc {
+            background: #2563eb;
+        }
+
+        .file-icon.xls {
+            background: #16a34a;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 600;
+        }
+
+        .file-size {
+            margin-top: 4px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        /* =========================================================
+        ASSIGN MODAL
+        ========================================================= */
+
+        .assign-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.15);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+
+        .assign-overlay.show {
+            display: flex;
+        }
+
+        .assign-modal {
+            width: 420px;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.12);
+        }
+
+        .assign-header {
+            height: 70px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 22px;
+        }
+
+        .assign-header button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .assign-list {
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .assign-user {
+            height: 72px;
+            padding: 0 22px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+        }
+
+        .assign-user:hover {
+            background: #f9fafb;
+        }
+
+        .assign-user img {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+        }
+
+        .assign-name {
+            flex: 1;
+        }
+
+        .online-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+
+        .remove-assignment {
+            padding: 18px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .remove-assignment button {
+            width: 100%;
+            height: 48px;
+            border: none;
+            border-radius: 14px;
+            background: #f3f4f6;
+            cursor: pointer;
+        }
+
+        /* =========================================================
+        FOLLOW UP STAR
+        ========================================================= */
+
+        #followUpBtn {
+            transition: 0.2s;
+        }
+
+        #followUpBtn.active {
+            background: #fef3c7;
+        }
+
+        #followUpBtn.active i {
+            color: #f59e0b;
+        }
+
+
+        /* =========================================================
+        EDIT MODAL
+        ========================================================= */
+
+        .edit-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.18);
+
+            display: none;
+            align-items: center;
+            justify-content: center;
+
+            z-index: 999999;
+        }
+
+        .edit-overlay.show {
+            display: flex;
+        }
+
+        .edit-modal {
+            width: 420px;
+            background: white;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .edit-header {
+            height: 70px;
+            padding: 0 22px;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .edit-header button {
+            border: none;
+            background: none;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .edit-body {
+            padding: 22px;
+        }
+
+        .edit-body textarea {
+            width: 100%;
+            height: 120px;
+
+            border: 1px solid #d1d5db;
+            border-radius: 16px;
+
+            resize: none;
+
+            padding: 16px;
+            font-size: 15px;
+
+            outline: none;
+        }
+
+        .edit-footer {
+            padding: 20px;
+
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .delete-btn {
+            height: 46px;
+            padding: 0 22px;
+
+            border: none;
+            border-radius: 14px;
+
+            background: #ef4444;
+            color: white;
+
+            cursor: pointer;
+        }
+
+        .save-btn {
+            height: 46px;
+            padding: 0 22px;
+
+            border: none;
+            border-radius: 14px;
+
+            background: #2563eb;
+            color: white;
+
+            cursor: pointer;
+        }
+
+
+        /* =========================================================
+        FUNCTIONAL SIDEBAR
+        ========================================================= */
+
+        .menu-item {
+            position: relative;
+        }
+
+        .menu-item.hidden-chat {
+            display: none;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- =========================================================
+    SOCIAL SIDEBAR
+    ========================================================= -->
+
+    <div class="social-sidebar" id="socialSidebar">
+
+        <!-- =========================================================
+        SOCIAL ITEMS
+        ========================================================= -->
+
+        <div class="social-item active" onclick="filterPlatform('all', this)" title="All Messages">
+
+            <div class="social-badge">
+                8
+            </div>
+
+            <i class="fa-solid fa-comments"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('whatsapp', this)" title="WhatsApp">
+
+            <i class="fa-brands fa-whatsapp"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('messenger', this)" title="Messenger">
+
+            <i class="fa-brands fa-facebook-messenger"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('instagram', this)" title="Instagram">
+
+            <i class="fa-brands fa-instagram"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('calls', this)" title="Calls">
+
+            <i class="fa-solid fa-phone"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('analytics', this)" title="Analytics">
+
+            <i class="fa-solid fa-chart-line"></i>
+
+        </div>
+
+        <div class="social-item" onclick="filterPlatform('settings', this)" title="Settings">
+
+            <i class="fa-solid fa-gear"></i>
+
+        </div>
+
+    </div>
+
+    <!-- LOGIN -->
+
+    <div class="login-screen" id="loginScreen">
+
+        <div class="login-card">
+
+            <div class="login-logo">
+
+                <img src="ulink_logo.png">
+
+                <h1>Ulink Assist</h1>
+
+                <p>Admin Console Login</p>
+
+            </div>
+
+            <input type="password" class="login-input" id="password" placeholder="Password">
+
+            <button class="login-btn" onclick="login()">
+
+                Sign In
+
+            </button>
+
+            <div class="login-error" id="loginError">
+
+                Invalid password
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- TOPBAR -->
+
+    <div class="topbar">
+
+        <div class="logo-wrap">
+
+            <img src="ulink_logo.png">
+
+            <h2>Ulink Assist</h2>
+
+        </div>
+
+        <div class="top-right">
+
+            <div class="status">
+
+                <div class="status-dot"></div>
+
+                Available
+
+            </div>
+
+            <div class="icon-btn">
+
+                <i class="fa-regular fa-bell"></i>
+
+                <div class="notification-badge">
+                    4
+                </div>
+
+            </div>
+
+            <div class="profile-menu-wrap">
+
+                <div class="icon-btn" onclick="toggleProfileMenu(event)">
+
+                    <i class="fa-regular fa-user"></i>
+
+                </div>
+
+                <div class="profile-dropdown" id="profileDropdown">
+
+                    <div class="profile-item">
+                        <i class="fa-regular fa-user"></i>
+                        My Profile
+                    </div>
+
+                    <div class="profile-item">
+                        <i class="fa-solid fa-gear"></i>
+                        Settings
+                    </div>
+
+                    <div class="profile-item logout" onclick="logout()">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        Sign Out
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+
+    <div class="main-layout">
+
+        <!-- SIDEBAR -->
+
+        <div class="sidebar">
+
+            <div class="sidebar-menu">
+
+                <div class="menu-item active" onclick="filterChats('all', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-solid fa-users"></i>
+                        <span>All</span>
+                    </div>
+
+                    <div>2957</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('myinbox', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-regular fa-user"></i>
+                        <span>My Inbox</span>
+                    </div>
+
+                    <div>5</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('unassigned', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Unassigned</span>
+                    </div>
+
+                    <div>2871</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('unreplied', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-solid fa-reply"></i>
+                        <span>Unreplied</span>
+                    </div>
+
+                    <div>563</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('followup', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-regular fa-star"></i>
+                        <span>Follow Up</span>
+                    </div>
+
+                    <div>3</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('unread', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-regular fa-envelope"></i>
+                        <span>Unread</span>
+                    </div>
+
+                    <div>1</div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- CHAT LIST -->
+
+        <div class="chat-list">
+
+            <div class="search-area">
+
+                <div class="search-box">
+
+                    <i class="fa-solid fa-magnifying-glass"></i>
+
+                    <input type="text" placeholder="Search conversations...">
+
+                </div>
+
+                <!-- TABS -->
+
+                <div class="tabs-row">
+
+                    <div class="tabs">
+
+                        <div class="tab active">
+                            Human
+                        </div>
+
+                        <div class="tab">
+                            Bot
+                        </div>
+
+                    </div>
+
+                    <!-- FILTER -->
+
+                    <div class="filter-wrap">
+
+                        <button class="filter-btn" onclick="toggleChannelDropdown(event)">
+
+                            <i class="fa-solid fa-filter"></i>
+
+                        </button>
+
+                        <div class="channel-dropdown" id="channelDropdown">
+
+                            <div class="channel-option active">
+
+                                <i class="fa-brands fa-whatsapp"></i>
+
+                                WhatsApp
+
+                            </div>
+
+                            <div class="channel-option">
+
+                                <i class="fa-brands fa-instagram"></i>
+
+                                Instagram
+
+                            </div>
+
+                            <div class="channel-option">
+
+                                <i class="fa-brands fa-facebook-messenger"></i>
+
+                                Messenger
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- CHAT ITEMS -->
+
+            <div class="chat-items" id="chatItems">
+
+                <!-- MY INBOX -->
+
+                <div class="chat-item active" data-type="myinbox">
+
+                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=12">
+
+                    <div style="flex:1;">
+
+                        <div style="display:flex;justify-content:space-between;">
+
+                            <div class="chat-name">
+                                Hambali
+                            </div>
+
+                            <div class="chat-time">
+                                9:42 AM
+                            </div>
+
+                        </div>
+
+                        <div class="chat-preview">
+                            Medical evacuation discussion...
+                        </div>
+
+                        <div class="unread-badge">
+                            2
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- UNASSIGNED -->
+
+                <div class="chat-item" data-type="unassigned">
+
+                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=18">
+
+                    <div style="flex:1;">
+
+                        <div style="display:flex;justify-content:space-between;">
+
+                            <div class="chat-name">
+                                Ahmad
+                            </div>
+
+                            <div class="chat-time">
+                                8:12 AM
+                            </div>
+
+                        </div>
+
+                        <div class="chat-preview">
+                            Claim inquiry pending...
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- UNREPLIED -->
+
+                <div class="chat-item" data-type="unreplied">
+
+                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=22">
+
+                    <div style="flex:1;">
+
+                        <div style="display:flex;justify-content:space-between;">
+
+                            <div class="chat-name">
+                                Yosh
+                            </div>
+
+                            <div class="chat-time">
+                                Yesterday
+                            </div>
+
+                        </div>
+
+                        <div class="chat-preview">
+                            Waiting for reply...
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- FOLLOW UP -->
+
+                <div class="chat-item" data-type="followup">
+
+                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=30">
+
+                    <div style="flex:1;">
+
+                        <div style="display:flex;justify-content:space-between;">
+
+                            <div class="chat-name">
+                                Emily
+                            </div>
+
+                            <div class="chat-time">
+                                Monday
+                            </div>
+
+                        </div>
+
+                        <div class="chat-preview">
+                            Funeral arrangement follow up...
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- UNREAD -->
+
+                <div class="chat-item" data-type="unread">
+
+                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=41">
+
+                    <div style="flex:1;">
+
+                        <div style="display:flex;justify-content:space-between;">
+
+                            <div class="chat-name">
+                                Maulana
+                            </div>
+
+                            <div class="chat-time">
+                                10:01 AM
+                            </div>
+
+                        </div>
+
+                        <div class="chat-preview">
+                            Eye injury consultation...
+                        </div>
+
+                        <div class="unread-badge">
+                            1
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- CHAT WINDOW -->
+
+        <div class="chat-window">
+
+            <div class="chat-header">
+
+                <div class="chat-user">
+
+                    <img src="https://i.pravatar.cc/100?img=12">
+
+                    <div>
+
+                        <h3>
+                            Hambali
+                        </h3>
+
+                        <p>
+                            WhatsApp Conversation
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="chat-actions">
+
+                    <!-- ASSIGN -->
+
+                    <div class="icon-btn" onclick="toggleAssignModal(event)" title="Assign Conversation">
+
+                        <i class="fa-solid fa-user-check"></i>
+
+                    </div>
+
+                    <div class="icon-btn">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+
+                    <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
+
+                        <i class="fa-solid fa-star"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- MESSAGES -->
+
+            <div class="messages" id="messages">
+
+                <div class="date-divider">
+                    Today
+                </div>
+
+                <div class="message incoming">
+
+                    Hello Ulink Assist, I need support regarding medical evacuation.
+
+                    <div class="message-time">
+                        09:02
+                    </div>
+
+                </div>
+
+                <div class="message outgoing">
+
+                    Certainly, our team will assist you shortly.
+
+                    <div class="message-time">
+                        09:04 ✓✓
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- CHAT INPUT -->
+
+            <div class="chat-input">
+
+                <button class="input-action-btn" onclick="toggleEmojiPicker()">
+
+                    <i class="fa-regular fa-face-smile"></i>
+
+                </button>
+
+                <label class="input-action-btn">
+
+                    <i class="fa-solid fa-paperclip"></i>
+
+                    <input type="file" hidden onchange="handleFileUpload(event)">
+
+                </label>
+
+                <div class="input-box">
+
+                    <input type="text" id="messageInput" placeholder="Type message...">
+
+                </div>
+
+                <button class="send-btn" onclick="sendMessage()">
+
+                    <i class="fa-solid fa-paper-plane"></i>
+
+                </button>
+
+                <!-- EMOJI -->
+
+                <div class="emoji-picker" id="emojiPicker">
+
+                    <span onclick="addEmoji('😀')">😀</span>
+                    <span onclick="addEmoji('😂')">😂</span>
+                    <span onclick="addEmoji('❤️')">❤️</span>
+                    <span onclick="addEmoji('👍')">👍</span>
+                    <span onclick="addEmoji('🙏')">🙏</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- PROFILE -->
+
+        <div class="profile-panel">
+
+            <div class="profile-top">
+
+                <img src="https://i.pravatar.cc/100?img=12">
+
+                <h2 style="margin-top:14px;">
+                    Hambali
+                </h2>
+
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('Phone', '+6282174478888', 'phoneValue')">
+
+                <div>
+                    Phone
+                </div>
+
+                <div class="profile-value" id="phoneValue">
+
+                    +6282174478888
+
+                </div>
+
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('Email', 'member@email.com', 'emailValue')">
+
+                <div>
+                    Email
+                </div>
+
+                <div class="profile-value" id="emailValue">
+
+                    member@email.com
+
+                </div>
+
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('Country', 'Indonesia', 'countryValue')">
+
+                <div>
+                    Country
+                </div>
+
+                <div class="profile-value" id="countryValue">
+
+                    Indonesia
+
+                </div>
+
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('Language', 'Bahasa Indonesia', 'languageValue')">
+
+                <div>
+                    Language
+                </div>
+
+                <div class="profile-value" id="languageValue">
+
+                    Bahasa Indonesia
+
+                </div>
+
+            </div>
+
+            <!-- MEDIA -->
+
+            <div class="media-section">
+
+                <!-- MEDIA -->
+
+                <div class="media-header" onclick="toggleMediaSection()">
+
+                    <div>
+                        Media
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right" id="mediaArrow"></i>
+
+                </div>
+
+                <div class="media-content" id="mediaContent">
+
+                    <div class="media-grid">
+
+                        <div class="media-item">
+                            <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800">
+                        </div>
+
+                        <div class="media-item">
+                            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800">
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- FILES -->
+
+                <div class="media-header files-header" onclick="toggleFilesSection()">
+
+                    <div>
+                        Files
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right" id="filesArrow"></i>
+
+                </div>
+
+                <div class="files-content" id="filesContent">
+
+                    <div class="file-card">
+
+                        <div class="file-icon pdf">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </div>
+
+                        <div class="file-info">
+
+                            <div class="file-name">
+                                Medical_Report.pdf
+                            </div>
+
+                            <div class="file-size">
+                                2.4 MB
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="file-card">
+
+                        <div class="file-icon doc">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </div>
+
+                        <div class="file-info">
+
+                            <div class="file-name">
+                                Quotation.docx
+                            </div>
+
+                            <div class="file-size">
+                                860 KB
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ASSIGN MODAL -->
+
+    <div class="assign-overlay" id="assignOverlay">
+
+        <div class="assign-modal">
+
+            <div class="assign-header">
+
+                <h3>
+                    Assign Conversation
+                </h3>
+
+                <button onclick="closeAssignModal()">
+
+                    <i class="fa-solid fa-xmark"></i>
+
+                </button>
+
+            </div>
+
+            <div class="assign-list">
+
+                <div class="assign-user" onclick="assignAgent('You')">
+
+                    <img src="https://i.pravatar.cc/100?img=1">
+
+                    <div class="assign-name">
+                        Assign to me
+                    </div>
+
+                </div>
+
+                <div class="assign-user" onclick="assignAgent('Abinav A D')">
+
+                    <img src="https://i.pravatar.cc/100?img=11">
+
+                    <div class="assign-name">
+                        Abinav A D
+                    </div>
+
+                    <div class="online-dot"></div>
+
+                </div>
+
+                <div class="assign-user" onclick="assignAgent('Galvin Moh')">
+
+                    <img src="https://i.pravatar.cc/100?img=12">
+
+                    <div class="assign-name">
+                        Galvin Moh
+                    </div>
+
+                    <div class="online-dot"></div>
+
+                </div>
+
+            </div>
+
+            <div class="remove-assignment">
+
+                <button onclick="removeAssignment()">
+
+                    Remove Assignment
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- EDIT PROFILE MODAL -->
+
+    <div class="edit-overlay" id="editOverlay">
+
+        <div class="edit-modal">
+
+            <div class="edit-header">
+
+                <h3 id="editTitle">
+                    Edit
+                </h3>
+
+                <button onclick="closeEditModal()">
+
+                    <i class="fa-solid fa-xmark"></i>
+
+                </button>
+
+            </div>
+
+            <div class="edit-body">
+
+                <textarea id="editInput"></textarea>
+
+            </div>
+
+            <div class="edit-footer">
+
+                <button class="delete-btn" onclick="deleteField()">
+
+                    Delete
+
+                </button>
+
+                <button class="save-btn" onclick="saveField()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        /* =========================================================
+        LOGIN
+        ========================================================= */
+
+        const ADMIN_PASSWORD = "admin123";
+
+        function login() {
+
+            const password =
+                document.getElementById(
+                    "password"
+                ).value;
+
+            if (password === ADMIN_PASSWORD) {
+
+                document.getElementById(
+                    "loginScreen"
+                ).style.display = "none";
+
+            } else {
+
+                document.getElementById(
+                    "loginError"
+                ).style.display = "block";
+
+            }
+
+        }
+
+        document.getElementById(
+            "password"
+        ).addEventListener(
+            "keypress",
+            function (event) {
+
+                if (event.key === "Enter") {
+
+                    login();
+
+                }
+
+            }
+        );
+
+        /* =========================================================
+        ALWAYS SHOW LOGIN ON REFRESH
+        ========================================================= */
+
+        window.onload = function () {
+
+            /* ALWAYS RESET LOGIN */
+
+            localStorage.removeItem(
+                "ulink_logged_in"
+            );
+
+            document.getElementById(
+                "loginScreen"
+            ).style.display = "flex";
+
+        }
+
+        /* =========================================================
+        LOGOUT
+        ========================================================= */
+
+        function logout() {
+
+            location.reload();
+
+        }
+
+        /* =========================================================
+        PROFILE MENU
+        ========================================================= */
+
+        function toggleProfileMenu(event) {
+
+            event.stopPropagation();
+
+            document.getElementById(
+                "profileDropdown"
+            ).classList.toggle("show");
+
+        }
+
+        /* =========================================================
+        CHANNEL FILTER
+        ========================================================= */
+
+        function toggleChannelDropdown(event) {
+
+            event.stopPropagation();
+
+            document.getElementById(
+                "channelDropdown"
+            ).classList.toggle("show");
+
+        }
+
+        /* =========================================================
+        WINDOW CLICK CLOSE
+        ========================================================= */
+
+        window.addEventListener("click", function () {
+
+            const dropdown =
+                document.getElementById(
+                    "channelDropdown"
+                );
+
+            if (dropdown) {
+
+                dropdown.classList.remove("show");
+
+            }
+
+            document.getElementById(
+                "profileDropdown"
+            ).classList.remove("show");
+
+            document.getElementById(
+                "emojiPicker"
+            ).classList.remove("show");
+
+        });
+
+        /* =========================================================
+        EMOJI
+        ========================================================= */
+
+        function toggleEmojiPicker() {
+
+            document.getElementById(
+                "emojiPicker"
+            ).classList.toggle("show");
+
+        }
+
+        function addEmoji(emoji) {
+
+            const input =
+                document.getElementById(
+                    "messageInput"
+                );
+
+            input.value += emoji;
+
+        }
+
+        /* =========================================================
+        SEND MESSAGE
+        ========================================================= */
+
+        function sendMessage() {
+
+            const input =
+                document.getElementById(
+                    "messageInput"
+                );
+
+            const text =
+                input.value.trim();
+
+            if (text === "") return;
+
+            const messages =
+                document.getElementById(
+                    "messages"
+                );
+
+            const msg =
+                document.createElement("div");
+
+            msg.className =
+                "message outgoing";
+
+            msg.innerHTML = `
+
+${text}
+
+<div class="message-time">
+Just now ✓✓
+</div>
+
+`;
+
+            messages.appendChild(msg);
+
+            messages.scrollTop =
+                messages.scrollHeight;
+
+            input.value = "";
+
+        }
+
+        /* =========================================================
+        ENTER KEY SEND
+        ========================================================= */
+
+        document.getElementById(
+            "messageInput"
+        ).addEventListener("keypress", function (e) {
+
+            if (e.key === "Enter") {
+
+                sendMessage();
+
+            }
+
+        });
+
+        /* =========================================================
+        FILE UPLOAD
+        ========================================================= */
+
+        function handleFileUpload(event) {
+
+            const file =
+                event.target.files[0];
+
+            if (!file) return;
+
+            const messages =
+                document.getElementById(
+                    "messages"
+                );
+
+            const msg =
+                document.createElement("div");
+
+            msg.className =
+                "message outgoing";
+
+            msg.innerHTML = `
+
+📎 ${file.name}
+
+<div class="message-time">
+Uploaded ✓✓
+</div>
+
+`;
+
+            messages.appendChild(msg);
+
+            messages.scrollTop =
+                messages.scrollHeight;
+
+        }
+
+        /* =========================================================
+        MEDIA SECTION
+        ========================================================= */
+
+        function toggleMediaSection() {
+
+            const content =
+                document.getElementById(
+                    "mediaContent"
+                );
+
+            const arrow =
+                document.getElementById(
+                    "mediaArrow"
+                );
+
+            content.classList.toggle("show");
+
+            arrow.classList.toggle("rotate");
+
+        }
+
+        /* =========================================================
+        FILES SECTION
+        ========================================================= */
+
+        function toggleFilesSection() {
+
+            const content =
+                document.getElementById(
+                    "filesContent"
+                );
+
+            const arrow =
+                document.getElementById(
+                    "filesArrow"
+                );
+
+            content.classList.toggle("show");
+
+            arrow.classList.toggle("rotate");
+
+        }
+
+        /* =========================================================
+        ASSIGN MODAL
+        ========================================================= */
+
+        function toggleAssignModal(event) {
+
+            event.stopPropagation();
+
+            document.getElementById(
+                "assignOverlay"
+            ).classList.add("show");
+
+        }
+
+        function closeAssignModal() {
+
+            document.getElementById(
+                "assignOverlay"
+            ).classList.remove("show");
+
+        }
+
+        function assignAgent(name) {
+
+            alert(
+                "Conversation assigned to " + name
+            );
+
+            closeAssignModal();
+
+        }
+
+        function removeAssignment() {
+
+            alert(
+                "Assignment removed"
+            );
+
+            closeAssignModal();
+
+        }
+
+        document.getElementById(
+            "assignOverlay"
+        ).addEventListener("click", function (e) {
+
+            if (e.target.id === "assignOverlay") {
+
+                closeAssignModal();
+
+            }
+
+        });
+
+        /* =========================================================
+        FOLLOW UP STAR
+        ========================================================= */
+
+        let followUpActive = false;
+
+        function toggleFollowUp() {
+
+            const btn =
+                document.getElementById(
+                    "followUpBtn"
+                );
+
+            followUpActive = !followUpActive;
+
+            if (followUpActive) {
+
+                btn.classList.add("active");
+
+            } else {
+
+                btn.classList.remove("active");
+
+            }
+
+        }
+
+        /* =========================================================
+        EDIT PROFILE
+        ========================================================= */
+
+        let currentEditField = "";
+
+        function openEditModal(title, value, fieldId) {
+
+            currentEditField = fieldId;
+
+            document.getElementById(
+                "editTitle"
+            ).innerText = title;
+
+            document.getElementById(
+                "editInput"
+            ).value = value;
+
+            document.getElementById(
+                "editOverlay"
+            ).classList.add("show");
+
+        }
+
+        function closeEditModal() {
+
+            document.getElementById(
+                "editOverlay"
+            ).classList.remove("show");
+
+        }
+
+        function saveField() {
+
+            const value =
+                document.getElementById(
+                    "editInput"
+                ).value;
+
+            document.getElementById(
+                currentEditField
+            ).innerText = value;
+
+            closeEditModal();
+
+        }
+
+        function deleteField() {
+
+            document.getElementById(
+                currentEditField
+            ).innerText = "----";
+
+            closeEditModal();
+
+        }
+
+        /* =========================================================
+        EDIT MODAL OUTSIDE CLOSE
+        ========================================================= */
+
+        document.getElementById(
+            "editOverlay"
+        ).addEventListener("click", function (e) {
+
+            if (e.target.id === "editOverlay") {
+
+                closeEditModal();
+
+            }
+
+        });
+
+        /* =========================================================
+        CHAT SWITCHING
+        ========================================================= */
+
+        const chatItems =
+            document.querySelectorAll(
+                ".chat-item"
+            );
+
+        chatItems.forEach(item => {
+
+            item.addEventListener(
+                "click",
+                function () {
+
+                    chatItems.forEach(i => {
+
+                        i.classList.remove(
+                            "active"
+                        );
+
+                    });
+
+                    item.classList.add(
+                        "active"
+                    );
+
+                }
+            );
+
+        });
+
+        /* =========================================================
+        FILTER CHANNEL ACTIVE
+        ========================================================= */
+
+        const channelOptions =
+            document.querySelectorAll(
+                ".channel-option"
+            );
+
+        channelOptions.forEach(option => {
+
+            option.addEventListener(
+                "click",
+                function () {
+
+                    channelOptions.forEach(o => {
+
+                        o.classList.remove(
+                            "active"
+                        );
+
+                    });
+
+                    option.classList.add(
+                        "active"
+                    );
+
+                }
+            );
+
+        });
+
+        /* =========================================================
+        TABS ACTIVE
+        ========================================================= */
+
+        const tabs =
+            document.querySelectorAll(
+                ".tab"
+            );
+
+        tabs.forEach(tab => {
+
+            tab.addEventListener(
+                "click",
+                function () {
+
+                    tabs.forEach(t => {
+
+                        t.classList.remove(
+                            "active"
+                        );
+
+                    });
+
+                    tab.classList.add(
+                        "active"
+                    );
+
+                }
+            );
+
+        });
+
+        /* =========================================================
+        SIDEBAR ACTIVE
+        ========================================================= */
+
+        const menuItems =
+            document.querySelectorAll(
+                ".menu-item"
+            );
+
+        menuItems.forEach(item => {
+
+            item.addEventListener(
+                "click",
+                function () {
+
+                    menuItems.forEach(i => {
+
+                        i.classList.remove(
+                            "active"
+                        );
+
+                    });
+
+                    item.classList.add(
+                        "active"
+                    );
+
+                }
+            );
+
+        });
+
+        /* =========================================================
+SIDEBAR FILTER
+========================================================= */
+
+        function filterChats(type, element) {
+
+            /* ACTIVE SIDEBAR */
+
+            document.querySelectorAll(
+                ".menu-item"
+            ).forEach(item => {
+
+                item.classList.remove("active");
+
+            });
+
+            element.classList.add("active");
+
+            /* CHAT FILTER */
+
+            document.querySelectorAll(
+                ".chat-item"
+            ).forEach(chat => {
+
+                if (type === "all") {
+
+                    chat.style.display = "flex";
+
+                } else {
+
+                    if (chat.dataset.type === type) {
+
+                        chat.style.display = "flex";
+
+                    } else {
+
+                        chat.style.display = "none";
+
+                    }
+
+                }
+
+            });
+
+        }
+
+
+        /* =========================================================
+CHAT DATABASE
+========================================================= */
+
+        const chats = [
+
+            {
+                id: 1,
+                type: "myinbox",
+                name: "Hambali",
+                avatar: "https://i.pravatar.cc/100?img=12",
+                preview: "Medical evacuation discussion...",
+                time: "9:42 AM",
+                platform: "WhatsApp Conversation",
+                phone: "+6282174478888",
+                email: "hambali@email.com",
+                country: "Indonesia",
+                language: "Bahasa Indonesia",
+                messages: [
+
+                    {
+                        sender: "incoming",
+                        text: "Hello Ulink Assist, I need support regarding medical evacuation.",
+                        time: "09:02"
+                    },
+
+                    {
+                        sender: "outgoing",
+                        text: "Certainly, our team will assist you shortly.",
+                        time: "09:04 ✓✓"
+                    }
+
+                ]
+            },
+
+            {
+                id: 2,
+                type: "unassigned",
+                name: "Ahmad",
+                avatar: "https://i.pravatar.cc/100?img=18",
+                preview: "Claim inquiry pending...",
+                time: "8:12 AM",
+                platform: "Instagram Conversation",
+                phone: "+62888888888",
+                email: "ahmad@email.com",
+                country: "Malaysia",
+                language: "English",
+                messages: [
+
+                    {
+                        sender: "incoming",
+                        text: "Can I claim for my cancelled flight?",
+                        time: "08:12"
+                    },
+
+                    {
+                        sender: "outgoing",
+                        text: "Please share the cancellation email from airline.",
+                        time: "08:18 ✓✓"
+                    }
+
+                ]
+            },
+
+            {
+                id: 3,
+                type: "followup",
+                name: "Emily",
+                avatar: "https://i.pravatar.cc/100?img=30",
+                preview: "Funeral arrangement follow up...",
+                time: "Monday",
+                platform: "Messenger Conversation",
+                phone: "+6598888888",
+                email: "emily@email.com",
+                country: "Singapore",
+                language: "English",
+                messages: [
+
+                    {
+                        sender: "incoming",
+                        text: "Can we use any funeral provider?",
+                        time: "11:22"
+                    },
+
+                    {
+                        sender: "outgoing",
+                        text: "Yes, there is no strict provider requirement.",
+                        time: "11:30 ✓✓"
+                    }
+
+                ]
+            }
+
+        ];
+
+        /* =========================================================
+        RENDER CHAT LIST
+        ========================================================= */
+
+        function renderChats(filter = "all") {
+
+            const container =
+                document.getElementById(
+                    "chatItems"
+                );
+
+            container.innerHTML = "";
+
+            chats.forEach(chat => {
+
+                if (
+                    filter !== "all" &&
+                    chat.type !== filter
+                ) {
+                    return;
+                }
+
+                if (
+                    currentPlatform !== "all" &&
+                    chat.platformType !== currentPlatform
+                ) {
+
+                    return;
+
+                }
+
+                container.innerHTML += `
+
+        <div class="chat-item"
+             onclick="openChat(${chat.id}, this)">
+
+            <img class="chat-avatar"
+                 src="${chat.avatar}">
+
+            <div style="flex:1;">
+
+                <div style="display:flex;justify-content:space-between;">
+
+                    <div class="chat-name">
+                        ${chat.name}
+                    </div>
+
+                    <div class="chat-time">
+                        ${chat.time}
+                    </div>
+
+                </div>
+
+                <div class="chat-preview">
+                    ${chat.preview}
+                </div>
+
+            </div>
+
+        </div>
+
+        `;
+
+            });
+
+        }
+
+        /* =========================================================
+        OPEN CHAT
+        ========================================================= */
+
+        function openChat(id, element) {
+
+            /* ACTIVE CHAT */
+
+            document.querySelectorAll(
+                ".chat-item"
+            ).forEach(item => {
+
+                item.classList.remove("active");
+
+            });
+
+            element.classList.add("active");
+
+            /* FIND CHAT */
+
+            const chat =
+                chats.find(c => c.id === id);
+
+            if (!chat) return;
+
+            /* HEADER */
+
+            document.querySelector(
+                ".chat-user h3"
+            ).innerText = chat.name;
+
+            document.querySelector(
+                ".chat-user p"
+            ).innerText = chat.platform;
+
+            document.querySelector(
+                ".chat-user img"
+            ).src = chat.avatar;
+
+            /* PROFILE */
+
+            document.querySelector(
+                ".profile-top img"
+            ).src = chat.avatar;
+
+            document.querySelector(
+                ".profile-top h2"
+            ).innerText = chat.name;
+
+            document.getElementById(
+                "phoneValue"
+            ).innerText = chat.phone;
+
+            document.getElementById(
+                "emailValue"
+            ).innerText = chat.email;
+
+            document.getElementById(
+                "countryValue"
+            ).innerText = chat.country;
+
+            document.getElementById(
+                "languageValue"
+            ).innerText = chat.language;
+
+            /* MESSAGES */
+
+            const messages =
+                document.getElementById(
+                    "messages"
+                );
+
+            messages.innerHTML = `
+        <div class="date-divider">
+            Today
+        </div>
+    `;
+
+            chat.messages.forEach(msg => {
+
+                messages.innerHTML += `
+
+        <div class="message ${msg.sender}">
+
+            ${msg.text}
+
+            <div class="message-time">
+                ${msg.time}
+            </div>
+
+        </div>
+
+        `;
+
+            });
+
+        }
+
+        /* =========================================================
+        FILTER SIDEBAR
+        ========================================================= */
+
+        function filterChats(type, element) {
+
+            document.querySelectorAll(
+                ".menu-item"
+            ).forEach(item => {
+
+                item.classList.remove("active");
+
+            });
+
+            element.classList.add("active");
+
+            renderChats(type);
+
+        }
+
+        /* =========================================================
+        INITIAL LOAD
+        ========================================================= */
+
+        window.addEventListener("load", () => {
+
+            renderChats("all");
+
+        });
+
+
+        /* =========================================================
+PLATFORM FILTER
+========================================================= */
+
+        let currentPlatform = "all";
+
+        function filterPlatform(platform, element) {
+
+            currentPlatform = platform;
+
+            /* ACTIVE */
+
+            document.querySelectorAll(
+                ".social-item"
+            ).forEach(item => {
+
+                item.classList.remove(
+                    "active"
+                );
+
+            });
+
+            element.classList.add(
+                "active"
+            );
+
+            /* SPECIAL PAGES */
+
+            if (platform === "analytics") {
+
+                alert(
+                    "Analytics page coming soon"
+                );
+
+                return;
+
+            }
+
+            if (platform === "settings") {
+
+                alert(
+                    "Settings page coming soon"
+                );
+
+                return;
+
+            }
+
+            if (platform === "calls") {
+
+                alert(
+                    "Calls page coming soon"
+                );
+
+                return;
+
+            }
+
+            renderChatsByPlatform();
+
+        }
+
+        /* =========================================================
+        RENDER BY PLATFORM
+        ========================================================= */
+
+        function renderChatsByPlatform() {
+
+            const container =
+                document.getElementById(
+                    "chatItems"
+                );
+
+            container.innerHTML = "";
+
+            chats.forEach(chat => {
+
+                if (
+                    currentPlatform !== "all" &&
+                    chat.platformType !== currentPlatform
+                ) {
+
+                    return;
+
+                }
+
+                container.innerHTML += `
+
+        <div class="chat-item"
+             onclick="openChat(${chat.id}, this)">
+
+            <img class="chat-avatar"
+                 src="${chat.avatar}">
+
+            <div style="flex:1;">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                ">
+
+                    <div class="chat-name">
+                        ${chat.name}
+                    </div>
+
+                    <div class="chat-time">
+                        ${chat.time}
+                    </div>
+
+                </div>
+
+                <div class="chat-preview">
+                    ${chat.preview}
+                </div>
+
+            </div>
+
+        </div>
+
+        `;
+
+            });
+
+        }
+
+    </script>
+</body>
+
+</html>
