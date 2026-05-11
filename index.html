@@ -14,7 +14,7 @@
         /* =========================================================
         GLOBAL
         ========================================================== */
- 
+
         * {
             margin: 0;
             padding: 0;
@@ -2058,6 +2058,8 @@ EMOJI
 
     <script>
 
+        let currentChat = null;
+
         /* =========================================================
         LOGIN
         ========================================================= */
@@ -2212,7 +2214,7 @@ EMOJI
         SEND MESSAGE
         ========================================================= */
 
-        function sendMessage() {
+        async function sendMessage() {
 
             const input =
                 document.getElementById(
@@ -2224,33 +2226,32 @@ EMOJI
 
             if (text === "") return;
 
-            const messages =
-                document.getElementById(
-                    "messages"
-                );
-
-            const msg =
-                document.createElement("div");
-
-            msg.className =
-                "message outgoing";
-
-            msg.innerHTML = `
-
-${text}
-
-<div class="message-time">
-Just now ✓✓
-</div>
-
-`;
-
-            messages.appendChild(msg);
-
-            messages.scrollTop =
-                messages.scrollHeight;
-
             input.value = "";
+
+            await fetch(
+                "https://ulink.app.n8n.cloud/webhook/send-message",
+                {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        phone: currentChat.phone,
+                        sender: "outgoing",
+                        message: text
+
+                    })
+
+                }
+            );
+
+            // REFRESH AFTER SEND
+
+            fetchMessages();
 
         }
 
@@ -2868,6 +2869,7 @@ CHAT DATABASE
                 chats.find(c => c.id === id);
 
             if (!chat) return;
+            currentChat = chat;
 
             /* HEADER */
 
@@ -3097,6 +3099,57 @@ PLATFORM FILTER
             });
 
         }
+
+        /* =========================================
+        FETCH REAL MESSAGES
+        ========================================= */
+
+        async function fetchMessages() {
+
+            if (!currentChat) return;
+
+            const res = await fetch(
+                `https://ulink.app.n8n.cloud/webhook/get-messages?phone=${currentChat.phone}`
+            );
+
+            const data = await res.json();
+
+            const messages =
+                document.getElementById(
+                    "messages"
+                );
+
+            messages.innerHTML =
+                `<div class="date-divider">
+            Today
+        </div>`;
+
+            data.forEach(msg => {
+
+                messages.innerHTML += `
+
+<div class="message ${msg.sender}">
+
+${msg.message}
+
+<div class="message-time">
+${new Date(msg.created_at)
+                        .toLocaleTimeString()}
+</div>
+
+</div>
+
+`;
+
+            });
+
+        }
+
+        /* =========================================
+        AUTO REFRESH
+        ========================================= */
+
+        setInterval(fetchMessages, 3000);
 
     </script>
 </body>
