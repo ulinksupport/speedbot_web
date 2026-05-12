@@ -9,6 +9,7 @@
     <title>Ulink Assist Console</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         /* =========================================================
@@ -244,22 +245,74 @@
 
         .main-layout {
             display: grid;
-            grid-template-columns: 260px 360px 1fr 340px;
+
+            grid-template-columns:
+                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) minmax(220px, 340px);
+
             height: calc(100vh - 66px);
+            min-height: 0;
+
+            transition: 0.28s;
+        }
+
+        body.sidebar-collapsed {
+            --sidebar-width: 82px;
         }
 
         /* =========================================================
         SIDEBAR
         ========================================================= */
 
-        .sidebar {
-            background: white;
-            border-right: 1px solid #e5e7eb;
-            overflow-y: auto;
+        .sidebar .sidebar {
+            transition: 0.28s;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed {
+            width: 82px;
         }
 
         .sidebar-menu {
             padding: 14px;
+        }
+
+        .sidebar-toggle {
+            width: 46px;
+            height: 46px;
+
+            border-radius: 14px;
+
+            background: #f3f4f6;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            cursor: pointer;
+
+            margin-bottom: 18px;
+        }
+
+        .sidebar-toggle:hover {
+            background: #e5e7eb;
+        }
+
+        .sidebar.collapsed span,
+        .sidebar.collapsed #count-all,
+        .sidebar.collapsed #count-myinbox,
+        .sidebar.collapsed #count-unassigned,
+        .sidebar.collapsed #count-unreplied,
+        .sidebar.collapsed #count-followup,
+        .sidebar.collapsed #count-unread {
+            display: none;
+        }
+
+        .sidebar.collapsed .menu-item {
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .menu-left {
+            justify-content: center;
         }
 
         .menu-item {
@@ -446,8 +499,13 @@
         .chat-list {
             background: white;
             border-right: 1px solid #e5e7eb;
+
             display: flex;
             flex-direction: column;
+
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .search-area {
@@ -569,8 +627,9 @@
         ========================================================= */
 
         .chat-items {
-            overflow-y: auto;
             flex: 1;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         .chat-item {
@@ -631,6 +690,8 @@
             display: flex;
             flex-direction: column;
             background: #f9fafb;
+            height: 100%;
+            overflow: hidden;
         }
 
         .chat-header {
@@ -672,10 +733,12 @@
         .messages {
             flex: 1;
             overflow-y: auto;
-            padding: 26px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 12px;
+            scroll-behavior: smooth;
+            min-height: 0;
         }
 
         .date-divider {
@@ -715,8 +778,8 @@
         }
 
         /* =========================================================
-CHAT INPUT
-========================================================= */
+        CHAT INPUT
+        ========================================================= */
 
         .chat-input {
             background: white;
@@ -746,8 +809,8 @@ CHAT INPUT
         }
 
         /* =========================================================
-BUTTON FIX
-========================================================= */
+        BUTTON FIX
+        ========================================================= */
 
         .input-action-btn {
             width: 46px;
@@ -1177,6 +1240,15 @@ EMOJI
         .menu-item.hidden-chat {
             display: none;
         }
+
+
+        .input-box input:disabled {
+
+            cursor: not-allowed;
+
+            opacity: 0.75;
+
+        }
     </style>
 
 </head>
@@ -1350,6 +1422,12 @@ EMOJI
 
             <div class="sidebar-menu">
 
+                <div class="sidebar-toggle" onclick="toggleSidebar()">
+
+                    <i class="fa-solid fa-bars"></i>
+
+                </div>
+
                 <div class="menu-item active" onclick="filterChats('all', this)">
 
                     <div class="menu-left">
@@ -1357,7 +1435,7 @@ EMOJI
                         <span>All</span>
                     </div>
 
-                    <div>2957</div>
+                    <div id="count-all">0</div>
 
                 </div>
 
@@ -1368,7 +1446,7 @@ EMOJI
                         <span>My Inbox</span>
                     </div>
 
-                    <div>5</div>
+                    <div id="count-myinbox">0</div>
 
                 </div>
 
@@ -1379,7 +1457,7 @@ EMOJI
                         <span>Unassigned</span>
                     </div>
 
-                    <div>2871</div>
+                    <div id="count-unassigned">0</div>
 
                 </div>
 
@@ -1390,7 +1468,7 @@ EMOJI
                         <span>Unreplied</span>
                     </div>
 
-                    <div>563</div>
+                    <div id="count-unreplied">0</div>
 
                 </div>
 
@@ -1401,7 +1479,7 @@ EMOJI
                         <span>Follow Up</span>
                     </div>
 
-                    <div>3</div>
+                    <div id="count-followup">0</div>
 
                 </div>
 
@@ -1412,7 +1490,7 @@ EMOJI
                         <span>Unread</span>
                     </div>
 
-                    <div>1</div>
+                    <div id="count-unread">0</div>
 
                 </div>
 
@@ -1440,12 +1518,16 @@ EMOJI
 
                     <div class="tabs">
 
-                        <div class="tab active">
+                        <div class="tab active" id="humanTab" onclick="setMode('human', this)">
+
                             Human
+
                         </div>
 
-                        <div class="tab">
+                        <div class="tab" id="botTab" onclick="setMode('bot', this)">
+
                             Bot
+
                         </div>
 
                     </div>
@@ -2224,34 +2306,54 @@ EMOJI
             const text =
                 input.value.trim();
 
-            if (text === "") return;
+            if (!text || !currentChat) return;
 
             input.value = "";
 
-            await fetch(
-                "https://ulink.app.n8n.cloud/webhook/send-message",
-                {
+            appendMessage({
 
-                    method: "POST",
+                sender: "outgoing",
 
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                message: text,
 
-                    body: JSON.stringify({
+                created_at: new Date(),
 
-                        phone: currentChat.phone,
-                        sender: "outgoing",
-                        message: text
+                phone: currentChat.phone
 
-                    })
+            });
 
-                }
-            );
+            try {
 
-            // REFRESH AFTER SEND
+                await fetch(
+                    "https://ulink.app.n8n.cloud/webhook/send-message",
+                    {
 
-            fetchMessages();
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            phone: currentChat.phone,
+
+                            message: text
+
+                        })
+
+                    }
+                );
+
+
+            } catch (err) {
+
+                console.error(
+                    "Send message error:",
+                    err
+                );
+
+            }
 
         }
 
@@ -2687,162 +2789,88 @@ SIDEBAR FILTER
 CHAT DATABASE
 ========================================================= */
 
-        const chats = [
+        const supabaseUrl = 'https://ehhynoowqlsgmcfyqofh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-            {
-                id: 1,
-                type: "myinbox",
-                name: "Hambali",
-                avatar: "https://i.pravatar.cc/100?img=12",
-                preview: "Medical evacuation discussion...",
-                time: "9:42 AM",
-                platform: "WhatsApp Conversation",
-                phone: "+6282174478888",
-                email: "hambali@email.com",
-                country: "Indonesia",
-                language: "Bahasa Indonesia",
-                messages: [
+        let chats = [];
+        // currentChat is already declared above
+        let activeFilter = 'all';
 
-                    {
-                        sender: "incoming",
-                        text: "Hello Ulink Assist, I need support regarding medical evacuation.",
-                        time: "09:02"
-                    },
+        async function loadConversations() {
+            const { data, error } = await supabaseClient
+                .from('conversations')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-                    {
-                        sender: "outgoing",
-                        text: "Certainly, our team will assist you shortly.",
-                        time: "09:04 ✓✓"
-                    }
-
-                ]
-            },
-
-            {
-                id: 2,
-                type: "unassigned",
-                name: "Ahmad",
-                avatar: "https://i.pravatar.cc/100?img=18",
-                preview: "Claim inquiry pending...",
-                time: "8:12 AM",
-                platform: "Instagram Conversation",
-                phone: "+62888888888",
-                email: "ahmad@email.com",
-                country: "Malaysia",
-                language: "English",
-                messages: [
-
-                    {
-                        sender: "incoming",
-                        text: "Can I claim for my cancelled flight?",
-                        time: "08:12"
-                    },
-
-                    {
-                        sender: "outgoing",
-                        text: "Please share the cancellation email from airline.",
-                        time: "08:18 ✓✓"
-                    }
-
-                ]
-            },
-
-            {
-                id: 3,
-                type: "followup",
-                name: "Emily",
-                avatar: "https://i.pravatar.cc/100?img=30",
-                preview: "Funeral arrangement follow up...",
-                time: "Monday",
-                platform: "Messenger Conversation",
-                phone: "+6598888888",
-                email: "emily@email.com",
-                country: "Singapore",
-                language: "English",
-                messages: [
-
-                    {
-                        sender: "incoming",
-                        text: "Can we use any funeral provider?",
-                        time: "11:22"
-                    },
-
-                    {
-                        sender: "outgoing",
-                        text: "Yes, there is no strict provider requirement.",
-                        time: "11:30 ✓✓"
-                    }
-
-                ]
+            if (error) {
+                console.error('Error loading conversations:', error);
+                return;
             }
 
-        ];
+            chats = data.map(conv => {
+                let type = 'myinbox';
+                if (conv.status === 'open' && !conv.assigned_to) {
+                    type = 'unassigned';
+                }
+
+                return {
+                    id: conv.id,
+                    type: type,
+                    name: conv.name || conv.phone || "Unknown User",
+                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || conv.phone || 'User')}&background=random`,
+                    preview: conv.last_message || "New conversation...",
+                    time: new Date(conv.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    platform: conv.platform || "WhatsApp",
+                    platformType: (conv.platform || "").toLowerCase() === "whatsapp" ? "whatsapp" : "all",
+                    phone: conv.phone,
+                    email: "N/A",
+                    country: "Unknown",
+                    language: "Unknown",
+                    messages: []
+                };
+            });
+
+            updateSidebarCounts();
+            renderChats(activeFilter);
+        }
+
+        function updateSidebarCounts() {
+            document.getElementById('count-all').innerText = chats.length;
+            document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
+            document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
+            document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
+            document.getElementById('count-followup').innerText = chats.filter(c => c.type === 'followup').length;
+            document.getElementById('count-unread').innerText = chats.filter(c => c.type === 'unread').length;
+        }
 
         /* =========================================================
         RENDER CHAT LIST
         ========================================================= */
 
         function renderChats(filter = "all") {
-
-            const container =
-                document.getElementById(
-                    "chatItems"
-                );
-
+            const container = document.getElementById("chatItems");
             container.innerHTML = "";
+            activeFilter = filter;
 
             chats.forEach(chat => {
+                if (filter !== "all" && chat.type !== filter) return;
+                if (currentPlatform !== "all" && chat.platformType !== currentPlatform) return;
 
-                if (
-                    filter !== "all" &&
-                    chat.type !== filter
-                ) {
-                    return;
-                }
-
-                if (
-                    currentPlatform !== "all" &&
-                    chat.platformType !== currentPlatform
-                ) {
-
-                    return;
-
-                }
+                let activeClass = currentChat && currentChat.id === chat.id ? "active" : "";
 
                 container.innerHTML += `
-
-        <div class="chat-item"
-             onclick="openChat(${chat.id}, this)">
-
-            <img class="chat-avatar"
-                 src="${chat.avatar}">
-
+        <div class="chat-item ${activeClass}" onclick="openChat(${chat.id}, this)">
+            <img class="chat-avatar" src="${chat.avatar}">
             <div style="flex:1;">
-
                 <div style="display:flex;justify-content:space-between;">
-
-                    <div class="chat-name">
-                        ${chat.name}
-                    </div>
-
-                    <div class="chat-time">
-                        ${chat.time}
-                    </div>
-
+                    <div class="chat-name">${chat.name}</div>
+                    <div class="chat-time">${chat.time}</div>
                 </div>
-
-                <div class="chat-preview">
-                    ${chat.preview}
-                </div>
-
+                <div class="chat-preview">${chat.preview}</div>
             </div>
-
-        </div>
-
-        `;
-
+        </div>`;
             });
-
         }
 
         /* =========================================================
@@ -2850,98 +2878,27 @@ CHAT DATABASE
         ========================================================= */
 
         function openChat(id, element) {
+            document.querySelectorAll(".chat-item").forEach(item => item.classList.remove("active"));
+            if (element) element.classList.add("active");
 
-            /* ACTIVE CHAT */
-
-            document.querySelectorAll(
-                ".chat-item"
-            ).forEach(item => {
-
-                item.classList.remove("active");
-
-            });
-
-            element.classList.add("active");
-
-            /* FIND CHAT */
-
-            const chat =
-                chats.find(c => c.id === id);
-
+            const chat = chats.find(c => c.id === id);
             if (!chat) return;
             currentChat = chat;
 
             /* HEADER */
-
-            document.querySelector(
-                ".chat-user h3"
-            ).innerText = chat.name;
-
-            document.querySelector(
-                ".chat-user p"
-            ).innerText = chat.platform;
-
-            document.querySelector(
-                ".chat-user img"
-            ).src = chat.avatar;
+            document.querySelector(".chat-user h3").innerText = chat.name;
+            document.querySelector(".chat-user p").innerText = chat.platform;
+            document.querySelector(".chat-user img").src = chat.avatar;
 
             /* PROFILE */
+            document.querySelector(".profile-top img").src = chat.avatar;
+            document.querySelector(".profile-top h2").innerText = chat.name;
+            document.getElementById("phoneValue").innerText = chat.phone;
+            document.getElementById("emailValue").innerText = chat.email;
+            document.getElementById("countryValue").innerText = chat.country;
+            document.getElementById("languageValue").innerText = chat.language;
 
-            document.querySelector(
-                ".profile-top img"
-            ).src = chat.avatar;
-
-            document.querySelector(
-                ".profile-top h2"
-            ).innerText = chat.name;
-
-            document.getElementById(
-                "phoneValue"
-            ).innerText = chat.phone;
-
-            document.getElementById(
-                "emailValue"
-            ).innerText = chat.email;
-
-            document.getElementById(
-                "countryValue"
-            ).innerText = chat.country;
-
-            document.getElementById(
-                "languageValue"
-            ).innerText = chat.language;
-
-            /* MESSAGES */
-
-            const messages =
-                document.getElementById(
-                    "messages"
-                );
-
-            messages.innerHTML = `
-        <div class="date-divider">
-            Today
-        </div>
-    `;
-
-            chat.messages.forEach(msg => {
-
-                messages.innerHTML += `
-
-        <div class="message ${msg.sender}">
-
-            ${msg.text}
-
-            <div class="message-time">
-                ${msg.time}
-            </div>
-
-        </div>
-
-        `;
-
-            });
-
+            fetchMessagesForChat();
         }
 
         /* =========================================================
@@ -2949,18 +2906,189 @@ CHAT DATABASE
         ========================================================= */
 
         function filterChats(type, element) {
+            document.querySelectorAll(".menu-item").forEach(item => item.classList.remove("active"));
+            element.classList.add("active");
+            renderChats(type);
+        }
 
-            document.querySelectorAll(
-                ".menu-item"
-            ).forEach(item => {
+        /* =========================================================
+        PLATFORM FILTER
+        ========================================================= */
 
-                item.classList.remove("active");
+        let currentPlatform = "all";
 
+        function filterPlatform(platform, element) {
+            currentPlatform = platform;
+            document.querySelectorAll(".social-item").forEach(item => item.classList.remove("active"));
+            element.classList.add("active");
+
+            if (["analytics", "settings", "calls"].includes(platform)) {
+                alert(platform.charAt(0).toUpperCase() + platform.slice(1) + " page coming soon");
+                return;
+            }
+            renderChatsByPlatform();
+        }
+
+        function renderChatsByPlatform() {
+            renderChats(activeFilter);
+        }
+
+        /* =========================================
+        FETCH REAL MESSAGES
+        ========================================= */
+
+        async function fetchMessagesForChat() {
+            if (!currentChat || !currentChat.phone) return;
+
+            const { data, error } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .eq('phone', currentChat.phone)
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error("Error fetching messages:", error);
+                return;
+            }
+
+            const messagesContainer = document.getElementById("messages");
+            messagesContainer.innerHTML = `<div class="date-divider">Today</div>`;
+
+            data.forEach(msg => {
+                let senderClass = msg.sender === 'incoming' ? 'incoming' : 'outgoing';
+                let time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                messagesContainer.innerHTML += `
+                <div class="message ${senderClass}">
+                    ${msg.message || ''}
+                    <div class="message-time">${time}</div>
+                </div>`;
             });
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        /* =========================================
+        REAL-TIME SUBSCRIPTIONS
+        ========================================= */
+
+        function setupRealtime() {
+            supabaseClient
+                .channel('public:messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                    if (
+                        currentChat &&
+                        payload.new.phone === currentChat.phone
+                    ) {
+
+                        appendMessage(payload.new);
+
+                    }
+                    loadConversations();
+                })
+                .subscribe();
+
+            supabaseClient
+                .channel('public:conversations')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, payload => {
+                    loadConversations();
+                })
+                .subscribe();
+        }
+
+        /* =========================================================
+                Fetch Messages
+                ========================================================= */
+        function appendMessage(msg) {
+
+            const messagesContainer =
+                document.getElementById("messages");
+
+            let senderClass =
+                msg.sender === 'incoming'
+                    ? 'incoming'
+                    : 'outgoing';
+
+            let time =
+                new Date(msg.created_at)
+                    .toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+            messagesContainer.innerHTML += `
+
+        <div class="message ${senderClass}">
+            ${msg.message || ''}
+            <div class="message-time">
+                ${time}
+            </div>
+        </div>
+
+    `;
+
+            messagesContainer.scrollTop =
+                messagesContainer.scrollHeight;
+
+        }
+
+        /* =========================================================
+        MODE SWITCH
+        ========================================================= */
+
+        let currentMode = "human";
+
+        function setMode(mode, element) {
+
+            currentMode = mode;
+
+            document
+                .querySelectorAll(".tab")
+                .forEach(tab => {
+
+                    tab.classList.remove("active");
+
+                });
 
             element.classList.add("active");
 
-            renderChats(type);
+            const input =
+                document.getElementById(
+                    "messageInput"
+                );
+
+            const sendBtn =
+                document.querySelector(
+                    ".send-btn"
+                );
+
+            if (mode === "bot") {
+
+                input.disabled = true;
+
+                sendBtn.disabled = true;
+
+                input.placeholder =
+                    "Conversation handled by AI Agent";
+
+                input.title =
+                    "Conversation currently handled by AI Agent";
+
+            }
+
+            else {
+
+                input.disabled = false;
+
+                sendBtn.disabled = false;
+
+                input.placeholder =
+                    "Type message...";
+
+                input.title = "";
+
+            }
 
         }
 
@@ -2969,187 +3097,24 @@ CHAT DATABASE
         ========================================================= */
 
         window.addEventListener("load", () => {
-
-            renderChats("all");
-
+            loadConversations();
+            setupRealtime();
         });
 
 
-        /* =========================================================
-PLATFORM FILTER
-========================================================= */
+        function toggleSidebar() {
 
-        let currentPlatform = "all";
+            document
+                .querySelector(".sidebar")
+                .classList
+                .toggle("collapsed");
 
-        function filterPlatform(platform, element) {
-
-            currentPlatform = platform;
-
-            /* ACTIVE */
-
-            document.querySelectorAll(
-                ".social-item"
-            ).forEach(item => {
-
-                item.classList.remove(
-                    "active"
-                );
-
-            });
-
-            element.classList.add(
-                "active"
-            );
-
-            /* SPECIAL PAGES */
-
-            if (platform === "analytics") {
-
-                alert(
-                    "Analytics page coming soon"
-                );
-
-                return;
-
-            }
-
-            if (platform === "settings") {
-
-                alert(
-                    "Settings page coming soon"
-                );
-
-                return;
-
-            }
-
-            if (platform === "calls") {
-
-                alert(
-                    "Calls page coming soon"
-                );
-
-                return;
-
-            }
-
-            renderChatsByPlatform();
+            document
+                .body
+                .classList
+                .toggle("sidebar-collapsed");
 
         }
-
-        /* =========================================================
-        RENDER BY PLATFORM
-        ========================================================= */
-
-        function renderChatsByPlatform() {
-
-            const container =
-                document.getElementById(
-                    "chatItems"
-                );
-
-            container.innerHTML = "";
-
-            chats.forEach(chat => {
-
-                if (
-                    currentPlatform !== "all" &&
-                    chat.platformType !== currentPlatform
-                ) {
-
-                    return;
-
-                }
-
-                container.innerHTML += `
-
-        <div class="chat-item"
-             onclick="openChat(${chat.id}, this)">
-
-            <img class="chat-avatar"
-                 src="${chat.avatar}">
-
-            <div style="flex:1;">
-
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                ">
-
-                    <div class="chat-name">
-                        ${chat.name}
-                    </div>
-
-                    <div class="chat-time">
-                        ${chat.time}
-                    </div>
-
-                </div>
-
-                <div class="chat-preview">
-                    ${chat.preview}
-                </div>
-
-            </div>
-
-        </div>
-
-        `;
-
-            });
-
-        }
-
-        /* =========================================
-        FETCH REAL MESSAGES
-        ========================================= */
-
-        async function fetchMessages() {
-
-            if (!currentChat) return;
-
-            const res = await fetch(
-                `https://ulink.app.n8n.cloud/webhook/get-messages?phone=${currentChat.phone}`
-            );
-
-            const data = await res.json();
-
-            const messages =
-                document.getElementById(
-                    "messages"
-                );
-
-            messages.innerHTML =
-                `<div class="date-divider">
-            Today
-        </div>`;
-
-            data.forEach(msg => {
-
-                messages.innerHTML += `
-
-<div class="message ${msg.sender}">
-
-${msg.message}
-
-<div class="message-time">
-${new Date(msg.created_at)
-                        .toLocaleTimeString()}
-</div>
-
-</div>
-
-`;
-
-            });
-
-        }
-
-        /* =========================================
-        AUTO REFRESH
-        ========================================= */
-
-        setInterval(fetchMessages, 3000);
 
     </script>
 </body>
