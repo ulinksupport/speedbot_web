@@ -726,6 +726,28 @@
             gap: 12px;
         }
 
+        .bot-toggle {
+
+            transition: 0.2s ease;
+
+        }
+
+        .bot-toggle.active {
+
+            background: #22c55e;
+
+            color: white;
+
+        }
+
+        .bot-toggle.inactive {
+
+            background: #f3f4f6;
+
+            color: #111827;
+
+        }
+
         /* =========================================================
     MESSAGES
     ========================================================= */
@@ -741,6 +763,70 @@
             min-height: 0;
         }
 
+        #welcomeScreen {
+
+            height: 100%;
+
+            display: flex;
+
+            flex-direction: column;
+
+            justify-content: center;
+
+            align-items: center;
+
+            text-align: center;
+
+            color: #6b7280;
+
+        }
+
+        .welcome-logo {
+
+            width: 90px;
+
+            height: 90px;
+
+            border-radius: 50%;
+
+            background: white;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 34px;
+
+            margin-bottom: 24px;
+
+            color: #111827;
+
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+
+        }
+
+        .welcome-title {
+
+            font-size: 30px;
+
+            font-weight: 700;
+
+            color: #111827;
+
+            margin-bottom: 10px;
+
+        }
+
+        .welcome-subtitle {
+
+            font-size: 15px;
+
+            color: #6b7280;
+
+        }
+
         .date-divider {
             align-self: center;
             background: white;
@@ -752,22 +838,59 @@
         }
 
         .message {
-            max-width: 70%;
-            padding: 14px 18px;
-            border-radius: 20px;
+
+            display: inline-block;
+
+            padding: 12px 16px;
+
+            border-radius: 18px;
+
+            margin-bottom: 12px;
+
+            max-width: 75%;
+
+            width: fit-content;
+
+            min-width: 60px;
+
+            word-wrap: break-word;
+
+            position: relative;
+
             font-size: 14px;
-            line-height: 1.6;
+
+            line-height: 1.5;
+
         }
 
         .message.incoming {
             background: white;
-            border: 1px solid #e5e7eb;
+
+            color: #111;
+
+            align-self: flex-start;
+
+            border-bottom-left-radius: 6px;
         }
 
-        .message.outgoing {
-            background: #111827;
+        .message.outgoing-bot {
+            background: #0b132b;
+
             color: white;
+
             align-self: flex-end;
+
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.outgoing-human {
+            background: #2563eb;
+
+            color: white;
+
+            align-self: flex-end;
+
+            border-bottom-right-radius: 6px;
         }
 
         .message-time {
@@ -1516,22 +1639,6 @@ EMOJI
 
                 <div class="tabs-row">
 
-                    <div class="tabs">
-
-                        <div class="tab active" id="humanTab" onclick="setMode('human', this)">
-
-                            Human
-
-                        </div>
-
-                        <div class="tab" id="botTab" onclick="setMode('bot', this)">
-
-                            Bot
-
-                        </div>
-
-                    </div>
-
                     <!-- FILTER -->
 
                     <div class="filter-wrap">
@@ -1580,155 +1687,9 @@ EMOJI
 
             <div class="chat-items" id="chatItems">
 
-                <!-- MY INBOX -->
-
-                <div class="chat-item active" data-type="myinbox">
-
-                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=12">
-
-                    <div style="flex:1;">
-
-                        <div style="display:flex;justify-content:space-between;">
-
-                            <div class="chat-name">
-                                Hambali
-                            </div>
-
-                            <div class="chat-time">
-                                9:42 AM
-                            </div>
-
-                        </div>
-
-                        <div class="chat-preview">
-                            Medical evacuation discussion...
-                        </div>
-
-                        <div class="unread-badge">
-                            2
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- UNASSIGNED -->
-
-                <div class="chat-item" data-type="unassigned">
-
-                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=18">
-
-                    <div style="flex:1;">
-
-                        <div style="display:flex;justify-content:space-between;">
-
-                            <div class="chat-name">
-                                Ahmad
-                            </div>
-
-                            <div class="chat-time">
-                                8:12 AM
-                            </div>
-
-                        </div>
-
-                        <div class="chat-preview">
-                            Claim inquiry pending...
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- UNREPLIED -->
-
-                <div class="chat-item" data-type="unreplied">
-
-                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=22">
-
-                    <div style="flex:1;">
-
-                        <div style="display:flex;justify-content:space-between;">
-
-                            <div class="chat-name">
-                                Yosh
-                            </div>
-
-                            <div class="chat-time">
-                                Yesterday
-                            </div>
-
-                        </div>
-
-                        <div class="chat-preview">
-                            Waiting for reply...
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- FOLLOW UP -->
-
-                <div class="chat-item" data-type="followup">
-
-                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=30">
-
-                    <div style="flex:1;">
-
-                        <div style="display:flex;justify-content:space-between;">
-
-                            <div class="chat-name">
-                                Emily
-                            </div>
-
-                            <div class="chat-time">
-                                Monday
-                            </div>
-
-                        </div>
-
-                        <div class="chat-preview">
-                            Funeral arrangement follow up...
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- UNREAD -->
-
-                <div class="chat-item" data-type="unread">
-
-                    <img class="chat-avatar" src="https://i.pravatar.cc/100?img=41">
-
-                    <div style="flex:1;">
-
-                        <div style="display:flex;justify-content:space-between;">
-
-                            <div class="chat-name">
-                                Maulana
-                            </div>
-
-                            <div class="chat-time">
-                                10:01 AM
-                            </div>
-
-                        </div>
-
-                        <div class="chat-preview">
-                            Eye injury consultation...
-                        </div>
-
-                        <div class="unread-badge">
-                            1
-                        </div>
-
-                    </div>
-
-                </div>
-
             </div>
+
+
 
         </div>
 
@@ -1766,8 +1727,11 @@ EMOJI
 
                     </div>
 
-                    <div class="icon-btn">
+                    <div class="icon-btn bot-toggle active" id="botToggleBtn" onclick="toggleBotMode()"
+                        title="Bot Active">
+
                         <i class="fa-solid fa-robot"></i>
+
                     </div>
 
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
@@ -1784,26 +1748,24 @@ EMOJI
 
             <div class="messages" id="messages">
 
-                <div class="date-divider">
-                    Today
-                </div>
+                <div id="welcomeScreen">
 
-                <div class="message incoming">
+                    <div class="welcome-logo">
 
-                    Hello Ulink Assist, I need support regarding medical evacuation.
+                        <i class="fa-solid fa-comments"></i>
 
-                    <div class="message-time">
-                        09:02
                     </div>
 
-                </div>
+                    <div class="welcome-title">
 
-                <div class="message outgoing">
+                        Welcome to Unified Social Platform
 
-                    Certainly, our team will assist you shortly.
+                    </div>
 
-                    <div class="message-time">
-                        09:04 ✓✓
+                    <div class="welcome-subtitle">
+
+                        Select a conversation to start messaging
+
                     </div>
 
                 </div>
@@ -2140,7 +2102,16 @@ EMOJI
 
     <script>
 
+        const SUPABASE_URL = "https://ehhynoowqlsgmcfyqofh.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4";
+
+        const supabaseClient = supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY
+        );
+
         let currentChat = null;
+        let realtimeChannel = null;
 
         /* =========================================================
         LOGIN
@@ -2201,6 +2172,8 @@ EMOJI
             document.getElementById(
                 "loginScreen"
             ).style.display = "flex";
+
+            loadConversations();
 
         }
 
@@ -2314,6 +2287,8 @@ EMOJI
 
                 sender: "outgoing",
 
+                sender_type: "human",
+
                 message: text,
 
                 created_at: new Date(),
@@ -2322,38 +2297,27 @@ EMOJI
 
             });
 
-            try {
+            await fetch(
+                'https://ulink.app.n8n.cloud/webhook/human-send-message',
+                {
+                    method: 'POST',
 
-                await fetch(
-                    "https://ulink.app.n8n.cloud/webhook/send-message",
-                    {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
 
-                        method: "POST",
+                    body: JSON.stringify({
 
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+                        phone: currentChat.phone,
 
-                        body: JSON.stringify({
+                        message: text,
 
-                            phone: currentChat.phone,
+                        conversation_id: currentChat.id
 
-                            message: text
+                    })
 
-                        })
-
-                    }
-                );
-
-
-            } catch (err) {
-
-                console.error(
-                    "Send message error:",
-                    err
-                );
-
-            }
+                }
+            );
 
         }
 
@@ -2516,24 +2480,45 @@ Uploaded ✓✓
 
         let followUpActive = false;
 
-        function toggleFollowUp() {
+        async function toggleFollowUp() {
+
+            if (!currentChat) return;
+
+            currentChat.follow_up =
+                !currentChat.follow_up;
 
             const btn =
                 document.getElementById(
                     "followUpBtn"
                 );
 
-            followUpActive = !followUpActive;
-
-            if (followUpActive) {
+            if (currentChat.follow_up) {
 
                 btn.classList.add("active");
 
-            } else {
+                currentChat.type = "followup";
+
+            }
+
+            else {
 
                 btn.classList.remove("active");
 
+                currentChat.type = "myinbox";
+
             }
+
+            await supabaseClient
+                .from('conversations')
+                .update({
+
+                    follow_up:
+                        currentChat.follow_up
+
+                })
+                .eq('id', currentChat.id);
+
+            renderChats(activeFilter);
 
         }
 
@@ -2786,12 +2771,8 @@ SIDEBAR FILTER
 
 
         /* =========================================================
-CHAT DATABASE
-========================================================= */
-
-        const supabaseUrl = 'https://ehhynoowqlsgmcfyqofh.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4';
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        CHAT DATABASE
+        ========================================================= */
 
         let chats = [];
         // currentChat is already declared above
@@ -2816,20 +2797,35 @@ CHAT DATABASE
 
                 return {
                     id: conv.id,
+                    bot_enabled: conv.bot_enabled,
+                    follow_up: conv.follow_up || false,
                     type: type,
                     name: conv.name || conv.phone || "Unknown User",
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || conv.phone || 'User')}&background=random`,
                     preview: conv.last_message || "New conversation...",
-                    time: new Date(conv.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    platform: conv.platform || "WhatsApp",
+                    time:
+                        new Date(
+                            conv.updated_at || conv.created_at
+                        ).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }), platform: conv.platform || "WhatsApp",
                     platformType: (conv.platform || "").toLowerCase() === "whatsapp" ? "whatsapp" : "all",
                     phone: conv.phone,
                     email: "N/A",
                     country: "Unknown",
                     language: "Unknown",
-                    messages: []
+                    messages: [],
                 };
             });
+
+            if (currentChat) {
+
+                currentChat = chats.find(
+                    c => c.phone === currentChat.phone
+                );
+
+            }
 
             updateSidebarCounts();
             renderChats(activeFilter);
@@ -2849,28 +2845,107 @@ CHAT DATABASE
         ========================================================= */
 
         function renderChats(filter = "all") {
-            const container = document.getElementById("chatItems");
-            container.innerHTML = "";
+
+            const container =
+                document.getElementById("chatItems");
+
             activeFilter = filter;
 
+            container.innerHTML = "";
+
             chats.forEach(chat => {
-                if (filter !== "all" && chat.type !== filter) return;
-                if (currentPlatform !== "all" && chat.platformType !== currentPlatform) return;
 
-                let activeClass = currentChat && currentChat.id === chat.id ? "active" : "";
+                if (
+                    filter !== "all" &&
+                    chat.type !== filter
+                ) return;
 
-                container.innerHTML += `
-        <div class="chat-item ${activeClass}" onclick="openChat(${chat.id}, this)">
+                if (
+                    currentPlatform !== "all" &&
+                    chat.platformType !== currentPlatform
+                ) return;
+
+                const div =
+                    document.createElement("div");
+
+                div.className =
+                    `chat-item ${currentChat &&
+                        currentChat.id === chat.id
+                        ? "active"
+                        : ""
+                    }`;
+
+                div.setAttribute(
+                    "data-chat-id",
+                    chat.id
+                );
+
+
+                div.setAttribute(
+                    "data-phone",
+                    chat.phone
+                );
+
+                div.innerHTML = `
+
             <img class="chat-avatar" src="${chat.avatar}">
+
             <div style="flex:1;">
+
                 <div style="display:flex;justify-content:space-between;">
-                    <div class="chat-name">${chat.name}</div>
-                    <div class="chat-time">${chat.time}</div>
+
+                    <div class="chat-name">
+                        ${chat.name}
+                    </div>
+
+                    <div class="chat-time">
+                        ${chat.time}
+                    </div>
+
                 </div>
-                <div class="chat-preview">${chat.preview}</div>
+
+                <div class="chat-preview">
+                    ${chat.preview}
+                </div>
+
             </div>
-        </div>`;
+
+        `;
+
+                div.onclick = () =>
+                    openChat(chat.id, div);
+
+                container.appendChild(div);
+
             });
+
+        }
+
+        function updateSingleConversationUI(chat) {
+
+            const existing =
+                document.querySelector(
+                    `[data-chat-id="${chat.id}"]`
+                );
+
+            if (!existing) {
+
+                renderChats(activeFilter);
+                return;
+
+            }
+
+            existing.querySelector(".chat-preview").innerText =
+                chat.preview;
+
+            existing.querySelector(".chat-time").innerText =
+                chat.time;
+
+            const container =
+                document.getElementById("chatItems");
+
+            container.prepend(existing);
+
         }
 
         /* =========================================================
@@ -2884,6 +2959,56 @@ CHAT DATABASE
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
             currentChat = chat;
+
+            const welcome =
+                document.getElementById(
+                    "welcomeScreen"
+                );
+
+            if (welcome) {
+
+                welcome.style.display = "none";
+
+            }
+
+            const input =
+                document.getElementById(
+                    "messageInput"
+                );
+
+            const sendBtn =
+                document.querySelector(
+                    ".send-btn"
+                );
+
+            if (chat.bot_enabled !== false) {
+
+                currentMode = "bot";
+
+                input.disabled = true;
+
+                sendBtn.disabled = true;
+
+                input.placeholder =
+                    "Conversation handled by AI Agent";
+
+            }
+
+            else {
+
+                currentMode = "human";
+
+                input.disabled = false;
+
+                sendBtn.disabled = false;
+
+                input.placeholder =
+                    "Type message...";
+
+            }
+
+            updateBotButton();
+            updateFollowUpButton();
 
             /* HEADER */
             document.querySelector(".chat-user h3").innerText = chat.name;
@@ -2938,77 +3063,249 @@ CHAT DATABASE
         ========================================= */
 
         async function fetchMessagesForChat() {
+
             if (!currentChat || !currentChat.phone) return;
 
             const { data, error } = await supabaseClient
+
                 .from('messages')
+
                 .select('*')
+
                 .eq('phone', currentChat.phone)
-                .order('created_at', { ascending: true });
+
+                .order('created_at', {
+                    ascending: true
+                });
 
             if (error) {
-                console.error("Error fetching messages:", error);
+
+                console.error(
+                    'Fetch messages error:',
+                    error
+                );
+
                 return;
+
             }
-
-            const messagesContainer = document.getElementById("messages");
-            messagesContainer.innerHTML = `<div class="date-divider">Today</div>`;
-
-            data.forEach(msg => {
-                let senderClass = msg.sender === 'incoming' ? 'incoming' : 'outgoing';
-                let time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                messagesContainer.innerHTML += `
-                <div class="message ${senderClass}">
-                    ${msg.message || ''}
-                    <div class="message-time">${time}</div>
-                </div>`;
-            });
-
-            // Scroll to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        /* =========================================
-        REAL-TIME SUBSCRIPTIONS
-        ========================================= */
-
-        function setupRealtime() {
-            supabaseClient
-                .channel('public:messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                    if (
-                        currentChat &&
-                        payload.new.phone === currentChat.phone
-                    ) {
-
-                        appendMessage(payload.new);
-
-                    }
-                    loadConversations();
-                })
-                .subscribe();
-
-            supabaseClient
-                .channel('public:conversations')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, payload => {
-                    loadConversations();
-                })
-                .subscribe();
-        }
-
-        /* =========================================================
-                Fetch Messages
-                ========================================================= */
-        function appendMessage(msg) {
 
             const messagesContainer =
                 document.getElementById("messages");
 
-            let senderClass =
-                msg.sender === 'incoming'
-                    ? 'incoming'
-                    : 'outgoing';
+            messagesContainer.innerHTML = "";
+
+            data.forEach(msg => {
+
+                appendMessage(msg);
+
+            });
+
+        }
+
+        /* =========================================
+        REALTIME SUBSCRIPTIONS
+        ========================================= */
+
+        function setupRealtime() {
+
+            /* =========================================
+            REALTIME MESSAGES
+            ========================================= */
+            if (realtimeChannel) {
+
+                supabaseClient.removeChannel(
+                    realtimeChannel
+                );
+
+            }
+
+            realtimeChannel =
+                supabaseClient
+                    .channel('realtime-messages')
+
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'messages'
+                        },
+
+                        (payload) => {
+
+                            const msg = payload.new;
+
+                            let existingChat =
+                                chats.find(c => c.phone === msg.phone);
+
+                            /* ====================================
+                            NEW CHAT
+                            ==================================== */
+
+                            if (!existingChat) {
+
+                                existingChat = {
+
+                                    id: crypto.randomUUID(),
+
+                                    phone: msg.phone,
+
+                                    name: msg.phone,
+
+                                    avatar:
+                                        `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.phone)}&background=random`,
+
+                                    preview: msg.message,
+
+                                    time:
+                                        new Date(msg.created_at)
+                                            .toLocaleTimeString([], {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            }),
+
+                                    platform: 'WhatsApp',
+
+                                    platformType: 'whatsapp',
+
+                                    type: 'myinbox',
+
+                                    messages: []
+
+                                };
+
+                                chats.unshift(existingChat);
+
+                                renderChats(activeFilter);
+
+                            }
+
+                            /* ====================================
+                            UPDATE CHAT PREVIEW
+                            ==================================== */
+
+                            existingChat.preview =
+                                msg.message || '';
+
+                            existingChat.time =
+                                new Date(msg.created_at)
+                                    .toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+
+                            /* ====================================
+                            MOVE CHAT TO TOP
+                            ==================================== */
+
+                            chats = [
+                                existingChat,
+                                ...chats.filter(c => c.phone !== msg.phone)
+                            ];
+
+                            renderChats(activeFilter);
+
+                            setTimeout(() => {
+
+                                const active =
+                                    document.querySelector(
+                                        `[data-chat-id="${currentChat?.id}"]`
+                                    );
+
+                                if (active) {
+
+                                    active.classList.add("active");
+
+                                }
+
+                            }, 50);
+
+                            /* ====================================
+                            LIVE APPEND MESSAGE
+                            ==================================== */
+
+                            if (
+                                currentChat &&
+                                currentChat.phone === msg.phone
+                            ) {
+
+                                appendMessage(msg);
+
+                            }
+
+                        }
+                    )
+
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'messages'
+                        },
+
+                        (payload) => {
+
+                            const msg = payload.new;
+
+                            if (
+                                currentChat &&
+                                currentChat.phone === msg.phone
+                            ) {
+
+                                fetchMessagesForChat();
+
+                            }
+
+                            refreshConversationOnly(
+                                msg.phone
+                            );
+
+                        }
+                    )
+
+                    .subscribe();
+
+            /* =========================================
+            REALTIME CONVERSATIONS
+            ========================================= */
+
+
+
+        }
+
+        /* =========================================================
+        Fetch Messages
+        ========================================================= */
+        function appendMessage(msg) {
+
+            if (!msg.message) return;
+
+            const messagesContainer =
+                document.getElementById("messages");
+
+            let senderClass = "incoming";
+
+            if (msg.sender === "incoming") {
+
+                senderClass = "incoming";
+
+            }
+
+            else if (
+                msg.sender === "outgoing" &&
+                msg.sender_type === "human"
+            ) {
+
+                senderClass = "outgoing-human";
+
+            }
+
+            else {
+
+                senderClass = "outgoing-bot";
+
+            }
 
             let time =
                 new Date(msg.created_at)
@@ -3017,19 +3314,30 @@ CHAT DATABASE
                         minute: '2-digit'
                     });
 
-            messagesContainer.innerHTML += `
+            const div =
+                document.createElement("div");
 
-        <div class="message ${senderClass}">
-            ${msg.message || ''}
-            <div class="message-time">
-                ${time}
-            </div>
+            div.className =
+                `message ${senderClass}`;
+
+            div.innerHTML = `
+
+        ${msg.message || ''}
+
+        <div class="message-time">
+            ${time}
         </div>
 
     `;
 
-            messagesContainer.scrollTop =
-                messagesContainer.scrollHeight;
+            messagesContainer.appendChild(div);
+
+            requestAnimationFrame(() => {
+
+                messagesContainer.scrollTop =
+                    messagesContainer.scrollHeight;
+
+            });
 
         }
 
@@ -3037,21 +3345,19 @@ CHAT DATABASE
         MODE SWITCH
         ========================================================= */
 
-        let currentMode = "human";
+        let currentMode = "bot";
 
-        function setMode(mode, element) {
+        async function setMode(mode) {
+
+            if (!currentChat) {
+
+                alert("Please open a conversation first");
+
+                return;
+
+            }
 
             currentMode = mode;
-
-            document
-                .querySelectorAll(".tab")
-                .forEach(tab => {
-
-                    tab.classList.remove("active");
-
-                });
-
-            element.classList.add("active");
 
             const input =
                 document.getElementById(
@@ -3062,6 +3368,29 @@ CHAT DATABASE
                 document.querySelector(
                     ".send-btn"
                 );
+
+            /* =========================================
+            UPDATE SUPABASE
+            ========================================= */
+
+            const botEnabled = mode === "bot";
+
+            const { error } = await supabaseClient
+                .from('conversations')
+                .update({
+                    bot_enabled: botEnabled
+                })
+                .eq('id', currentChat.id);
+
+            if (error) {
+
+                console.error("Mode update failed:", error);
+
+            }
+
+            /* =========================================
+            UI
+            ========================================= */
 
             if (mode === "bot") {
 
@@ -3092,9 +3421,151 @@ CHAT DATABASE
 
         }
 
+        async function toggleBotMode() {
+
+            if (!currentChat) return;
+
+            const newMode =
+                currentChat.bot_enabled === false
+                    ? "bot"
+                    : "human";
+
+            await setMode(newMode);
+
+            currentChat.bot_enabled =
+                newMode === "bot";
+
+            updateBotButton();
+
+        }
+
+        function updateBotButton() {
+
+            const btn =
+                document.getElementById(
+                    "botToggleBtn"
+                );
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.bot_enabled !== false) {
+
+                btn.classList.add("active");
+
+                btn.classList.remove("inactive");
+
+                btn.title =
+                    "Bot Active";
+
+            }
+
+            else {
+
+                btn.classList.add("inactive");
+
+                btn.classList.remove("active");
+
+                btn.title =
+                    "Human Mode";
+
+            }
+
+        }
+
+        function updateFollowUpButton() {
+
+            const btn =
+                document.getElementById(
+                    "followUpBtn"
+                );
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.follow_up) {
+
+                btn.classList.add("active");
+
+            }
+
+            else {
+
+                btn.classList.remove("active");
+
+            }
+
+        }
+
         /* =========================================================
         INITIAL LOAD
         ========================================================= */
+
+        async function refreshConversationOnly(phone) {
+
+            const { data, error } = await supabaseClient
+                .from('conversations')
+                .select('*')
+                .eq('phone', phone)
+                .single();
+
+            if (error || !data) return;
+
+            const existingIndex =
+                chats.findIndex(c => c.phone === phone);
+
+            const updatedChat = {
+
+                id: data.id,
+
+                bot_enabled: data.bot_enabled,
+
+                type: data.status === 'open' && !data.assigned_to
+                    ? 'unassigned'
+                    : 'myinbox',
+
+                name: data.name || data.phone || "Unknown User",
+
+                avatar:
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.phone || 'User')}&background=random`,
+
+                preview:
+                    data.last_message || "New conversation...",
+
+                time:
+                    new Date(
+                        data.updated_at || data.created_at
+                    ),
+
+                platform:
+                    data.platform || "WhatsApp",
+
+                platformType:
+                    (data.platform || "").toLowerCase(),
+
+                phone: data.phone,
+
+                email: "N/A",
+
+                country: "Unknown",
+
+                language: "Unknown",
+
+                messages: []
+
+            };
+
+            if (existingIndex >= 0) {
+
+                chats[existingIndex] = updatedChat;
+
+            } else {
+
+                chats.unshift(updatedChat);
+
+            }
+
+            renderChats(activeFilter);
+
+        }
 
         window.addEventListener("load", () => {
             loadConversations();
