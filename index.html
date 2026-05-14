@@ -2952,14 +2952,17 @@ gap:10px;
 ">
 
     <div class="chat-preview"
-    style="
-    flex:1;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-    ">
-        ${chat.preview}
-    </div>
+style="
+flex:1;
+min-width:0;
+max-width:220px;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+display:block;
+">
+    ${chat.preview}
+</div>
 
     ${chat.unread_count > 0 ? `
         <div class="unread-badge">
@@ -3303,24 +3306,27 @@ gap:10px;
                                 ...chats.filter(c => c.phone !== msg.phone)
                             ];
 
+                            /* MOVE DOM TO TOP */
+
+                            const existingElement =
+                                document.querySelector(
+                                    `[data-chat-id="${existingChat.id}"]`
+                                );
+
+                            if (existingElement) {
+
+                                const container =
+                                    document.getElementById("chatItems");
+
+                                container.prepend(existingElement);
+
+                            }
+
+                            /* UPDATE UI */
+
+                            updateSingleConversationUI(existingChat);
+
                             updateSidebarCounts();
-
-                            renderChats(activeFilter);
-
-                            setTimeout(() => {
-
-                                const active =
-                                    document.querySelector(
-                                        `[data-chat-id="${currentChat?.id}"]`
-                                    );
-
-                                if (active) {
-
-                                    active.classList.add("active");
-
-                                }
-
-                            }, 50);
 
                             /* ====================================
                             LIVE APPEND MESSAGE
@@ -3697,11 +3703,23 @@ ${msg.message || ''}
         }
 
         window.addEventListener("load", () => {
+
+            localStorage.removeItem(
+                "ulink_logged_in"
+            );
+
+            document.getElementById(
+                "loginScreen"
+            ).style.display = "flex";
+
             document.getElementById(
                 "mainLayout"
             ).classList.add("welcome-mode");
+
             loadConversations();
+
             setupRealtime();
+
         });
 
 
