@@ -252,7 +252,14 @@
             height: calc(100vh - 66px);
             min-height: 0;
 
-            transition: 0.28s;
+            transition: 0.25s ease;
+        }
+
+        .main-layout.welcome-mode {
+
+            grid-template-columns:
+                var(--sidebar-width, 260px) 360px 1fr;
+
         }
 
         body.sidebar-collapsed {
@@ -695,10 +702,10 @@
         }
 
         .chat-header {
+            display: none;
             height: 74px;
             background: white;
             border-bottom: 1px solid #e5e7eb;
-            display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 20px;
@@ -905,10 +912,10 @@
         ========================================================= */
 
         .chat-input {
+            display: none;
             background: white;
             border-top: 1px solid #e5e7eb;
             padding: 14px 18px;
-            display: flex;
             align-items: center;
             gap: 12px;
             position: relative;
@@ -1010,6 +1017,7 @@ EMOJI
             background: white;
             border-left: 1px solid #e5e7eb;
             overflow-y: auto;
+            display: none;
         }
 
         .profile-top {
@@ -1390,8 +1398,8 @@ EMOJI
 
         <div class="social-item active" onclick="filterPlatform('all', this)" title="All Messages">
 
-            <div class="social-badge">
-                8
+            <div class="social-badge" id="allMessageBadge">
+                0
             </div>
 
             <i class="fa-solid fa-comments"></i>
@@ -1537,7 +1545,7 @@ EMOJI
 
     <!-- MAIN -->
 
-    <div class="main-layout">
+    <div class="main-layout" id="mainLayout">
 
         <!-- SIDEBAR -->
 
@@ -1697,7 +1705,7 @@ EMOJI
 
         <div class="chat-window">
 
-            <div class="chat-header">
+            <div class="chat-header" id="chatHeader">
 
                 <div class="chat-user">
 
@@ -1774,7 +1782,7 @@ EMOJI
 
             <!-- CHAT INPUT -->
 
-            <div class="chat-input">
+            <div class="chat-input" id="chatInputArea">
 
                 <button class="input-action-btn" onclick="toggleEmojiPicker()">
 
@@ -1820,7 +1828,7 @@ EMOJI
 
         <!-- PROFILE -->
 
-        <div class="profile-panel">
+        <div class="profile-panel" id="profilePanel">
 
             <div class="profile-top">
 
@@ -2816,6 +2824,7 @@ SIDEBAR FILTER
                     country: "Unknown",
                     language: "Unknown",
                     messages: [],
+                    unread_count: 0
                 };
             });
 
@@ -2836,8 +2845,24 @@ SIDEBAR FILTER
             document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-followup').innerText = chats.filter(c => c.type === 'followup').length;
-            document.getElementById('count-unread').innerText = chats.filter(c => c.type === 'unread').length;
+            document.getElementById('count-followup').innerText =
+                chats.filter(c => c.follow_up === true).length;
+            document.getElementById(
+                'count-unread'
+            ).innerText = chats.filter(
+                c => (c.unread_count || 0) > 0
+            ).length;
+
+            const totalUnread =
+                chats.reduce(
+                    (sum, c) =>
+                        sum + (c.unread_count || 0),
+                    0
+                );
+
+            document.getElementById(
+                'allMessageBadge'
+            ).innerText = totalUnread;
         }
 
         /* =========================================================
@@ -2855,9 +2880,23 @@ SIDEBAR FILTER
 
             chats.forEach(chat => {
 
-                if (
+                if (filter === "unread") {
+
+                    if (
+                        !chat.unread_count ||
+                        chat.unread_count <= 0
+                    ) return;
+
+                }
+
+                else if (
                     filter !== "all" &&
                     chat.type !== filter
+                ) return;
+
+                if (
+                    filter === "unread" &&
+                    (!chat.unread_count || chat.unread_count <= 0)
                 ) return;
 
                 if (
@@ -2904,13 +2943,35 @@ SIDEBAR FILTER
 
                 </div>
 
-                <div class="chat-preview">
-                    ${chat.preview}
-                </div>
+                <div style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-top:6px;
+gap:10px;
+">
 
-            </div>
+    <div class="chat-preview"
+    style="
+    flex:1;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    ">
+        ${chat.preview}
+    </div>
 
-        `;
+    ${chat.unread_count > 0 ? `
+        <div class="unread-badge">
+            ${chat.unread_count}
+        </div>
+    ` : ""}
+
+</div>
+
+</div>
+
+`;
 
                 div.onclick = () =>
                     openChat(chat.id, div);
@@ -2959,6 +3020,27 @@ SIDEBAR FILTER
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
             currentChat = chat;
+            chat.unread_count = 0;
+
+            updateSidebarCounts();
+
+            renderChats(activeFilter);
+
+            document.getElementById(
+                "mainLayout"
+            ).classList.remove("welcome-mode");
+
+            document.getElementById(
+                "chatInputArea"
+            ).style.display = "flex";
+
+            document.getElementById(
+                "chatHeader"
+            ).style.display = "flex";
+
+            document.getElementById(
+                "profilePanel"
+            ).style.display = "block";
 
             const welcome =
                 document.getElementById(
@@ -3170,7 +3252,9 @@ SIDEBAR FILTER
 
                                     type: 'myinbox',
 
-                                    messages: []
+                                    messages: [],
+
+                                    unread_count: 1
 
                                 };
 
@@ -3187,6 +3271,22 @@ SIDEBAR FILTER
                             existingChat.preview =
                                 msg.message || '';
 
+                            if (
+                                msg.sender === "incoming"
+                            ) {
+
+                                if (
+                                    !currentChat ||
+                                    currentChat.phone !== msg.phone
+                                ) {
+
+                                    existingChat.unread_count =
+                                        (existingChat.unread_count || 0) + 1;
+
+                                }
+
+                            }
+
                             existingChat.time =
                                 new Date(msg.created_at)
                                     .toLocaleTimeString([], {
@@ -3202,6 +3302,8 @@ SIDEBAR FILTER
                                 existingChat,
                                 ...chats.filter(c => c.phone !== msg.phone)
                             ];
+
+                            updateSidebarCounts();
 
                             renderChats(activeFilter);
 
@@ -3320,15 +3422,39 @@ SIDEBAR FILTER
             div.className =
                 `message ${senderClass}`;
 
+            let label = "BOT";
+
+            if (msg.sender === "incoming") {
+
+                label = "USER";
+
+            }
+
+            else if (msg.sender_type === "human") {
+
+                label = "HUMAN";
+
+            }
+
             div.innerHTML = `
 
-        ${msg.message || ''}
+<div style="
+font-size:10px;
+font-weight:700;
+opacity:0.7;
+margin-bottom:6px;
+letter-spacing:0.5px;
+">
+${label}
+</div>
 
-        <div class="message-time">
-            ${time}
-        </div>
+${msg.message || ''}
 
-    `;
+<div class="message-time">
+    ${time}
+</div>
+
+`;
 
             messagesContainer.appendChild(div);
 
@@ -3549,25 +3675,31 @@ SIDEBAR FILTER
 
                 language: "Unknown",
 
-                messages: []
+                messages: [],
+
+                unread_count:
+                    chats.find(
+                        c => c.phone === data.phone
+                    )?.unread_count || 0
 
             };
 
             if (existingIndex >= 0) {
 
-                chats[existingIndex] = updatedChat;
-
-            } else {
-
-                chats.unshift(updatedChat);
+                chats.splice(existingIndex, 1);
 
             }
+
+            chats.unshift(updatedChat);
 
             renderChats(activeFilter);
 
         }
 
         window.addEventListener("load", () => {
+            document.getElementById(
+                "mainLayout"
+            ).classList.add("welcome-mode");
             loadConversations();
             setupRealtime();
         });
