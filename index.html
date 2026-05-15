@@ -2121,6 +2121,41 @@ EMOJI
         let currentChat = null;
         let realtimeChannel = null;
 
+        const SGT_FORMAT = {
+
+            timeZone: "Asia/Singapore",
+
+            hour: "2-digit",
+
+            minute: "2-digit",
+
+            hour12: true
+
+        };
+
+        function formatSGT(date) {
+
+            const d = new Date(date);
+
+            const singaporeTime =
+                new Date(
+                    d.toLocaleString(
+                        "en-US",
+                        { timeZone: "Asia/Singapore" }
+                    )
+                );
+
+            return singaporeTime.toLocaleTimeString(
+                "en-SG",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                }
+            );
+
+        }
+
         /* =========================================================
         LOGIN
         ========================================================= */
@@ -2164,26 +2199,6 @@ EMOJI
 
             }
         );
-
-        /* =========================================================
-        ALWAYS SHOW LOGIN ON REFRESH
-        ========================================================= */
-
-        window.onload = function () {
-
-            /* ALWAYS RESET LOGIN */
-
-            localStorage.removeItem(
-                "ulink_logged_in"
-            );
-
-            document.getElementById(
-                "loginScreen"
-            ).style.display = "flex";
-
-            loadConversations();
-
-        }
 
         /* =========================================================
         LOGOUT
@@ -2299,7 +2314,18 @@ EMOJI
 
                 message: text,
 
-                created_at: new Date(),
+                created_at: new Date().toISOString(),
+
+                created_at_sgt:
+                    new Intl.DateTimeFormat(
+                        "en-SG",
+                        {
+                            timeZone: "Asia/Singapore",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                        }
+                    ).format(new Date()),
 
                 phone: currentChat.phone
 
@@ -2365,7 +2391,7 @@ EMOJI
                 document.createElement("div");
 
             msg.className =
-                "message outgoing";
+                "message outgoing-human";
 
             msg.innerHTML = `
 
@@ -2812,12 +2838,11 @@ SIDEBAR FILTER
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || conv.phone || 'User')}&background=random`,
                     preview: conv.last_message || "New conversation...",
                     time:
-                        new Date(
-                            conv.updated_at || conv.created_at
-                        ).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        }), platform: conv.platform || "WhatsApp",
+                        conv.last_message_time_sgt ||
+                        formatSGT(
+                            conv.last_message_time || conv.created_at
+                        ),
+                    platform: conv.platform || "WhatsApp",
                     platformType: (conv.platform || "").toLowerCase() === "whatsapp" ? "whatsapp" : "all",
                     phone: conv.phone,
                     email: "N/A",
@@ -3243,11 +3268,7 @@ display:block;
                                     preview: msg.message,
 
                                     time:
-                                        new Date(msg.created_at)
-                                            .toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            }),
+                                        formatSGT(msg.created_at),
 
                                     platform: 'WhatsApp',
 
@@ -3291,11 +3312,7 @@ display:block;
                             }
 
                             existingChat.time =
-                                new Date(msg.created_at)
-                                    .toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    });
+                                formatSGT(msg.created_at);
 
                             /* ====================================
                             MOVE CHAT TO TOP
@@ -3416,11 +3433,8 @@ display:block;
             }
 
             let time =
-                new Date(msg.created_at)
-                    .toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                msg.created_at_sgt ||
+                formatSGT(msg.created_at);
 
             const div =
                 document.createElement("div");
@@ -3428,17 +3442,20 @@ display:block;
             div.className =
                 `message ${senderClass}`;
 
-            let label = "BOT";
+            let label = "Bot";
 
             if (msg.sender === "incoming") {
 
-                label = "USER";
+                label =
+                    currentChat?.name ||
+                    currentChat?.phone ||
+                    "User";
 
             }
 
             else if (msg.sender_type === "human") {
 
-                label = "HUMAN";
+                label = "Human";
 
             }
 
@@ -3663,8 +3680,9 @@ ${msg.message || ''}
                     data.last_message || "New conversation...",
 
                 time:
-                    new Date(
-                        data.updated_at || data.created_at
+                    data.last_message_time_sgt ||
+                    formatSGT(
+                        data.last_message_time || data.created_at
                     ),
 
                 platform:
