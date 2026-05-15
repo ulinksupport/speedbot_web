@@ -247,7 +247,7 @@
             display: grid;
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) minmax(220px, 340px);
+                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) 6px var(--profile-width, 300px);
 
             height: calc(100vh - 66px);
             min-height: 0;
@@ -258,7 +258,7 @@
         .main-layout.welcome-mode {
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px 1fr;
+                var(--sidebar-width, 260px) 360px 1fr 0 0;
 
         }
 
@@ -1380,6 +1380,94 @@ EMOJI
             opacity: 0.75;
 
         }
+
+        /* =========================================================
+        RESIZABLE PANEL HANDLE
+        ========================================================= */
+
+        .resize-handle {
+            width: 6px;
+            background: transparent;
+            cursor: col-resize;
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover,
+        .resize-handle.dragging {
+            background: #2563eb33;
+        }
+
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 40px;
+            background: #d1d5db;
+            border-radius: 2px;
+        }
+
+        /* =========================================================
+        BOT / HUMAN MODE TOGGLE
+        ========================================================= */
+
+        .mode-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 42px;
+            padding: 0 14px;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            transition: 0.2s ease;
+            min-width: 120px;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .mode-toggle-btn.ai-mode {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1.5px solid #86efac;
+        }
+
+        .mode-toggle-btn.ai-mode:hover {
+            background: #bbf7d0;
+        }
+
+        .mode-toggle-btn.human-mode {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1.5px solid #93c5fd;
+        }
+
+        .mode-toggle-btn.human-mode:hover {
+            background: #bfdbfe;
+        }
+
+        .mode-toggle-btn .mode-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .mode-toggle-btn.ai-mode .mode-dot {
+            background: #16a34a;
+        }
+
+        .mode-toggle-btn.human-mode .mode-dot {
+            background: #2563eb;
+        }
+
     </style>
 
 </head>
@@ -1735,11 +1823,10 @@ EMOJI
 
                     </div>
 
-                    <div class="icon-btn bot-toggle active" id="botToggleBtn" onclick="toggleBotMode()"
-                        title="Bot Active">
-
-                        <i class="fa-solid fa-robot"></i>
-
+                    <div class="mode-toggle-btn ai-mode" id="botToggleBtn" onclick="toggleBotMode()">
+                        <div class="mode-dot"></div>
+                        <i class="fa-solid fa-robot" id="modeIcon"></i>
+                        <span id="modeLabel">AI Active</span>
                     </div>
 
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
@@ -1825,6 +1912,10 @@ EMOJI
             </div>
 
         </div>
+
+        <!-- RESIZE HANDLE -->
+
+        <div class="resize-handle" id="resizeHandle"></div>
 
         <!-- PROFILE -->
 
@@ -2846,12 +2937,14 @@ SIDEBAR FILTER
                     platformType: (conv.platform || "").toLowerCase() === "whatsapp" ? "whatsapp" : "all",
                     phone: conv.phone,
                     email: "N/A",
-                    country: "Unknown",
-                    language: "Unknown",
+                    country: conv.country || "Unknown",
+                    language: conv.language || "Unknown",
                     messages: [],
                     unread_count: 0
                 };
             });
+
+            chats.forEach(c => autoDetectChatMeta(c));
 
             if (currentChat) {
 
@@ -3117,6 +3210,7 @@ display:block;
 
             }
 
+            autoDetectChatMeta(chat);
             updateBotButton();
             updateFollowUpButton();
 
@@ -3278,9 +3372,15 @@ display:block;
 
                                     messages: [],
 
-                                    unread_count: 1
+                                    unread_count: 1,
+
+                                    country: "Unknown",
+
+                                    language: "Unknown"
 
                                 };
+
+                                autoDetectChatMeta(existingChat);
 
                                 chats.unshift(existingChat);
 
@@ -3395,7 +3495,66 @@ display:block;
             REALTIME CONVERSATIONS
             ========================================= */
 
+            supabaseClient
+                .channel('realtime-conversations')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'conversations'
+                    },
+                    (payload) => {
 
+                        const conv = payload.new || payload.old;
+
+                        if (!conv) return;
+
+                        const existing = chats.find(c => c.id === conv.id);
+
+                        if (!existing && payload.eventType === 'INSERT') {
+
+                            loadConversations();
+                            return;
+
+                        }
+
+                        if (existing) {
+
+                            existing.bot_enabled = conv.bot_enabled;
+                            existing.preview = conv.last_message || existing.preview;
+                            existing.type = conv.status === 'open' && !conv.assigned_to
+                                ? 'unassigned'
+                                : 'myinbox';
+
+                            if (currentChat && currentChat.id === conv.id) {
+
+                                currentChat.bot_enabled = conv.bot_enabled;
+                                updateBotButton();
+
+                                const input = document.getElementById("messageInput");
+                                const sendBtn = document.querySelector(".send-btn");
+
+                                if (conv.bot_enabled !== false) {
+                                    input.disabled = true;
+                                    sendBtn.disabled = true;
+                                    input.placeholder = "Conversation handled by AI Agent";
+                                } else {
+                                    input.disabled = false;
+                                    sendBtn.disabled = false;
+                                    input.placeholder = "Type message...";
+                                }
+
+                            }
+
+                            updateSidebarCounts();
+                            renderChats(activeFilter);
+
+                        }
+
+                    }
+                )
+                .subscribe();
 
         }
 
@@ -3590,32 +3749,23 @@ ${msg.message || ''}
 
         function updateBotButton() {
 
-            const btn =
-                document.getElementById(
-                    "botToggleBtn"
-                );
+            const btn = document.getElementById("botToggleBtn");
+            const icon = document.getElementById("modeIcon");
+            const label = document.getElementById("modeLabel");
 
             if (!btn || !currentChat) return;
 
             if (currentChat.bot_enabled !== false) {
 
-                btn.classList.add("active");
+                btn.className = "mode-toggle-btn ai-mode";
+                icon.className = "fa-solid fa-robot";
+                label.innerText = "AI Active";
 
-                btn.classList.remove("inactive");
+            } else {
 
-                btn.title =
-                    "Bot Active";
-
-            }
-
-            else {
-
-                btn.classList.add("inactive");
-
-                btn.classList.remove("active");
-
-                btn.title =
-                    "Human Mode";
+                btn.className = "mode-toggle-btn human-mode";
+                icon.className = "fa-solid fa-user";
+                label.innerText = "Human Active";
 
             }
 
@@ -3695,9 +3845,9 @@ ${msg.message || ''}
 
                 email: "N/A",
 
-                country: "Unknown",
+                country: data.country || "Unknown",
 
-                language: "Unknown",
+                language: data.language || "Unknown",
 
                 messages: [],
 
@@ -3707,6 +3857,8 @@ ${msg.message || ''}
                     )?.unread_count || 0
 
             };
+
+            autoDetectChatMeta(updatedChat);
 
             if (existingIndex >= 0) {
 
@@ -3754,6 +3906,262 @@ ${msg.message || ''}
                 .toggle("sidebar-collapsed");
 
         }
+
+        /* =========================================================
+        COUNTRY + LANGUAGE AUTO-DETECT
+        ========================================================= */
+
+        const PHONE_COUNTRY_MAP = [
+            ["1",    "United States / Canada"],
+            ["44",   "United Kingdom"],
+            ["60",   "Malaysia"],
+            ["61",   "Australia"],
+            ["62",   "Indonesia"],
+            ["63",   "Philippines"],
+            ["65",   "Singapore"],
+            ["66",   "Thailand"],
+            ["81",   "Japan"],
+            ["82",   "South Korea"],
+            ["84",   "Vietnam"],
+            ["86",   "China"],
+            ["90",   "Turkey"],
+            ["91",   "India"],
+            ["92",   "Pakistan"],
+            ["94",   "Sri Lanka"],
+            ["95",   "Myanmar"],
+            ["966",  "Saudi Arabia"],
+            ["971",  "UAE"],
+            ["972",  "Israel"],
+            ["973",  "Bahrain"],
+            ["974",  "Qatar"],
+            ["965",  "Kuwait"],
+            ["968",  "Oman"],
+            ["961",  "Lebanon"],
+            ["962",  "Jordan"],
+            ["963",  "Syria"],
+            ["964",  "Iraq"],
+            ["20",   "Egypt"],
+            ["27",   "South Africa"],
+            ["234",  "Nigeria"],
+            ["254",  "Kenya"],
+            ["255",  "Tanzania"],
+            ["256",  "Uganda"],
+            ["49",   "Germany"],
+            ["33",   "France"],
+            ["34",   "Spain"],
+            ["39",   "Italy"],
+            ["31",   "Netherlands"],
+            ["46",   "Sweden"],
+            ["47",   "Norway"],
+            ["45",   "Denmark"],
+            ["358",  "Finland"],
+            ["7",    "Russia"],
+            ["55",   "Brazil"],
+            ["52",   "Mexico"],
+            ["57",   "Colombia"],
+            ["51",   "Peru"],
+            ["54",   "Argentina"],
+            ["64",   "New Zealand"],
+            ["880",  "Bangladesh"],
+            ["977",  "Nepal"],
+            ["98",   "Iran"],
+            ["93",   "Afghanistan"],
+        ];
+
+        const COUNTRY_LANGUAGE_MAP = {
+            "Indonesia":             "Bahasa Indonesia",
+            "Malaysia":              "Bahasa Melayu",
+            "Singapore":             "English",
+            "Philippines":           "Filipino / English",
+            "Thailand":              "Thai",
+            "Vietnam":               "Vietnamese",
+            "Myanmar":               "Burmese",
+            "Japan":                 "Japanese",
+            "South Korea":           "Korean",
+            "China":                 "Mandarin",
+            "India":                 "Hindi / English",
+            "Pakistan":              "Urdu",
+            "Bangladesh":            "Bengali",
+            "Sri Lanka":             "Sinhala / Tamil",
+            "Nepal":                 "Nepali",
+            "Saudi Arabia":          "Arabic",
+            "UAE":                   "Arabic",
+            "Bahrain":               "Arabic",
+            "Qatar":                 "Arabic",
+            "Kuwait":                "Arabic",
+            "Oman":                  "Arabic",
+            "Lebanon":               "Arabic",
+            "Jordan":                "Arabic",
+            "Syria":                 "Arabic",
+            "Iraq":                  "Arabic",
+            "Iran":                  "Persian",
+            "Turkey":                "Turkish",
+            "Afghanistan":           "Dari / Pashto",
+            "Egypt":                 "Arabic",
+            "Nigeria":               "English",
+            "South Africa":          "English",
+            "Kenya":                 "Swahili / English",
+            "Tanzania":              "Swahili",
+            "Uganda":                "English",
+            "Germany":               "German",
+            "France":                "French",
+            "Spain":                 "Spanish",
+            "Italy":                 "Italian",
+            "Netherlands":           "Dutch",
+            "Sweden":                "Swedish",
+            "Norway":                "Norwegian",
+            "Denmark":               "Danish",
+            "Finland":               "Finnish",
+            "Russia":                "Russian",
+            "Brazil":                "Portuguese",
+            "Mexico":                "Spanish",
+            "Colombia":              "Spanish",
+            "Peru":                  "Spanish",
+            "Argentina":             "Spanish",
+            "United States / Canada":"English",
+            "United Kingdom":        "English",
+            "Australia":             "English",
+            "New Zealand":           "English",
+            "Israel":                "Hebrew",
+        };
+
+        function detectCountryFromPhone(phone) {
+
+            const digits = phone.replace(/\D/g, '');
+
+            const sorted = [...PHONE_COUNTRY_MAP].sort(
+                (a, b) => b[0].length - a[0].length
+            );
+
+            for (const [prefix, country] of sorted) {
+
+                if (digits.startsWith(prefix)) {
+                    return country;
+                }
+
+            }
+
+            return "Unknown";
+
+        }
+
+        function detectDefaultLanguage(country) {
+
+            return COUNTRY_LANGUAGE_MAP[country] || "Unknown";
+
+        }
+
+        function detectLanguageFromText(text) {
+
+            if (!text || text.length < 4) return null;
+
+            const t = text.toLowerCase();
+
+            const patterns = [
+                { lang: "Bahasa Indonesia", words: ["saya","anda","tidak","dengan","untuk","yang","adalah","bisa","harga","tolong","terima kasih","selamat","obat","sakit","dokter","rumah sakit"] },
+                { lang: "Bahasa Melayu",    words: ["awak","boleh","nak","kenapa","macam","mana","saya","terima kasih","hospital","doktor"] },
+                { lang: "Thai",             words: ["ครับ","ค่ะ","ขอบคุณ","สวัสดี"] },
+                { lang: "Arabic",           words: ["مرحبا","شكرا","كيف","نعم","لا","السعر","دكتور","علاج"] },
+                { lang: "Mandarin",         words: ["你好","谢谢","价格","医生","医院","治疗"] },
+                { lang: "Hindi",            words: ["नमस्ते","धन्यवाद","कितना","डॉक्टर","अस्पताल"] },
+            ];
+
+            for (const { lang, words } of patterns) {
+
+                if (words.some(w => t.includes(w))) {
+                    return lang;
+                }
+
+            }
+
+            return null;
+
+        }
+
+        function autoDetectChatMeta(chat) {
+
+            if (!chat.phone || chat.phone === "Unknown") return;
+
+            if (!chat.country || chat.country === "Unknown") {
+
+                chat.country = detectCountryFromPhone(chat.phone);
+
+            }
+
+            if (!chat.language || chat.language === "Unknown") {
+
+                const fromCountry = detectDefaultLanguage(chat.country);
+
+                const fromText = chat.preview
+                    ? detectLanguageFromText(chat.preview)
+                    : null;
+
+                chat.language = fromText || fromCountry;
+
+            }
+
+        }
+
+        /* =========================================================
+        RESIZABLE PROFILE PANEL
+        ========================================================= */
+
+        (function initResizeHandle() {
+
+            const handle = document.getElementById("resizeHandle");
+            if (!handle) return;
+
+            let startX = 0;
+            let startWidth = 0;
+            let dragging = false;
+
+            handle.addEventListener("mousedown", (e) => {
+
+                dragging = true;
+                startX = e.clientX;
+                startWidth = parseInt(
+                    getComputedStyle(document.documentElement)
+                        .getPropertyValue("--profile-width") || "300",
+                    10
+                );
+
+                handle.classList.add("dragging");
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+
+                e.preventDefault();
+
+            });
+
+            document.addEventListener("mousemove", (e) => {
+
+                if (!dragging) return;
+
+                const delta = startX - e.clientX;
+                const newWidth = Math.min(
+                    500,
+                    Math.max(200, startWidth + delta)
+                );
+
+                document.documentElement.style.setProperty(
+                    "--profile-width",
+                    newWidth + "px"
+                );
+
+            });
+
+            document.addEventListener("mouseup", () => {
+
+                if (!dragging) return;
+
+                dragging = false;
+                handle.classList.remove("dragging");
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+
+            });
+
+        })();
 
     </script>
 </body>
