@@ -1849,6 +1849,34 @@
             font-size: 14px;
         }
 
+        /* 24-hour window expired banner */
+        #windowExpiredBanner {
+            width: 100%;
+            background: #fef3c7;
+            border-top: 1px solid #fde68a;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #92400e;
+        }
+        #windowExpiredBanner i { color: #d97706; }
+        #windowExpiredBanner .expired-send-btn {
+            margin-left: auto;
+            background: #1a1a2e;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #windowExpiredBanner .expired-send-btn:hover { background: #16213e; }
+
         /* Toast notifications */
         #toastContainer {
             position: fixed;
@@ -2324,6 +2352,28 @@
 
                 </div>
 
+                <div class="menu-item" onclick="filterChats('active', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-solid fa-circle" style="color:#16a34a;font-size:10px;"></i>
+                        <span>Active (24h)</span>
+                    </div>
+
+                    <div id="count-active">0</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('expired', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-regular fa-clock" style="color:#dc2626;"></i>
+                        <span>Expired</span>
+                    </div>
+
+                    <div id="count-expired">0</div>
+
+                </div>
+
             </div>
 
         </div>
@@ -2496,51 +2546,65 @@
 
             <!-- CHAT INPUT -->
 
-            <div class="chat-input" id="chatInputArea">
+            <div class="chat-input" id="chatInputArea" style="flex-direction:column;padding:0;">
 
-                <button class="input-action-btn" onclick="toggleEmojiPicker()">
-
-                    <i class="fa-regular fa-face-smile"></i>
-
-                </button>
-
-                <label class="input-action-btn">
-
-                    <i class="fa-solid fa-paperclip"></i>
-
-                    <input type="file" hidden onchange="handleFileUpload(event)">
-
-                </label>
-
-                <!-- TEMPLATE BUTTON -->
-
-                <button class="input-action-btn" onclick="openTemplatePicker()" title="Send Template Message">
-
-                    <i class="fa-solid fa-bolt"></i>
-
-                </button>
-
-                <div class="input-box">
-
-                    <input type="text" id="messageInput" placeholder="Type message...">
-
+                <!-- 24hr window expired banner -->
+                <div id="windowExpiredBanner" style="display:none;">
+                    <i class="fa-regular fa-clock"></i>
+                    <span>24-hour messaging window has expired. Only template messages can be sent.</span>
+                    <button class="expired-send-btn" onclick="openTemplatePicker()">
+                        <i class="fa-solid fa-bolt"></i> Send Template
+                    </button>
                 </div>
 
-                <button class="send-btn" onclick="sendMessage()">
+                <!-- Normal input row -->
+                <div id="normalInputArea" style="display:flex;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
 
-                    <i class="fa-solid fa-paper-plane"></i>
+                    <button class="input-action-btn" onclick="toggleEmojiPicker()">
 
-                </button>
+                        <i class="fa-regular fa-face-smile"></i>
 
-                <!-- EMOJI -->
+                    </button>
 
-                <div class="emoji-picker" id="emojiPicker">
+                    <label class="input-action-btn">
 
-                    <span onclick="addEmoji('😀')">😀</span>
-                    <span onclick="addEmoji('😂')">😂</span>
-                    <span onclick="addEmoji('❤️')">❤️</span>
-                    <span onclick="addEmoji('👍')">👍</span>
-                    <span onclick="addEmoji('🙏')">🙏</span>
+                        <i class="fa-solid fa-paperclip"></i>
+
+                        <input type="file" hidden onchange="handleFileUpload(event)">
+
+                    </label>
+
+                    <!-- TEMPLATE BUTTON -->
+
+                    <button class="input-action-btn" onclick="openTemplatePicker()" title="Send Template Message">
+
+                        <i class="fa-solid fa-bolt"></i>
+
+                    </button>
+
+                    <div class="input-box" style="flex:1;">
+
+                        <input type="text" id="messageInput" placeholder="Type message...">
+
+                    </div>
+
+                    <button class="send-btn" onclick="sendMessage()">
+
+                        <i class="fa-solid fa-paper-plane"></i>
+
+                    </button>
+
+                    <!-- EMOJI -->
+
+                    <div class="emoji-picker" id="emojiPicker">
+
+                        <span onclick="addEmoji('😀')">😀</span>
+                        <span onclick="addEmoji('😂')">😂</span>
+                        <span onclick="addEmoji('❤️')">❤️</span>
+                        <span onclick="addEmoji('👍')">👍</span>
+                        <span onclick="addEmoji('🙏')">🙏</span>
+
+                    </div>
 
                 </div>
 
@@ -3830,7 +3894,11 @@
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     messages: [],
-                    unread_count: 0
+                    unread_count: 0,
+                    last_incoming_at: conv.last_incoming_at || null,
+                    windowExpired: conv.last_incoming_at
+                        ? (Date.now() - new Date(conv.last_incoming_at).getTime() > 86400000)
+                        : true
                 };
             });
 
@@ -3849,28 +3917,23 @@
         }
 
         function updateSidebarCounts() {
+            const now = Date.now();
             document.getElementById('count-all').innerText = chats.length;
             document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-followup').innerText =
-                chats.filter(c => c.follow_up === true).length;
-            document.getElementById(
-                'count-unread'
-            ).innerText = chats.filter(
-                c => (c.unread_count || 0) > 0
+            document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up === true).length;
+            document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
+            document.getElementById('count-active').innerText = chats.filter(c =>
+                c.last_incoming_at && (now - new Date(c.last_incoming_at).getTime() <= 86400000)
+            ).length;
+            document.getElementById('count-expired').innerText = chats.filter(c =>
+                !c.last_incoming_at || (now - new Date(c.last_incoming_at).getTime() > 86400000)
             ).length;
 
-            const totalUnread =
-                chats.reduce(
-                    (sum, c) =>
-                        sum + (c.unread_count || 0),
-                    0
-                );
-
-            document.getElementById(
-                'allMessageBadge'
-            ).innerText = totalUnread;
+            const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            document.getElementById('allMessageBadge').innerText = totalUnread;
+            document.title = totalUnread > 0 ? `(${totalUnread}) Speedbot Console` : 'Speedbot Console';
         }
 
         /* =========================================================
@@ -3888,24 +3951,14 @@
 
             chats.forEach(chat => {
 
+                const now = Date.now();
                 if (filter === "unread") {
-
-                    if (
-                        !chat.unread_count ||
-                        chat.unread_count <= 0
-                    ) return;
-
-                }
-
-                else if (
-                    filter !== "all" &&
-                    chat.type !== filter
-                ) return;
-
-                if (
-                    filter === "unread" &&
-                    (!chat.unread_count || chat.unread_count <= 0)
-                ) return;
+                    if (!chat.unread_count || chat.unread_count <= 0) return;
+                } else if (filter === "active") {
+                    if (!chat.last_incoming_at || (now - new Date(chat.last_incoming_at).getTime() > 86400000)) return;
+                } else if (filter === "expired") {
+                    if (chat.last_incoming_at && (now - new Date(chat.last_incoming_at).getTime() <= 86400000)) return;
+                } else if (filter !== "all" && chat.type !== filter) return;
 
                 if (
                     currentPlatform !== "all" &&
@@ -4080,6 +4133,7 @@
             document.getElementById("languageValue").innerText = chat.language;
 
             fetchMessagesForChat();
+            checkWindowExpiry();
         }
 
         /* =========================================================
@@ -4222,20 +4276,33 @@
                             existingChat.preview =
                                 msg.message || '';
 
-                            if (
-                                msg.sender === "incoming"
-                            ) {
+                            if (msg.sender === "incoming") {
+                                // Update 24hr window tracking
+                                existingChat.last_incoming_at = msg.created_at;
+                                existingChat.windowExpired = false;
 
-                                if (
-                                    !currentChat ||
-                                    currentChat.phone !== msg.phone
-                                ) {
+                                if (!currentChat || currentChat.phone !== msg.phone) {
+                                    existingChat.unread_count = (existingChat.unread_count || 0) + 1;
 
-                                    existingChat.unread_count =
-                                        (existingChat.unread_count || 0) + 1;
-
+                                    // Browser notification
+                                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                        const senderName = existingChat.name || msg.phone;
+                                        const notif = new Notification(`New message from ${senderName}`, {
+                                            body: msg.message?.substring(0, 120) || '',
+                                            icon: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(senderName) + '&background=1a1a2e&color=fff'
+                                        });
+                                        notif.onclick = () => {
+                                            window.focus();
+                                            const c = chats.find(x => x.phone === msg.phone);
+                                            if (c) openChat(c.id);
+                                        };
+                                    }
+                                } else {
+                                    // Currently viewing this chat — refresh window state
+                                    currentChat.last_incoming_at = msg.created_at;
+                                    currentChat.windowExpired = false;
+                                    updateChatInputState();
                                 }
-
                             }
 
                             existingChat.time =
@@ -5593,6 +5660,64 @@ ${bodyHtml}
             return String(str || '').replace(/[&<>"']/g, m => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[m]));
+        }
+
+        /* =========================================================
+        24-HOUR WINDOW + NOTIFICATION PERMISSION
+        ========================================================= */
+
+        // Request browser notification permission on load
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        async function checkWindowExpiry() {
+            if (!currentChat || !currentChat.phone) return;
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('created_at')
+                    .eq('phone', currentChat.phone)
+                    .eq('sender', 'incoming')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                const lastIncomingAt = data?.[0]?.created_at || null;
+                currentChat.last_incoming_at = lastIncomingAt;
+                currentChat.windowExpired = !lastIncomingAt ||
+                    (Date.now() - new Date(lastIncomingAt).getTime() > 86400000);
+                // Also update in chats array
+                const c = chats.find(x => x.id === currentChat.id);
+                if (c) { c.last_incoming_at = lastIncomingAt; c.windowExpired = currentChat.windowExpired; }
+            } catch (_) {
+                currentChat.windowExpired = false; // default open on error
+            }
+            updateChatInputState();
+            updateSidebarCounts();
+        }
+
+        function updateChatInputState() {
+            if (!currentChat) return;
+            const banner = document.getElementById('windowExpiredBanner');
+            const normalArea = document.getElementById('normalInputArea');
+            if (!banner || !normalArea) return;
+
+            if (currentChat.windowExpired) {
+                banner.style.display = 'flex';
+                normalArea.style.display = 'none';
+            } else {
+                banner.style.display = 'none';
+                normalArea.style.display = 'flex';
+                // Reapply bot/human disable state
+                const input = document.getElementById('messageInput');
+                const sendBtn = document.querySelector('.send-btn');
+                if (currentChat.bot_enabled !== false) {
+                    if (input) { input.disabled = true; input.placeholder = 'Conversation handled by AI Agent'; }
+                    if (sendBtn) sendBtn.disabled = true;
+                } else {
+                    if (input) { input.disabled = false; input.placeholder = 'Type message...'; }
+                    if (sendBtn) sendBtn.disabled = false;
+                }
+            }
         }
 
         function showToast(message, type = 'info', duration = 4000) {
