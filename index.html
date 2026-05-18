@@ -5212,11 +5212,17 @@ ${msg.message || ''}
             const strip = document.getElementById('tmgrTokenStrip');
             if (META_TOKEN) {
                 document.getElementById('tmgrTokenInput').value = META_TOKEN;
-                strip.style.display = META_TOKEN ? 'none' : 'flex';
+                strip.style.display = 'none';
                 fetchTemplatesFromMeta();
             } else {
                 strip.style.display = 'flex';
             }
+        }
+
+        function showMetaTokenInput() {
+            const strip = document.getElementById('tmgrTokenStrip');
+            strip.style.display = 'flex';
+            document.getElementById('tmgrTokenInput').focus();
         }
 
         function closeTemplateManager() {
@@ -5271,8 +5277,9 @@ ${msg.message || ''}
                 renderTmgrTable();
             } catch (e) {
                 document.getElementById('tmgrTableWrap').innerHTML =
-                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${e.message}</div>`;
+                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${escHtml(e.message)} — <a href="#" onclick="showMetaTokenInput();return false;" style="color:#dc2626;">Update token</a></div>`;
                 document.getElementById('tmgrCountLabel').textContent = 'Error';
+                document.getElementById('tmgrTokenStrip').style.display = 'flex';
             }
         }
 
