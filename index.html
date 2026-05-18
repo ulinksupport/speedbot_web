@@ -284,14 +284,26 @@
             overflow: hidden;
         }
 
+        .sidebar {
+            overflow: hidden;
+            min-width: 0;
+        }
+
         .sidebar.collapsed {
-            width: 82px;
+            overflow: hidden;
         }
 
         .sidebar-menu {
             padding: 14px;
             overflow-y: auto;
+            overflow-x: hidden;
             height: 100%;
+        }
+
+        .menu-left span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sidebar-toggle {
@@ -2401,7 +2413,7 @@
 
                     <i class="fa-solid fa-magnifying-glass"></i>
 
-                    <input type="text" placeholder="Search conversations...">
+                    <input type="text" id="searchInput" placeholder="Search conversations..." oninput="searchChats(this.value)">
 
                 </div>
 
@@ -3902,12 +3914,18 @@
 
         }
 
+        function searchChats(query) {
+            searchQuery = query.trim();
+            renderChats(activeFilter);
+        }
+
         /* =========================================================
         CHAT DATABASE
         ========================================================= */
 
         let chats = [];
         let activeFilter = 'all';
+        let searchQuery = '';
 
         async function loadConversations() {
             const { data, error } = await supabaseClient
@@ -4016,6 +4034,15 @@
                     currentPlatform !== "all" &&
                     chat.platformType !== currentPlatform
                 ) return;
+
+                // Search filter
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const matchName = (chat.name || '').toLowerCase().includes(q);
+                    const matchPhone = (chat.phone || '').includes(q);
+                    const matchPreview = (chat.preview || '').toLowerCase().includes(q);
+                    if (!matchName && !matchPhone && !matchPreview) return;
+                }
 
                 const div =
                     document.createElement("div");
@@ -4248,10 +4275,10 @@
 
             });
 
-            // Scroll to latest message after all are rendered
-            requestAnimationFrame(() => {
+            // Scroll to latest — double-rAF ensures paint is complete
+            requestAnimationFrame(() => requestAnimationFrame(() => {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            });
+            }));
 
         }
 
@@ -4586,12 +4613,10 @@ ${bodyHtml}
 
             messagesContainer.appendChild(div);
 
-            requestAnimationFrame(() => {
-
-                messagesContainer.scrollTop =
-                    messagesContainer.scrollHeight;
-
-            });
+            // Only auto-scroll if user is near the bottom (within 100px)
+            if (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
 
         }
 
@@ -4827,6 +4852,10 @@ ${bodyHtml}
             document.getElementById(
                 "mainLayout"
             ).classList.add("welcome-mode");
+
+            // Always start with sidebar expanded (clear any stale collapsed state)
+            document.querySelector('.sidebar').classList.remove('collapsed');
+            document.body.classList.remove('sidebar-collapsed');
 
             loadTemplates();
             loadConversations();
