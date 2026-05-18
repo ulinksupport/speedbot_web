@@ -376,8 +376,6 @@
             transition: 0.28s;
         }
 
-        /* COLLAPSED */
-
         .social-sidebar.collapsed {
             transform: translateX(-100%);
         }
@@ -487,8 +485,6 @@
             width: calc(100% - 82px);
             transition: 0.28s;
         }
-
-        /* COLLAPSE MODE */
 
         .social-sidebar.collapsed~.topbar {
             margin-left: 0;
@@ -630,6 +626,48 @@
         }
 
         /* =========================================================
+        CHAT LIST ACTION BUTTONS (New Chat + Broadcast)
+        ========================================================= */
+
+        .chat-list-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .chat-list-action-btn {
+            flex: 1;
+            height: 40px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            transition: 0.2s;
+        }
+
+        .chat-list-action-btn:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .chat-list-action-btn.primary {
+            background: #111827;
+            color: white;
+            border-color: #111827;
+        }
+
+        .chat-list-action-btn.primary:hover {
+            background: #1f2937;
+        }
+
+        /* =========================================================
         CHAT ITEMS
         ========================================================= */
 
@@ -734,30 +772,22 @@
         }
 
         .bot-toggle {
-
             transition: 0.2s ease;
-
         }
 
         .bot-toggle.active {
-
             background: #22c55e;
-
             color: white;
-
         }
 
         .bot-toggle.inactive {
-
             background: #f3f4f6;
-
             color: #111827;
-
         }
 
         /* =========================================================
-    MESSAGES
-    ========================================================= */
+        MESSAGES
+        ========================================================= */
 
         .messages {
             flex: 1;
@@ -771,67 +801,39 @@
         }
 
         #welcomeScreen {
-
             height: 100%;
-
             display: flex;
-
             flex-direction: column;
-
             justify-content: center;
-
             align-items: center;
-
             text-align: center;
-
             color: #6b7280;
-
         }
 
         .welcome-logo {
-
             width: 90px;
-
             height: 90px;
-
             border-radius: 50%;
-
             background: white;
-
             display: flex;
-
             align-items: center;
-
             justify-content: center;
-
             font-size: 34px;
-
             margin-bottom: 24px;
-
             color: #111827;
-
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-
         }
 
         .welcome-title {
-
             font-size: 30px;
-
             font-weight: 700;
-
             color: #111827;
-
             margin-bottom: 10px;
-
         }
 
         .welcome-subtitle {
-
             font-size: 15px;
-
             color: #6b7280;
-
         }
 
         .date-divider {
@@ -845,58 +847,37 @@
         }
 
         .message {
-
             display: inline-block;
-
             padding: 12px 16px;
-
             border-radius: 18px;
-
             margin-bottom: 12px;
-
             max-width: 75%;
-
             width: fit-content;
-
             min-width: 60px;
-
             word-wrap: break-word;
-
             position: relative;
-
             font-size: 14px;
-
             line-height: 1.5;
-
         }
 
         .message.incoming {
             background: white;
-
             color: #111;
-
             align-self: flex-start;
-
             border-bottom-left-radius: 6px;
         }
 
         .message.outgoing-bot {
             background: #0b132b;
-
             color: white;
-
             align-self: flex-end;
-
             border-bottom-right-radius: 6px;
         }
 
         .message.outgoing-human {
             background: #2563eb;
-
             color: white;
-
             align-self: flex-end;
-
             border-bottom-right-radius: 6px;
         }
 
@@ -973,8 +954,8 @@
         }
 
         /* =========================================================
-EMOJI
-========================================================= */
+        EMOJI
+        ========================================================= */
 
         .emoji-picker {
             position: absolute;
@@ -1260,7 +1241,6 @@ EMOJI
             color: #f59e0b;
         }
 
-
         /* =========================================================
         EDIT MODAL
         ========================================================= */
@@ -1269,11 +1249,9 @@ EMOJI
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.18);
-
             display: none;
             align-items: center;
             justify-content: center;
-
             z-index: 999999;
         }
 
@@ -1292,11 +1270,9 @@ EMOJI
         .edit-header {
             height: 70px;
             padding: 0 22px;
-
             display: flex;
             align-items: center;
             justify-content: space-between;
-
             border-bottom: 1px solid #e5e7eb;
         }
 
@@ -1314,21 +1290,16 @@ EMOJI
         .edit-body textarea {
             width: 100%;
             height: 120px;
-
             border: 1px solid #d1d5db;
             border-radius: 16px;
-
             resize: none;
-
             padding: 16px;
             font-size: 15px;
-
             outline: none;
         }
 
         .edit-footer {
             padding: 20px;
-
             display: flex;
             justify-content: space-between;
         }
@@ -1336,29 +1307,22 @@ EMOJI
         .delete-btn {
             height: 46px;
             padding: 0 22px;
-
             border: none;
             border-radius: 14px;
-
             background: #ef4444;
             color: white;
-
             cursor: pointer;
         }
 
         .save-btn {
             height: 46px;
             padding: 0 22px;
-
             border: none;
             border-radius: 14px;
-
             background: #2563eb;
             color: white;
-
             cursor: pointer;
         }
-
 
         /* =========================================================
         FUNCTIONAL SIDEBAR
@@ -1372,13 +1336,9 @@ EMOJI
             display: none;
         }
 
-
         .input-box input:disabled {
-
             cursor: not-allowed;
-
             opacity: 0.75;
-
         }
 
         /* =========================================================
@@ -1468,6 +1428,247 @@ EMOJI
             background: #2563eb;
         }
 
+        /* =========================================================
+        SHARED MODAL STYLES (Template / New Chat / Broadcast)
+        ========================================================= */
+
+        .template-overlay,
+        .new-chat-overlay,
+        .broadcast-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.2);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+
+        .template-overlay.show,
+        .new-chat-overlay.show,
+        .broadcast-overlay.show {
+            display: flex;
+        }
+
+        .template-modal,
+        .new-chat-modal,
+        .broadcast-modal {
+            width: 500px;
+            max-height: 82vh;
+            background: white;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            height: 70px;
+            padding: 0 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .modal-header h3 {
+            font-size: 17px;
+        }
+
+        .modal-header button {
+            border: none;
+            background: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .modal-header button:hover {
+            color: #111827;
+        }
+
+        .modal-body {
+            padding: 22px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 18px 22px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            flex-shrink: 0;
+        }
+
+        .modal-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .modal-input {
+            width: 100%;
+            height: 50px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 0 16px;
+            font-size: 15px;
+            outline: none;
+            margin-bottom: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .modal-input:focus {
+            border-color: #2563eb;
+        }
+
+        .modal-btn-primary {
+            height: 46px;
+            padding: 0 22px;
+            border: none;
+            border-radius: 14px;
+            background: #111827;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-btn-primary:hover {
+            background: #1f2937;
+        }
+
+        .modal-btn-secondary {
+            height: 46px;
+            padding: 0 22px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 14px;
+            background: white;
+            color: #374151;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #f9fafb;
+        }
+
+        /* =========================================================
+        TEMPLATE CARDS
+        ========================================================= */
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .template-card {
+            padding: 16px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .template-card:hover {
+            border-color: #93c5fd;
+            background: #f8faff;
+        }
+
+        .template-card.selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .template-card-name {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #111827;
+        }
+
+        .template-card-body {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        .template-card-meta {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .template-card-tag {
+            font-size: 11px;
+            color: #9ca3af;
+            background: #f3f4f6;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        /* =========================================================
+        VARIABLE INPUTS
+        ========================================================= */
+
+        .variables-section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 16px;
+            margin-top: 4px;
+        }
+
+        /* =========================================================
+        BROADCAST CONTACT LIST
+        ========================================================= */
+
+        .broadcast-contact-list {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 8px;
+        }
+
+        .broadcast-contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .broadcast-contact-item:hover {
+            background: #f9fafb;
+        }
+
+        .broadcast-contact-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #111827;
+            flex-shrink: 0;
+        }
+
+        .broadcast-select-all-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
     </style>
 
 </head>
@@ -1479,10 +1680,6 @@ EMOJI
     ========================================================= -->
 
     <div class="social-sidebar" id="socialSidebar">
-
-        <!-- =========================================================
-        SOCIAL ITEMS
-        ========================================================= -->
 
         <div class="social-item active" onclick="filterPlatform('all', this)" title="All Messages">
 
@@ -1777,6 +1974,24 @@ EMOJI
 
                 </div>
 
+                <!-- NEW CHAT + BROADCAST ACTIONS -->
+
+                <div class="chat-list-actions">
+
+                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()" title="Initiate a new conversation">
+
+                        <i class="fa-solid fa-plus"></i> New Chat
+
+                    </button>
+
+                    <button class="chat-list-action-btn" onclick="openBroadcastModal()" title="Send a template to multiple contacts">
+
+                        <i class="fa-solid fa-bullhorn"></i> Broadcast
+
+                    </button>
+
+                </div>
+
             </div>
 
             <!-- CHAT ITEMS -->
@@ -1784,8 +1999,6 @@ EMOJI
             <div class="chat-items" id="chatItems">
 
             </div>
-
-
 
         </div>
 
@@ -1884,6 +2097,14 @@ EMOJI
                     <input type="file" hidden onchange="handleFileUpload(event)">
 
                 </label>
+
+                <!-- TEMPLATE BUTTON -->
+
+                <button class="input-action-btn" onclick="openTemplatePicker()" title="Send Template Message">
+
+                    <i class="fa-solid fa-bolt"></i>
+
+                </button>
 
                 <div class="input-box">
 
@@ -1990,8 +2211,6 @@ EMOJI
             <!-- MEDIA -->
 
             <div class="media-section">
-
-                <!-- MEDIA -->
 
                 <div class="media-header" onclick="toggleMediaSection()">
 
@@ -2199,10 +2418,185 @@ EMOJI
 
     </div>
 
+    <!-- =========================================================
+    TEMPLATE PICKER MODAL
+    ========================================================= -->
+
+    <div class="template-overlay" id="templateOverlay">
+
+        <div class="template-modal">
+
+            <div class="modal-header">
+
+                <h3><i class="fa-solid fa-bolt" style="color:#f59e0b;margin-right:8px;"></i>Send Template Message</h3>
+
+                <button onclick="closeTemplatePicker()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <span class="modal-label">Select a template</span>
+
+                <div class="template-list" id="templateList">
+                    <!-- filled by renderTemplateCards() -->
+                </div>
+
+                <div class="variables-section" id="templateVariables" style="display:none;">
+
+                    <span class="modal-label">Fill in template variables</span>
+
+                    <div id="variableInputs"></div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="modal-btn-secondary" onclick="closeTemplatePicker()">Cancel</button>
+
+                <button class="modal-btn-primary" onclick="sendTemplateFromModal()">
+                    <i class="fa-solid fa-paper-plane"></i> Send Template
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    NEW CHAT MODAL
+    ========================================================= -->
+
+    <div class="new-chat-overlay" id="newChatOverlay">
+
+        <div class="new-chat-modal">
+
+            <div class="modal-header">
+
+                <h3><i class="fa-solid fa-plus" style="color:#22c55e;margin-right:8px;"></i>New Chat</h3>
+
+                <button onclick="closeNewChatModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <span class="modal-label">Phone Number <span style="color:#ef4444;">*</span></span>
+                <input type="text" class="modal-input" id="newChatPhone" placeholder="+628123456789 (include country code)">
+
+                <span class="modal-label">Contact Name (optional)</span>
+                <input type="text" class="modal-input" id="newChatName" placeholder="e.g. Budi Santoso">
+
+                <span class="modal-label">Initial Template Message (required by WhatsApp for new chats)</span>
+
+                <div class="template-list" id="newChatTemplateList">
+                    <!-- filled by renderTemplateCards() -->
+                </div>
+
+                <div class="variables-section" id="newChatVariables" style="display:none;">
+
+                    <span class="modal-label">Fill in template variables</span>
+
+                    <div id="newChatVariableInputs"></div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="modal-btn-secondary" onclick="closeNewChatModal()">Cancel</button>
+
+                <button class="modal-btn-primary" onclick="initiateNewChat()">
+                    <i class="fa-solid fa-comment-dots"></i> Start Chat
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    BROADCAST MODAL
+    ========================================================= -->
+
+    <div class="broadcast-overlay" id="broadcastOverlay">
+
+        <div class="broadcast-modal">
+
+            <div class="modal-header">
+
+                <h3><i class="fa-solid fa-bullhorn" style="color:#2563eb;margin-right:8px;"></i>Broadcast Template</h3>
+
+                <button onclick="closeBroadcastModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <span class="modal-label">1. Select Template</span>
+
+                <div class="template-list" id="broadcastTemplateList">
+                    <!-- filled by renderTemplateCards() -->
+                </div>
+
+                <div class="variables-section" id="broadcastVariables" style="display:none;">
+
+                    <span class="modal-label">Fill in template variables</span>
+
+                    <div id="broadcastVariableInputs"></div>
+
+                </div>
+
+                <span class="modal-label" style="margin-top:16px;display:block;">2. Select Recipients</span>
+
+                <div class="broadcast-select-all-row">
+
+                    <span style="font-size:13px;color:#6b7280;" id="broadcastSelectedCount">0 selected</span>
+
+                    <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="broadcastSelectAll" onchange="toggleSelectAllContacts()">
+                        Select All
+                    </label>
+
+                </div>
+
+                <div class="broadcast-contact-list" id="broadcastContactList">
+                    <!-- filled by renderBroadcastContacts() -->
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="modal-btn-secondary" onclick="closeBroadcastModal()">Cancel</button>
+
+                <button class="modal-btn-primary" onclick="sendBroadcast()">
+                    <i class="fa-solid fa-bullhorn"></i> Send Broadcast
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <script>
 
         const SUPABASE_URL = "https://ehhynoowqlsgmcfyqofh.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4";
+
+        const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -2213,15 +2607,10 @@ EMOJI
         let realtimeChannel = null;
 
         const SGT_FORMAT = {
-
             timeZone: "Asia/Singapore",
-
             hour: "2-digit",
-
             minute: "2-digit",
-
             hour12: true
-
         };
 
         function formatSGT(date) {
@@ -2423,7 +2812,7 @@ EMOJI
             });
 
             await fetch(
-                'https://ulink.app.n8n.cloud/webhook/human-send-message',
+                N8N_BASE + '/human-send-message',
                 {
                     method: 'POST',
 
@@ -2485,13 +2874,8 @@ EMOJI
                 "message outgoing-human";
 
             msg.innerHTML = `
-
 📎 ${file.name}
-
-<div class="message-time">
-Uploaded ✓✓
-</div>
-
+<div class="message-time">Uploaded ✓✓</div>
 `;
 
             messages.appendChild(msg);
@@ -2704,10 +3088,6 @@ Uploaded ✓✓
 
         }
 
-        /* =========================================================
-        EDIT MODAL OUTSIDE CLOSE
-        ========================================================= */
-
         document.getElementById(
             "editOverlay"
         ).addEventListener("click", function (e) {
@@ -2849,12 +3229,10 @@ Uploaded ✓✓
         });
 
         /* =========================================================
-SIDEBAR FILTER
-========================================================= */
+        SIDEBAR FILTER
+        ========================================================= */
 
         function filterChats(type, element) {
-
-            /* ACTIVE SIDEBAR */
 
             document.querySelectorAll(
                 ".menu-item"
@@ -2866,41 +3244,15 @@ SIDEBAR FILTER
 
             element.classList.add("active");
 
-            /* CHAT FILTER */
-
-            document.querySelectorAll(
-                ".chat-item"
-            ).forEach(chat => {
-
-                if (type === "all") {
-
-                    chat.style.display = "flex";
-
-                } else {
-
-                    if (chat.dataset.type === type) {
-
-                        chat.style.display = "flex";
-
-                    } else {
-
-                        chat.style.display = "none";
-
-                    }
-
-                }
-
-            });
+            renderChats(type);
 
         }
-
 
         /* =========================================================
         CHAT DATABASE
         ========================================================= */
 
         let chats = [];
-        // currentChat is already declared above
         let activeFilter = 'all';
 
         async function loadConversations() {
@@ -3037,61 +3389,25 @@ SIDEBAR FILTER
                     chat.id
                 );
 
-
                 div.setAttribute(
                     "data-phone",
                     chat.phone
                 );
 
                 div.innerHTML = `
-
             <img class="chat-avatar" src="${chat.avatar}">
-
             <div style="flex:1;">
-
                 <div style="display:flex;justify-content:space-between;">
-
-                    <div class="chat-name">
-                        ${chat.name}
-                    </div>
-
-                    <div class="chat-time">
-                        ${chat.time}
-                    </div>
-
+                    <div class="chat-name">${chat.name}</div>
+                    <div class="chat-time">${chat.time}</div>
                 </div>
-
-                <div style="
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-top:6px;
-gap:10px;
-">
-
-    <div class="chat-preview"
-style="
-flex:1;
-min-width:0;
-max-width:220px;
-overflow:hidden;
-text-overflow:ellipsis;
-white-space:nowrap;
-display:block;
-">
-    ${chat.preview}
-</div>
-
-    ${chat.unread_count > 0 ? `
-        <div class="unread-badge">
-            ${chat.unread_count}
-        </div>
-    ` : ""}
-
-</div>
-
-</div>
-
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px;">
+                    <div class="chat-preview" style="flex:1;min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
+                        ${chat.preview}
+                    </div>
+                    ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
+                </div>
+            </div>
 `;
 
                 div.onclick = () =>
@@ -3214,12 +3530,10 @@ display:block;
             updateBotButton();
             updateFollowUpButton();
 
-            /* HEADER */
             document.querySelector(".chat-user h3").innerText = chat.name;
             document.querySelector(".chat-user p").innerText = chat.platform;
             document.querySelector(".chat-user img").src = chat.avatar;
 
-            /* PROFILE */
             document.querySelector(".profile-top img").src = chat.avatar;
             document.querySelector(".profile-top h2").innerText = chat.name;
             document.getElementById("phoneValue").innerText = chat.phone;
@@ -3228,16 +3542,6 @@ display:block;
             document.getElementById("languageValue").innerText = chat.language;
 
             fetchMessagesForChat();
-        }
-
-        /* =========================================================
-        FILTER SIDEBAR
-        ========================================================= */
-
-        function filterChats(type, element) {
-            document.querySelectorAll(".menu-item").forEach(item => item.classList.remove("active"));
-            element.classList.add("active");
-            renderChats(type);
         }
 
         /* =========================================================
@@ -3255,16 +3559,12 @@ display:block;
                 alert(platform.charAt(0).toUpperCase() + platform.slice(1) + " page coming soon");
                 return;
             }
-            renderChatsByPlatform();
-        }
-
-        function renderChatsByPlatform() {
             renderChats(activeFilter);
         }
 
-        /* =========================================
-        FETCH REAL MESSAGES
-        ========================================= */
+        /* =========================================================
+        FETCH MESSAGES
+        ========================================================= */
 
         async function fetchMessagesForChat() {
 
@@ -3306,15 +3606,12 @@ display:block;
 
         }
 
-        /* =========================================
+        /* =========================================================
         REALTIME SUBSCRIPTIONS
-        ========================================= */
+        ========================================================= */
 
         function setupRealtime() {
 
-            /* =========================================
-            REALTIME MESSAGES
-            ========================================= */
             if (realtimeChannel) {
 
                 supabaseClient.removeChannel(
@@ -3341,10 +3638,6 @@ display:block;
 
                             let existingChat =
                                 chats.find(c => c.phone === msg.phone);
-
-                            /* ====================================
-                            NEW CHAT
-                            ==================================== */
 
                             if (!existingChat) {
 
@@ -3388,10 +3681,6 @@ display:block;
 
                             }
 
-                            /* ====================================
-                            UPDATE CHAT PREVIEW
-                            ==================================== */
-
                             existingChat.preview =
                                 msg.message || '';
 
@@ -3414,16 +3703,10 @@ display:block;
                             existingChat.time =
                                 formatSGT(msg.created_at);
 
-                            /* ====================================
-                            MOVE CHAT TO TOP
-                            ==================================== */
-
                             chats = [
                                 existingChat,
                                 ...chats.filter(c => c.phone !== msg.phone)
                             ];
-
-                            /* MOVE DOM TO TOP */
 
                             const existingElement =
                                 document.querySelector(
@@ -3439,15 +3722,9 @@ display:block;
 
                             }
 
-                            /* UPDATE UI */
-
                             updateSingleConversationUI(existingChat);
 
                             updateSidebarCounts();
-
-                            /* ====================================
-                            LIVE APPEND MESSAGE
-                            ==================================== */
 
                             if (
                                 currentChat &&
@@ -3490,10 +3767,6 @@ display:block;
                     )
 
                     .subscribe();
-
-            /* =========================================
-            REALTIME CONVERSATIONS
-            ========================================= */
 
             supabaseClient
                 .channel('realtime-conversations')
@@ -3559,8 +3832,9 @@ display:block;
         }
 
         /* =========================================================
-        Fetch Messages
+        APPEND MESSAGE
         ========================================================= */
+
         function appendMessage(msg) {
 
             if (!msg.message) return;
@@ -3619,23 +3893,11 @@ display:block;
             }
 
             div.innerHTML = `
-
-<div style="
-font-size:10px;
-font-weight:700;
-opacity:0.7;
-margin-bottom:6px;
-letter-spacing:0.5px;
-">
+<div style="font-size:10px;font-weight:700;opacity:0.7;margin-bottom:6px;letter-spacing:0.5px;">
 ${label}
 </div>
-
 ${msg.message || ''}
-
-<div class="message-time">
-    ${time}
-</div>
-
+<div class="message-time">${time}</div>
 `;
 
             messagesContainer.appendChild(div);
@@ -3677,10 +3939,6 @@ ${msg.message || ''}
                     ".send-btn"
                 );
 
-            /* =========================================
-            UPDATE SUPABASE
-            ========================================= */
-
             const botEnabled = mode === "bot";
 
             const { error } = await supabaseClient
@@ -3695,10 +3953,6 @@ ${msg.message || ''}
                 console.error("Mode update failed:", error);
 
             }
-
-            /* =========================================
-            UI
-            ========================================= */
 
             if (mode === "bot") {
 
@@ -3795,7 +4049,7 @@ ${msg.message || ''}
         }
 
         /* =========================================================
-        INITIAL LOAD
+        REFRESH CONVERSATION
         ========================================================= */
 
         async function refreshConversationOnly(phone) {
@@ -3872,6 +4126,10 @@ ${msg.message || ''}
 
         }
 
+        /* =========================================================
+        INITIAL LOAD
+        ========================================================= */
+
         window.addEventListener("load", () => {
 
             localStorage.removeItem(
@@ -3886,12 +4144,11 @@ ${msg.message || ''}
                 "mainLayout"
             ).classList.add("welcome-mode");
 
+            loadTemplates();
             loadConversations();
-
             setupRealtime();
 
         });
-
 
         function toggleSidebar() {
 
@@ -4061,109 +4318,395 @@ ${msg.message || ''}
                 { lang: "Bahasa Indonesia", words: ["saya","anda","tidak","dengan","untuk","yang","adalah","bisa","harga","tolong","terima kasih","selamat","obat","sakit","dokter","rumah sakit"] },
                 { lang: "Bahasa Melayu",    words: ["awak","boleh","nak","kenapa","macam","mana","saya","terima kasih","hospital","doktor"] },
                 { lang: "Thai",             words: ["ครับ","ค่ะ","ขอบคุณ","สวัสดี"] },
-                { lang: "Arabic",           words: ["مرحبا","شكرا","كيف","نعم","لا","السعر","دكتور","علاج"] },
-                { lang: "Mandarin",         words: ["你好","谢谢","价格","医生","医院","治疗"] },
-                { lang: "Hindi",            words: ["नमस्ते","धन्यवाद","कितना","डॉक्टर","अस्पताल"] },
+                { lang: "Arabic",           words: ["الحمد","شكرا","مرحبا","كيف"] },
+                { lang: "Japanese",         words: ["です","ます","ください","ありがとう"] },
+                { lang: "Vietnamese",       words: ["tôi","bạn","cảm ơn","xin"] },
+                { lang: "Mandarin",         words: ["谢谢","你好","我","是"] }
             ];
 
-            for (const { lang, words } of patterns) {
-
-                if (words.some(w => t.includes(w))) {
-                    return lang;
-                }
-
+            for (const p of patterns) {
+                const matchCount = p.words.filter(w => t.includes(w)).length;
+                if (matchCount >= 2) return p.lang;
             }
 
             return null;
-
         }
 
         function autoDetectChatMeta(chat) {
 
-            if (!chat.phone || chat.phone === "Unknown") return;
+            const detectedCountry = detectCountryFromPhone(chat.phone);
+            const detectedLanguage = detectDefaultLanguage(detectedCountry);
 
-            if (!chat.country || chat.country === "Unknown") {
-
-                chat.country = detectCountryFromPhone(chat.phone);
-
-            }
-
-            if (!chat.language || chat.language === "Unknown") {
-
-                const fromCountry = detectDefaultLanguage(chat.country);
-
-                const fromText = chat.preview
-                    ? detectLanguageFromText(chat.preview)
-                    : null;
-
-                chat.language = fromText || fromCountry;
-
-            }
+            chat.country = chat.country !== "Unknown" ? chat.country : detectedCountry;
+            chat.language = chat.language !== "Unknown" ? chat.language : detectedLanguage;
 
         }
 
         /* =========================================================
-        RESIZABLE PROFILE PANEL
+        TEMPLATES — load from Supabase, fallback to hardcoded
         ========================================================= */
 
-        (function initResizeHandle() {
+        const FALLBACK_TEMPLATES = [
+            {
+                name: "ulink_greeting",
+                display_name: "Ulink Greeting (ID)",
+                language: "id",
+                body: "Halo! 😊 Terima kasih sudah menghubungi Ulink Assist. Kami siap membantu Anda mendapatkan akses medis terbaik.",
+                variables: []
+            },
+            {
+                name: "ulink_followup",
+                display_name: "Follow Up",
+                language: "en",
+                body: "Hi {{1}}! 👋 This is a follow-up from Ulink Assist regarding your medical enquiry. How can we help you today?",
+                variables: ["Customer Name"]
+            },
+            {
+                name: "ulink_appointment",
+                display_name: "Appointment Reminder",
+                language: "en",
+                body: "Hi {{1}}, this is a reminder that your appointment is on {{2}}. Please reply CONFIRM or RESCHEDULE. – Ulink Assist",
+                variables: ["Patient Name", "Date & Time"]
+            }
+        ];
 
-            const handle = document.getElementById("resizeHandle");
-            if (!handle) return;
+        let templates = [...FALLBACK_TEMPLATES];
+        let selectedTemplate = null;
+        let templateContext = null;
 
-            let startX = 0;
-            let startWidth = 0;
-            let dragging = false;
+        async function loadTemplates() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('templates')
+                    .select('*')
+                    .eq('status', 'approved');
+                if (!error && data && data.length > 0) {
+                    templates = data.map(t => ({
+                        name: t.name,
+                        display_name: t.display_name || t.name,
+                        language: t.language_code || t.language || 'en',
+                        body: t.body_text || t.body || '',
+                        variables: t.variables || extractVariableSlots(t.body_text || t.body || '')
+                    }));
+                }
+            } catch (e) {
+                // use fallback templates
+            }
+        }
 
-            handle.addEventListener("mousedown", (e) => {
+        function extractVariableSlots(bodyText) {
+            const matches = bodyText.match(/\{\{(\d+)\}\}/g);
+            if (!matches) return [];
+            const count = new Set(matches).size;
+            return Array.from({ length: count }, (_, i) => `Variable ${i + 1}`);
+        }
 
-                dragging = true;
-                startX = e.clientX;
-                startWidth = parseInt(
-                    getComputedStyle(document.documentElement)
-                        .getPropertyValue("--profile-width") || "300",
-                    10
-                );
+        /* Render template selection cards into a container */
+        function renderTemplateCards(containerId, context) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            templates.forEach((t, i) => {
+                const card = document.createElement('div');
+                card.className = 'template-card';
+                card.dataset.index = i;
+                card.innerHTML = `
+                    <div class="template-card-name">${t.display_name}</div>
+                    <div class="template-card-body">${t.body}</div>
+                    <div class="template-card-meta">
+                        <span class="template-card-tag">${t.language.toUpperCase()}</span>
+                        ${t.variables.length > 0 ? `<span class="template-card-tag">${t.variables.length} variable${t.variables.length > 1 ? 's' : ''}</span>` : ''}
+                    </div>
+                `;
+                card.onclick = () => selectTemplateCard(i, context);
+                container.appendChild(card);
+            });
+        }
 
-                handle.classList.add("dragging");
-                document.body.style.cursor = "col-resize";
-                document.body.style.userSelect = "none";
+        function selectTemplateCard(index, context) {
+            selectedTemplate = templates[index];
+            templateContext = context;
 
-                e.preventDefault();
+            const contextMap = {
+                picker:    { list: 'templateList',         vars: 'templateVariables',  inputs: 'variableInputs' },
+                newchat:   { list: 'newChatTemplateList',  vars: 'newChatVariables',   inputs: 'newChatVariableInputs' },
+                broadcast: { list: 'broadcastTemplateList',vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
+            };
 
+            const ids = contextMap[context];
+            if (!ids) return;
+
+            document.querySelectorAll(`#${ids.list} .template-card`).forEach((c, i) => {
+                c.classList.toggle('selected', i === index);
             });
 
-            document.addEventListener("mousemove", (e) => {
+            const varNames = selectedTemplate.variables || [];
+            if (varNames.length > 0) {
+                document.getElementById(ids.inputs).innerHTML = varNames.map((v, i) =>
+                    `<input type="text" class="modal-input" id="${ids.inputs}_var_${i}" placeholder="${v}">`
+                ).join('');
+                document.getElementById(ids.vars).style.display = 'block';
+            } else {
+                document.getElementById(ids.vars).style.display = 'none';
+            }
+        }
 
-                if (!dragging) return;
-
-                const delta = startX - e.clientX;
-                const newWidth = Math.min(
-                    500,
-                    Math.max(200, startWidth + delta)
-                );
-
-                document.documentElement.style.setProperty(
-                    "--profile-width",
-                    newWidth + "px"
-                );
-
+        function getVariableValues(inputsId, varCount) {
+            return Array.from({ length: varCount }, (_, i) => {
+                const el = document.getElementById(`${inputsId}_var_${i}`);
+                return el ? el.value.trim() : '';
             });
+        }
 
-            document.addEventListener("mouseup", () => {
+        /* Call the n8n template-send webhook */
+        async function callTemplateSendWebhook(phone, template, variables) {
+            const payload = {
+                phone: phone.replace(/\s/g, ''),
+                template_name: template.name,
+                language_code: template.language,
+                variables: variables
+            };
+            try {
+                const resp = await fetch(N8N_BASE + '/send-template-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return resp.ok;
+            } catch (e) {
+                return false;
+            }
+        }
 
-                if (!dragging) return;
+        /* =========================================================
+        TEMPLATE PICKER (in active chat)
+        ========================================================= */
 
-                dragging = false;
-                handle.classList.remove("dragging");
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
+        function openTemplatePicker() {
+            if (!currentChat) {
+                alert('Please select a conversation first.');
+                return;
+            }
+            selectedTemplate = null;
+            document.getElementById('templateVariables').style.display = 'none';
+            renderTemplateCards('templateList', 'picker');
+            document.getElementById('templateOverlay').classList.add('show');
+        }
 
+        function closeTemplatePicker() {
+            document.getElementById('templateOverlay').classList.remove('show');
+            selectedTemplate = null;
+        }
+
+        async function sendTemplateFromModal() {
+            if (!selectedTemplate) {
+                alert('Please select a template first.');
+                return;
+            }
+            const vars = getVariableValues('variableInputs', selectedTemplate.variables.length);
+            const btn = document.querySelector('#templateOverlay .modal-btn-primary');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+
+            const ok = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
+
+            if (ok) {
+                closeTemplatePicker();
+            } else {
+                alert('Failed to send template.\n\nMake sure the n8n workflow "send-template-message" is active.');
+            }
+        }
+
+        document.getElementById('templateOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'templateOverlay') closeTemplatePicker();
+        });
+
+        /* =========================================================
+        NEW CHAT MODAL
+        ========================================================= */
+
+        function openNewChatModal() {
+            selectedTemplate = null;
+            document.getElementById('newChatPhone').value = '';
+            document.getElementById('newChatName').value = '';
+            document.getElementById('newChatVariables').style.display = 'none';
+            renderTemplateCards('newChatTemplateList', 'newchat');
+            document.getElementById('newChatOverlay').classList.add('show');
+        }
+
+        function closeNewChatModal() {
+            document.getElementById('newChatOverlay').classList.remove('show');
+            selectedTemplate = null;
+        }
+
+        async function initiateNewChat() {
+            const phone = document.getElementById('newChatPhone').value.trim();
+            const name = document.getElementById('newChatName').value.trim() || phone;
+
+            if (!phone) {
+                alert('Please enter a phone number (with country code, e.g. +628123456789).');
+                return;
+            }
+
+            if (!selectedTemplate) {
+                alert('Please select a template to initiate the conversation.\n\nWhatsApp requires a template for the first outbound message.');
+                return;
+            }
+
+            const btn = document.querySelector('#newChatOverlay .modal-btn-primary');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting...';
+
+            // Upsert conversation record
+            const { data: existing } = await supabaseClient
+                .from('conversations')
+                .select('id')
+                .eq('phone', phone)
+                .limit(1);
+
+            if (!existing || existing.length === 0) {
+                await supabaseClient
+                    .from('conversations')
+                    .insert({
+                        phone: phone,
+                        name: name,
+                        platform: 'whatsapp',
+                        status: 'open',
+                        bot_enabled: false,
+                        last_message: `[Template: ${selectedTemplate.display_name}]`,
+                        last_message_time: new Date().toISOString()
+                    });
+            }
+
+            // Send template via n8n
+            const vars = getVariableValues('newChatVariableInputs', selectedTemplate.variables.length);
+            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-comment-dots"></i> Start Chat';
+
+            if (!ok) {
+                alert('Conversation created but template send failed.\nCheck that the n8n workflow "send-template-message" is active.');
+            }
+
+            closeNewChatModal();
+            await loadConversations();
+
+            const newChat = chats.find(c => c.phone === phone);
+            if (newChat) {
+                const el = document.querySelector(`[data-phone="${phone}"]`);
+                openChat(newChat.id, el);
+            }
+        }
+
+        document.getElementById('newChatOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'newChatOverlay') closeNewChatModal();
+        });
+
+        /* =========================================================
+        BROADCAST MODAL
+        ========================================================= */
+
+        function openBroadcastModal() {
+            selectedTemplate = null;
+            document.getElementById('broadcastVariables').style.display = 'none';
+            document.getElementById('broadcastSelectAll').checked = false;
+            renderTemplateCards('broadcastTemplateList', 'broadcast');
+            renderBroadcastContacts();
+            document.getElementById('broadcastOverlay').classList.add('show');
+        }
+
+        function closeBroadcastModal() {
+            document.getElementById('broadcastOverlay').classList.remove('show');
+            selectedTemplate = null;
+        }
+
+        function renderBroadcastContacts() {
+            const container = document.getElementById('broadcastContactList');
+            container.innerHTML = '';
+            if (chats.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">No contacts found</div>';
+                return;
+            }
+            chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = 'broadcast-contact-item';
+                item.innerHTML = `
+                    <input type="checkbox" class="broadcast-check" data-phone="${chat.phone}" data-name="${chat.name}">
+                    <img src="${chat.avatar}" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${chat.name}</div>
+                        <div style="font-size:12px;color:#6b7280;">${chat.phone}</div>
+                    </div>
+                `;
+                item.querySelector('input').addEventListener('change', updateBroadcastCount);
+                container.appendChild(item);
             });
+            updateBroadcastCount();
+        }
 
-        })();
+        function toggleSelectAllContacts() {
+            const checked = document.getElementById('broadcastSelectAll').checked;
+            document.querySelectorAll('.broadcast-check').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateBroadcastCount();
+        }
+
+        function updateBroadcastCount() {
+            const count = document.querySelectorAll('.broadcast-check:checked').length;
+            document.getElementById('broadcastSelectedCount').innerText = `${count} selected`;
+        }
+
+        async function sendBroadcast() {
+            if (!selectedTemplate) {
+                alert('Please select a template first.');
+                return;
+            }
+            const selected = [...document.querySelectorAll('.broadcast-check:checked')];
+            if (selected.length === 0) {
+                alert('Please select at least one recipient.');
+                return;
+            }
+
+            const vars = getVariableValues('broadcastVariableInputs', selectedTemplate.variables.length);
+            const confirmed = window.confirm(
+                `Send "${selectedTemplate.display_name}" to ${selected.length} contact(s)?\n\nThis cannot be undone.`
+            );
+            if (!confirmed) return;
+
+            const btn = document.querySelector('#broadcastOverlay .modal-btn-primary');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending to 0 / ${selected.length}...`;
+
+            let success = 0;
+            let failed = 0;
+
+            for (let i = 0; i < selected.length; i++) {
+                const cb = selected[i];
+                const phone = cb.dataset.phone;
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
+                const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+                if (ok) success++;
+                else failed++;
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bullhorn"></i> Send Broadcast';
+
+            closeBroadcastModal();
+            alert(`Broadcast complete.\n✅ ${success} sent${failed > 0 ? `\n❌ ${failed} failed` : ''}.`);
+        }
+
+        document.getElementById('broadcastOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'broadcastOverlay') closeBroadcastModal();
+        });
 
     </script>
+
 </body>
 
 </html>
