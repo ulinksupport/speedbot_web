@@ -1849,6 +1849,38 @@
             font-size: 14px;
         }
 
+        /* Toast notifications */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: auto;
+            max-width: 340px;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #16a34a; }
+        .toast.error   { background: #dc2626; }
+        .toast.info    { background: #2563eb; }
+
         /* Create template form */
         .tmgr-form label {
             font-size: 13px;
@@ -4398,11 +4430,33 @@
 
             }
 
+            // Render template messages as a card
+            const tmplMatch = (msg.message || '').match(/^\[Template:\s*(.+?)\]$/);
+            let bodyHtml;
+            if (tmplMatch) {
+                const tName = tmplMatch[1];
+                const tData = (tmgrCachedAll.length ? tmgrCachedAll : templates)
+                    .find(t => (t.name || t.display_name || '').toLowerCase() === tName.toLowerCase());
+                const bodyText = tData
+                    ? (tData.components
+                        ? (tData.components.find(c => c.type === 'BODY') || {}).text || ''
+                        : tData.body || '')
+                    : '';
+                bodyHtml = `<div style="border:1px solid rgba(0,0,0,0.12);border-radius:8px;overflow:hidden;font-size:13px;max-width:320px;">
+  <div style="background:rgba(0,0,0,0.06);padding:6px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;">
+    <span>⚡</span><span>Template: ${escHtml(tName)}</span>
+  </div>
+  ${bodyText ? `<div style="padding:8px 10px;white-space:pre-wrap;">${escHtml(bodyText)}</div>` : ''}
+</div>`;
+            } else {
+                bodyHtml = escHtml(msg.message || '').replace(/\n/g, '<br>');
+            }
+
             div.innerHTML = `
 <div style="font-size:10px;font-weight:700;opacity:0.7;margin-bottom:6px;letter-spacing:0.5px;">
 ${label}
 </div>
-${msg.message || ''}
+${bodyHtml}
 <div class="message-time">${time}</div>
 `;
 
@@ -4944,7 +4998,7 @@ ${msg.message || ''}
             });
         }
 
-        /* Call the n8n template-send webhook */
+        /* Call the n8n template-send webhook — returns { ok, error } */
         async function callTemplateSendWebhook(phone, template, variables) {
             const payload = {
                 phone: phone.replace(/\s/g, ''),
@@ -4958,9 +5012,13 @@ ${msg.message || ''}
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                return resp.ok;
+                let data = {};
+                try { data = await resp.json(); } catch (_) {}
+                if (!resp.ok) return { ok: false, error: data?.message || `HTTP ${resp.status}` };
+                if (data?.error) return { ok: false, error: data.error.message || JSON.stringify(data.error) };
+                return { ok: true };
             } catch (e) {
-                return false;
+                return { ok: false, error: e.message };
             }
         }
 
@@ -4994,15 +5052,25 @@ ${msg.message || ''}
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
 
-            const ok = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
+            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
 
-            if (ok) {
+            if (result.ok) {
                 closeTemplatePicker();
+                // Optimistic local display — realtime will deduplicate if n8n logs it too
+                appendMessage({
+                    message: `[Template: ${selectedTemplate.name}]`,
+                    sender: 'outgoing',
+                    sender_type: 'human',
+                    created_at_sgt: new Intl.DateTimeFormat('en-SG', {
+                        timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
+                    }).format(new Date())
+                });
+                showToast('Template sent successfully!', 'success');
             } else {
-                alert('Failed to send template.\n\nMake sure the n8n workflow "send-template-message" is active.');
+                showToast('Failed to send template: ' + (result.error || 'Unknown error'), 'error', 6000);
             }
         }
 
@@ -5527,7 +5595,23 @@ ${msg.message || ''}
             }[m]));
         }
 
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerHTML = `<span>${icons[type] || ''}</span><span>${escHtml(message)}</span>`;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.add('show'));
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
+        }
+
     </script>
+
+    <div id="toastContainer"></div>
 
 </body>
 
