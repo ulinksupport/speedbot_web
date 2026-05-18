@@ -247,24 +247,33 @@
             display: grid;
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) 6px var(--profile-width, 300px);
+                var(--sidebar-width, 260px) var(--chatlist-width, 360px) 4px minmax(420px, 1fr) 6px var(--profile-width, 300px);
 
             height: calc(100vh - 66px);
             min-height: 0;
 
-            transition: 0.25s ease;
+            transition: grid-template-columns 0s;
         }
 
         .main-layout.welcome-mode {
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px 1fr 0 0;
+                var(--sidebar-width, 260px) var(--chatlist-width, 360px) 4px 1fr 0 0;
 
         }
 
         body.sidebar-collapsed {
             --sidebar-width: 82px;
         }
+
+        .chatlist-resize-handle {
+            cursor: col-resize;
+            background: transparent;
+            border-left: 2px solid #e5e7eb;
+            transition: border-color 0.15s;
+        }
+        .chatlist-resize-handle:hover,
+        .chatlist-resize-handle.dragging { border-color: #6366f1; }
 
         /* =========================================================
         SIDEBAR
@@ -281,6 +290,8 @@
 
         .sidebar-menu {
             padding: 14px;
+            overflow-y: auto;
+            height: 100%;
         }
 
         .sidebar-toggle {
@@ -310,7 +321,9 @@
         .sidebar.collapsed #count-unassigned,
         .sidebar.collapsed #count-unreplied,
         .sidebar.collapsed #count-followup,
-        .sidebar.collapsed #count-unread {
+        .sidebar.collapsed #count-unread,
+        .sidebar.collapsed #count-active,
+        .sidebar.collapsed #count-expired {
             display: none;
         }
 
@@ -2454,6 +2467,12 @@
 
                     </button>
 
+                    <button class="chat-list-action-btn" onclick="openCsvImport()" title="Import contacts from CSV">
+
+                        <i class="fa-solid fa-file-csv"></i>
+
+                    </button>
+
                 </div>
 
             </div>
@@ -2465,6 +2484,9 @@
             </div>
 
         </div>
+
+        <!-- CHAT LIST RESIZE HANDLE -->
+        <div class="chatlist-resize-handle" id="chatListResizeHandle"></div>
 
         <!-- CHAT WINDOW -->
 
@@ -2894,6 +2916,36 @@
 
         </div>
 
+    </div>
+
+    <!-- =========================================================
+    CSV IMPORT MODAL
+    ========================================================= -->
+
+    <div class="template-overlay" id="csvImportOverlay">
+        <div class="template-modal" style="max-width:540px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-csv"></i> Import Contacts from CSV</h3>
+                <button class="modal-close" onclick="closeCsvImport()">×</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="font-size:13px;color:#6b7280;margin:0 0 14px;">
+                    CSV must have columns: <strong>name</strong> and <strong>phone</strong> (with country code, e.g. +628123456789).<br>
+                    First row = header row (skipped automatically).
+                </p>
+                <label style="display:block;margin-bottom:12px;">
+                    <input type="file" id="csvFileInput" accept=".csv" style="display:block;width:100%;padding:8px;border:1px dashed #d1d5db;border-radius:8px;cursor:pointer;font-size:13px;">
+                </label>
+                <div id="csvPreview" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
+                <div id="csvImportMsg" style="font-size:13px;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:10px;">
+                    <button class="modal-btn-secondary" onclick="closeCsvImport()" style="flex:1;">Cancel</button>
+                    <button class="modal-btn-primary" id="csvImportBtn" onclick="importCsvContacts()" style="flex:2;" disabled>
+                        <i class="fa-solid fa-upload"></i> Import Contacts
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- =========================================================
@@ -4196,6 +4248,11 @@
 
             });
 
+            // Scroll to latest message after all are rendered
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+
         }
 
         /* =========================================================
@@ -4775,6 +4832,19 @@ ${bodyHtml}
             loadConversations();
             setupRealtime();
 
+            // Reconnect realtime when tab becomes visible again
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    setupRealtime();
+                    loadConversations();
+                }
+            });
+
+            // Periodic conversation refresh every 30s as fallback
+            setInterval(() => {
+                if (!document.hidden) loadConversations();
+            }, 30000);
+
         });
 
         function toggleSidebar() {
@@ -4790,6 +4860,58 @@ ${bodyHtml}
                 .toggle("sidebar-collapsed");
 
         }
+
+        /* =========================================================
+        RESIZABLE PANELS
+        ========================================================= */
+
+        (function initResizeHandles() {
+            // Right panel (profile) resize
+            const profileHandle = document.getElementById('resizeHandle');
+            if (profileHandle) {
+                let dragging = false, startX = 0, startW = 0;
+                profileHandle.addEventListener('mousedown', e => {
+                    dragging = true;
+                    startX = e.clientX;
+                    startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
+                    profileHandle.classList.add('dragging');
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', e => {
+                    if (!dragging) return;
+                    const delta = startX - e.clientX;
+                    const newW = Math.max(220, Math.min(480, startW + delta));
+                    document.documentElement.style.setProperty('--profile-width', newW + 'px');
+                });
+                document.addEventListener('mouseup', () => {
+                    dragging = false;
+                    profileHandle.classList.remove('dragging');
+                });
+            }
+
+            // Chat list width resize (drag right edge of chat-list)
+            const chatList = document.querySelector('.chat-list');
+            if (chatList) {
+                const chatHandle = document.createElement('div');
+                chatHandle.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;';
+                chatList.style.position = 'relative';
+                chatList.appendChild(chatHandle);
+                let dragging = false, startX = 0, startW = 0;
+                chatHandle.addEventListener('mousedown', e => {
+                    dragging = true;
+                    startX = e.clientX;
+                    startW = chatList.offsetWidth;
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', e => {
+                    if (!dragging) return;
+                    const newW = Math.max(260, Math.min(560, startW + (e.clientX - startX)));
+                    chatList.style.width = newW + 'px';
+                    chatList.style.flex = 'none';
+                });
+                document.addEventListener('mouseup', () => { dragging = false; });
+            }
+        })();
 
         /* =========================================================
         COUNTRY + LANGUAGE AUTO-DETECT
@@ -5663,6 +5785,97 @@ ${bodyHtml}
         }
 
         /* =========================================================
+        CSV IMPORT CONTACTS
+        ========================================================= */
+
+        let csvParsedRows = [];
+
+        function openCsvImport() {
+            csvParsedRows = [];
+            document.getElementById('csvFileInput').value = '';
+            document.getElementById('csvPreview').innerHTML = '';
+            document.getElementById('csvImportMsg').textContent = '';
+            document.getElementById('csvImportBtn').disabled = true;
+            document.getElementById('csvImportOverlay').classList.add('show');
+        }
+
+        function closeCsvImport() {
+            document.getElementById('csvImportOverlay').classList.remove('show');
+        }
+
+        document.getElementById('csvImportOverlay').addEventListener('click', e => {
+            if (e.target.id === 'csvImportOverlay') closeCsvImport();
+        });
+
+        document.getElementById('csvFileInput').addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">File is empty or has only a header row.</p>';
+                    return;
+                }
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+                const nameIdx = headers.findIndex(h => h === 'name');
+                const phoneIdx = headers.findIndex(h => h === 'phone' || h === 'number' || h === 'phone_number');
+                if (nameIdx === -1 || phoneIdx === -1) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">Could not find "name" and "phone" columns. Check your CSV headers.</p>';
+                    return;
+                }
+                csvParsedRows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim().replace(/"/g,''));
+                    const name = cols[nameIdx] || '';
+                    const phone = cols[phoneIdx] || '';
+                    if (phone) csvParsedRows.push({ name, phone });
+                }
+                // Preview table
+                const rows = csvParsedRows.slice(0, 10).map(r =>
+                    `<tr><td style="padding:4px 8px;">${escHtml(r.name)}</td><td style="padding:4px 8px;">${escHtml(r.phone)}</td></tr>`
+                ).join('');
+                document.getElementById('csvPreview').innerHTML = `
+                    <p style="font-size:12px;color:#6b7280;margin:0 0 6px;">${csvParsedRows.length} contacts found${csvParsedRows.length > 10 ? ' (showing first 10)' : ''}:</p>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#f3f4f6;"><th style="padding:4px 8px;text-align:left;">Name</th><th style="padding:4px 8px;text-align:left;">Phone</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+                document.getElementById('csvImportBtn').disabled = csvParsedRows.length === 0;
+            };
+            reader.readAsText(file);
+        });
+
+        async function importCsvContacts() {
+            if (!csvParsedRows.length) return;
+            const btn = document.getElementById('csvImportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing…';
+            const msgEl = document.getElementById('csvImportMsg');
+            let success = 0, failed = 0;
+            for (const row of csvParsedRows) {
+                const { error } = await supabaseClient
+                    .from('conversations')
+                    .upsert({
+                        phone: row.phone,
+                        name: row.name,
+                        platform: 'WhatsApp',
+                        status: 'open',
+                        bot_enabled: false
+                    }, { onConflict: 'phone', ignoreDuplicates: false });
+                if (error) failed++; else success++;
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-upload"></i> Import Contacts';
+            msgEl.style.color = failed > 0 ? '#dc2626' : '#16a34a';
+            msgEl.textContent = `Done: ${success} imported${failed > 0 ? `, ${failed} failed` : ''}.`;
+            if (success > 0) {
+                loadConversations();
+                showToast(`${success} contacts imported successfully`, 'success');
+            }
+        }
+
+        /* =========================================================
         24-HOUR WINDOW + NOTIFICATION PERMISSION
         ========================================================= */
 
@@ -5732,6 +5945,188 @@ ${bodyHtml}
                 el.classList.remove('show');
                 setTimeout(() => el.remove(), 300);
             }, duration);
+        }
+
+        /* =========================================================
+        PANEL RESIZE HANDLES
+        ========================================================= */
+
+        (function initResizeHandles() {
+            // --- Chat list ↔ Chat window ---
+            const chatHandle = document.getElementById('chatListResizeHandle');
+            let chatDragging = false, chatStartX = 0, chatStartW = 0;
+            chatHandle.addEventListener('mousedown', e => {
+                chatDragging = true;
+                chatStartX = e.clientX;
+                chatStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chatlist-width') || '360');
+                chatHandle.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', e => {
+                if (!chatDragging) return;
+                const newW = Math.max(240, Math.min(600, chatStartW + (e.clientX - chatStartX)));
+                document.documentElement.style.setProperty('--chatlist-width', newW + 'px');
+            });
+            document.addEventListener('mouseup', () => {
+                if (!chatDragging) return;
+                chatDragging = false;
+                chatHandle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+
+            // --- Chat window ↔ Profile panel ---
+            const profileHandle = document.getElementById('resizeHandle');
+            if (!profileHandle) return;
+            let profDragging = false, profStartX = 0, profStartW = 0;
+            profileHandle.style.cursor = 'col-resize';
+            profileHandle.addEventListener('mousedown', e => {
+                profDragging = true;
+                profStartX = e.clientX;
+                profStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', e => {
+                if (!profDragging) return;
+                const newW = Math.max(200, Math.min(500, profStartW - (e.clientX - profStartX)));
+                document.documentElement.style.setProperty('--profile-width', newW + 'px');
+            });
+            document.addEventListener('mouseup', () => {
+                if (!profDragging) return;
+                profDragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        })();
+
+        /* =========================================================
+        MESSAGE POLLING FALLBACK (for when realtime drops)
+        ========================================================= */
+
+        let _lastMsgPollTime = null;
+
+        setInterval(async () => {
+            if (document.hidden || !currentChat) return;
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .eq('phone', currentChat.phone)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (!data || !data[0]) return;
+                const latestId = data[0].id;
+                if (_lastMsgPollTime === latestId) return; // no new message
+                _lastMsgPollTime = latestId;
+                // New message detected — do a silent full refresh
+                const container = document.getElementById('messages');
+                const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+                const savedScroll = container.scrollTop;
+                await fetchMessagesForChat();
+                if (!wasAtBottom) container.scrollTop = savedScroll;
+            } catch (_) {}
+        }, 10000);
+
+        /* =========================================================
+        CSV CONTACT IMPORT
+        ========================================================= */
+
+        let csvParsedContacts = [];
+
+        function openCsvImport() {
+            csvParsedContacts = [];
+            document.getElementById('csvFileInput').value = '';
+            document.getElementById('csvPreview').innerHTML = '';
+            document.getElementById('csvImportMsg').innerHTML = '';
+            document.getElementById('csvImportBtn').disabled = true;
+            document.getElementById('csvImportOverlay').classList.add('show');
+        }
+
+        function closeCsvImport() {
+            document.getElementById('csvImportOverlay').classList.remove('show');
+        }
+
+        document.getElementById('csvImportOverlay').addEventListener('click', e => {
+            if (e.target.id === 'csvImportOverlay') closeCsvImport();
+        });
+
+        document.getElementById('csvFileInput').addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">File has no data rows.</p>';
+                    return;
+                }
+                const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+                const nameIdx = header.indexOf('name');
+                const phoneIdx = header.indexOf('phone');
+                if (phoneIdx === -1) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">No "phone" column found. Required columns: name, phone</p>';
+                    return;
+                }
+                csvParsedContacts = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+                    const phone = cols[phoneIdx] || '';
+                    const name  = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
+                    if (phone) csvParsedContacts.push({ name, phone });
+                }
+                const preview = document.getElementById('csvPreview');
+                if (!csvParsedContacts.length) {
+                    preview.innerHTML = '<p style="color:#dc2626;font-size:13px;">No valid rows found.</p>';
+                    return;
+                }
+                let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="background:#f3f4f6;">
+                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Name</th>
+                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Phone</th>
+                    </tr></thead><tbody>`;
+                csvParsedContacts.slice(0, 20).forEach(c => {
+                    html += `<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.phone)}</td></tr>`;
+                });
+                if (csvParsedContacts.length > 20) {
+                    html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                }
+                html += '</tbody></table>';
+                preview.innerHTML = html;
+                document.getElementById('csvImportMsg').innerHTML = `<span style="color:#16a34a;">✓ ${csvParsedContacts.length} contact(s) ready to import</span>`;
+                document.getElementById('csvImportBtn').disabled = false;
+            };
+            reader.readAsText(file);
+        });
+
+        async function importCsvContacts() {
+            if (!csvParsedContacts.length) return;
+            const btn = document.getElementById('csvImportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing...';
+            const msg = document.getElementById('csvImportMsg');
+            let imported = 0, failed = 0;
+            for (const contact of csvParsedContacts) {
+                try {
+                    const phone = contact.phone.replace(/\s/g, '');
+                    const { error } = await supabaseClient
+                        .from('conversations')
+                        .upsert({
+                            phone: phone,
+                            name: contact.name,
+                            platform: 'WhatsApp',
+                            status: 'open',
+                            bot_enabled: true
+                        }, { onConflict: 'phone' });
+                    if (error) { failed++; } else { imported++; }
+                } catch (_) { failed++; }
+            }
+            msg.innerHTML = `<span style="color:#16a34a;">✓ ${imported} imported</span>${failed ? ` <span style="color:#dc2626;">✗ ${failed} failed</span>` : ''}`;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Done';
+            await loadConversations();
+            showToast(`${imported} contact(s) imported successfully`, 'success');
+            setTimeout(closeCsvImport, 1500);
         }
 
     </script>
