@@ -255,6 +255,13 @@
             transition: 0.25s ease;
         }
 
+        .main-layout.profile-hidden {
+
+            grid-template-columns:
+                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) 0 0;
+
+        }
+
         .main-layout.welcome-mode {
 
             grid-template-columns:
@@ -998,7 +1005,22 @@
             background: white;
             border-left: 1px solid #e5e7eb;
             overflow-y: auto;
-            display: none;
+        }
+
+        .profile-panel.hidden {
+
+            width: 0 !important;
+
+            min-width: 0 !important;
+
+            overflow: hidden;
+
+            border-left: none;
+
+            opacity: 0;
+
+            pointer-events: none;
+
         }
 
         .profile-top {
@@ -1724,7 +1746,9 @@
             color: #6b7280;
         }
 
-        .tmgr-header button:hover { color: #111827; }
+        .tmgr-header button:hover {
+            color: #111827;
+        }
 
         .tmgr-tabs {
             display: flex;
@@ -1752,7 +1776,9 @@
             border-bottom-color: #111827;
         }
 
-        .tmgr-tab:hover { color: #111827; }
+        .tmgr-tab:hover {
+            color: #111827;
+        }
 
         .tmgr-panel {
             display: none;
@@ -1761,7 +1787,9 @@
             padding: 22px 24px;
         }
 
-        .tmgr-panel.active { display: block; }
+        .tmgr-panel.active {
+            display: block;
+        }
 
         /* Template list table */
         .tmgr-toolbar {
@@ -1786,7 +1814,9 @@
             transition: 0.2s;
         }
 
-        .tmgr-refresh-btn:hover { background: #f3f4f6; }
+        .tmgr-refresh-btn:hover {
+            background: #f3f4f6;
+        }
 
         .tmgr-table {
             width: 100%;
@@ -1810,7 +1840,9 @@
             vertical-align: top;
         }
 
-        .tmgr-table tr:hover td { background: #f9fafb; }
+        .tmgr-table tr:hover td {
+            background: #f9fafb;
+        }
 
         .tmgr-status {
             display: inline-block;
@@ -1820,11 +1852,30 @@
             font-weight: 700;
         }
 
-        .tmgr-status-approved  { background: #dcfce7; color: #15803d; }
-        .tmgr-status-pending   { background: #fef9c3; color: #92400e; }
-        .tmgr-status-rejected  { background: #fee2e2; color: #991b1b; }
-        .tmgr-status-paused    { background: #f3f4f6; color: #6b7280; }
-        .tmgr-status-disabled  { background: #f3f4f6; color: #6b7280; }
+        .tmgr-status-approved {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tmgr-status-pending {
+            background: #fef9c3;
+            color: #92400e;
+        }
+
+        .tmgr-status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tmgr-status-paused {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .tmgr-status-disabled {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
 
         .tmgr-send-btn {
             height: 32px;
@@ -1839,8 +1890,14 @@
             transition: 0.2s;
         }
 
-        .tmgr-send-btn:hover { background: #1f2937; }
-        .tmgr-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .tmgr-send-btn:hover {
+            background: #1f2937;
+        }
+
+        .tmgr-send-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
 
         .tmgr-empty {
             text-align: center;
@@ -1859,7 +1916,9 @@
             margin-top: 16px;
         }
 
-        .tmgr-form label:first-child { margin-top: 0; }
+        .tmgr-form label:first-child {
+            margin-top: 0;
+        }
 
         .tmgr-form input[type="text"],
         .tmgr-form select,
@@ -1875,9 +1934,14 @@
 
         .tmgr-form input:focus,
         .tmgr-form select:focus,
-        .tmgr-form textarea:focus { border-color: #2563eb; }
+        .tmgr-form textarea:focus {
+            border-color: #2563eb;
+        }
 
-        .tmgr-form textarea { resize: vertical; min-height: 100px; }
+        .tmgr-form textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
 
         .tmgr-form-row {
             display: grid;
@@ -1907,7 +1971,9 @@
             font-weight: 600;
         }
 
-        .tmgr-samples-box-body { padding: 12px 16px; }
+        .tmgr-samples-box-body {
+            padding: 12px 16px;
+        }
 
         .tmgr-samples-box input {
             margin-bottom: 8px;
@@ -1979,7 +2045,10 @@
             transition: 0.2s;
         }
 
-        .tmgr-add-btn:hover { border-color: #2563eb; color: #2563eb; }
+        .tmgr-add-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+        }
 
         .tmgr-submit-btn {
             width: 100%;
@@ -1995,8 +2064,14 @@
             transition: 0.2s;
         }
 
-        .tmgr-submit-btn:hover { background: #1f2937; }
-        .tmgr-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tmgr-submit-btn:hover {
+            background: #1f2937;
+        }
+
+        .tmgr-submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         .tmgr-msg {
             margin-top: 14px;
@@ -2006,8 +2081,15 @@
             display: none;
         }
 
-        .tmgr-msg.success { background: #dcfce7; color: #15803d; }
-        .tmgr-msg.error   { background: #fee2e2; color: #991b1b; }
+        .tmgr-msg.success {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tmgr-msg.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
         /* Meta token config strip */
         .tmgr-token-strip {
@@ -2044,7 +2126,6 @@
             font-weight: 600;
             cursor: pointer;
         }
-
     </style>
 
 </head>
@@ -2212,7 +2293,7 @@
 
     <!-- MAIN -->
 
-    <div class="main-layout" id="mainLayout">
+    <div class="main-layout profile-hidden" id="mainLayout">
 
         <!-- SIDEBAR -->
 
@@ -2314,41 +2395,53 @@
 
                 <div class="tabs-row">
 
-                    <!-- FILTER -->
+                    <div style="display:flex; gap:8px; align-items:center;">
 
-                    <div class="filter-wrap">
+                        <!-- FILTER -->
 
-                        <button class="filter-btn" onclick="toggleChannelDropdown(event)">
+                        <div class="filter-wrap">
 
-                            <i class="fa-solid fa-filter"></i>
+                            <button class="filter-btn" onclick="toggleChannelDropdown(event)">
 
-                        </button>
+                                <i class="fa-solid fa-filter"></i>
 
-                        <div class="channel-dropdown" id="channelDropdown">
+                            </button>
 
-                            <div class="channel-option active">
+                            <div class="channel-dropdown" id="channelDropdown">
 
-                                <i class="fa-brands fa-whatsapp"></i>
+                                <div class="channel-option active">
 
-                                WhatsApp
+                                    <i class="fa-brands fa-whatsapp"></i>
+
+                                    WhatsApp
+
+                                </div>
+
+                                <div class="channel-option">
+
+                                    <i class="fa-brands fa-instagram"></i>
+
+                                    Instagram
+
+                                </div>
+
+                                <div class="channel-option">
+
+                                    <i class="fa-brands fa-facebook-messenger"></i>
+
+                                    Messenger
+
+                                </div>
 
                             </div>
 
-                            <div class="channel-option">
+                        </div>
 
-                                <i class="fa-brands fa-instagram"></i>
+                        <!-- BACKUP -->
 
-                                Instagram
+                        <div class="icon-btn" onclick="backupChats()" title="Backup Chats">
 
-                            </div>
-
-                            <div class="channel-option">
-
-                                <i class="fa-brands fa-facebook-messenger"></i>
-
-                                Messenger
-
-                            </div>
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
 
                         </div>
 
@@ -2360,13 +2453,15 @@
 
                 <div class="chat-list-actions">
 
-                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()" title="Initiate a new conversation">
+                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()"
+                        title="Initiate a new conversation">
 
                         <i class="fa-solid fa-plus"></i> New Chat
 
                     </button>
 
-                    <button class="chat-list-action-btn" onclick="openBroadcastModal()" title="Send a template to multiple contacts">
+                    <button class="chat-list-action-btn" onclick="openBroadcastModal()"
+                        title="Send a template to multiple contacts">
 
                         <i class="fa-solid fa-bullhorn"></i> Broadcast
 
@@ -2427,6 +2522,21 @@
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
 
                         <i class="fa-solid fa-star"></i>
+
+                    </div>
+                    <!-- EXPORT CHAT -->
+
+                    <div class="icon-btn" onclick="exportCurrentChat()" title="Export Chat">
+
+                        <i class="fa-solid fa-file-export"></i>
+
+                    </div>
+
+                    <!-- PROFILE TOGGLE -->
+
+                    <div class="icon-btn" onclick="toggleProfilePanel()" title="Profile Details">
+
+                        <i class="fa-solid fa-circle-info"></i>
 
                     </div>
 
@@ -2522,7 +2632,7 @@
 
         <!-- PROFILE -->
 
-        <div class="profile-panel" id="profilePanel">
+        <div class="profile-panel hidden" id="profilePanel">
 
             <div class="profile-top">
 
@@ -2871,7 +2981,8 @@
             <div class="modal-body">
 
                 <span class="modal-label">Phone Number <span style="color:#ef4444;">*</span></span>
-                <input type="text" class="modal-input" id="newChatPhone" placeholder="+628123456789 (include country code)">
+                <input type="text" class="modal-input" id="newChatPhone"
+                    placeholder="+628123456789 (include country code)">
 
                 <span class="modal-label">Contact Name (optional)</span>
                 <input type="text" class="modal-input" id="newChatName" placeholder="e.g. Budi Santoso">
@@ -3021,7 +3132,8 @@
                 <div class="tmgr-form" id="tmgrForm">
 
                     <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">
-                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>, <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
+                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>,
+                        <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
                     </p>
 
                     <div class="tmgr-form-row">
@@ -3055,11 +3167,15 @@
                     <label>Header <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <input type="text" id="tmgrHeader" placeholder="e.g. Ulink Assist Update">
 
-                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;… for variables</span></label>
-                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated." oninput="tmgrUpdateSamples()"></textarea>
+                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;,
+                            &#123;&#123;2&#125;&#125;… for variables</span></label>
+                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated."
+                        oninput="tmgrUpdateSamples()"></textarea>
 
                     <div class="tmgr-samples-box" id="tmgrSamplesBox">
-                        <div class="tmgr-samples-box-head">Variable Samples <span style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for review</span></div>
+                        <div class="tmgr-samples-box-head">Variable Samples <span
+                                style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for
+                                review</span></div>
                         <div class="tmgr-samples-box-body" id="tmgrSamplesInputs"></div>
                     </div>
 
@@ -3068,14 +3184,19 @@
 
                     <label>Buttons <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <div class="tmgr-btn-type-row">
-                        <label><input type="radio" name="tmgrBtnType" value="none" checked onchange="tmgrUpdateBtnSection()"> None</label>
-                        <label><input type="radio" name="tmgrBtnType" value="quick_reply" onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max 3)</small></label>
-                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL / Phone <small style="color:#6b7280;">(CTA)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="none" checked
+                                onchange="tmgrUpdateBtnSection()"> None</label>
+                        <label><input type="radio" name="tmgrBtnType" value="quick_reply"
+                                onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max
+                                3)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL
+                            / Phone <small style="color:#6b7280;">(CTA)</small></label>
                     </div>
 
                     <div id="tmgrBtnSection" style="display:none;">
                         <div id="tmgrBtnList"></div>
-                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add Button</button>
+                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add
+                            Button</button>
                     </div>
 
                     <div class="tmgr-msg" id="tmgrCreateMsg"></div>
@@ -3099,10 +3220,10 @@
 
         const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
-        const META_WABA_ID    = "1328662202356452";
-        const META_PHONE_ID   = "1112140058650260";
-        const META_GRAPH_URL  = "https://graph.facebook.com/v19.0";
-        let   META_TOKEN      = localStorage.getItem("meta_token") || "";
+        const META_WABA_ID = "1328662202356452";
+        const META_PHONE_ID = "1112140058650260";
+        const META_GRAPH_URL = "https://graph.facebook.com/v19.0";
+        let META_TOKEN = localStorage.getItem("meta_token") || "";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -3534,6 +3655,119 @@
                 .eq('id', currentChat.id);
 
             renderChats(activeFilter);
+
+        }
+
+        // =========================================================
+        // EXPORT CURRENT CHAT
+        // =========================================================
+
+        async function exportCurrentChat() {
+
+            if (!currentChat) {
+
+                alert("Please open a conversation first.");
+
+                return;
+
+            }
+
+            try {
+
+                const response = await fetch(
+
+                    "https://ulink.app.n8n.cloud/webhook/export-chat",
+
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type": "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            conversation_id: currentChat.id,
+
+                            phone: currentChat.phone,
+
+                            name: currentChat.name
+
+                        })
+
+                    }
+
+                );
+
+                const data = await response.json();
+
+                if (data.download_url) {
+
+                    window.open(
+                        data.download_url,
+                        "_blank"
+                    );
+
+                } else {
+
+                    alert("Export completed.");
+
+                }
+
+            } catch (err) {
+
+                console.error(err);
+
+                alert("Failed to export chat.");
+
+            }
+
+        }
+
+        // =========================================================
+        // BACKUP ALL CHATS
+        // =========================================================
+
+        async function backupChats() {
+
+            const confirmed = confirm(
+
+                "Backup all chats now?"
+
+            );
+
+            if (!confirmed) return;
+
+            try {
+
+                await fetch(
+
+                    "https://ulink.app.n8n.cloud/webhook/backup-chats",
+
+                    {
+
+                        method: "POST"
+
+                    }
+
+                );
+
+                alert(
+
+                    "Backup started successfully."
+
+                );
+
+            } catch (err) {
+
+                console.error(err);
+
+                alert("Backup failed.");
+
+            }
 
         }
 
@@ -4675,117 +4909,117 @@ ${msg.message || ''}
         ========================================================= */
 
         const PHONE_COUNTRY_MAP = [
-            ["1",    "United States / Canada"],
-            ["44",   "United Kingdom"],
-            ["60",   "Malaysia"],
-            ["61",   "Australia"],
-            ["62",   "Indonesia"],
-            ["63",   "Philippines"],
-            ["65",   "Singapore"],
-            ["66",   "Thailand"],
-            ["81",   "Japan"],
-            ["82",   "South Korea"],
-            ["84",   "Vietnam"],
-            ["86",   "China"],
-            ["90",   "Turkey"],
-            ["91",   "India"],
-            ["92",   "Pakistan"],
-            ["94",   "Sri Lanka"],
-            ["95",   "Myanmar"],
-            ["966",  "Saudi Arabia"],
-            ["971",  "UAE"],
-            ["972",  "Israel"],
-            ["973",  "Bahrain"],
-            ["974",  "Qatar"],
-            ["965",  "Kuwait"],
-            ["968",  "Oman"],
-            ["961",  "Lebanon"],
-            ["962",  "Jordan"],
-            ["963",  "Syria"],
-            ["964",  "Iraq"],
-            ["20",   "Egypt"],
-            ["27",   "South Africa"],
-            ["234",  "Nigeria"],
-            ["254",  "Kenya"],
-            ["255",  "Tanzania"],
-            ["256",  "Uganda"],
-            ["49",   "Germany"],
-            ["33",   "France"],
-            ["34",   "Spain"],
-            ["39",   "Italy"],
-            ["31",   "Netherlands"],
-            ["46",   "Sweden"],
-            ["47",   "Norway"],
-            ["45",   "Denmark"],
-            ["358",  "Finland"],
-            ["7",    "Russia"],
-            ["55",   "Brazil"],
-            ["52",   "Mexico"],
-            ["57",   "Colombia"],
-            ["51",   "Peru"],
-            ["54",   "Argentina"],
-            ["64",   "New Zealand"],
-            ["880",  "Bangladesh"],
-            ["977",  "Nepal"],
-            ["98",   "Iran"],
-            ["93",   "Afghanistan"],
+            ["1", "United States / Canada"],
+            ["44", "United Kingdom"],
+            ["60", "Malaysia"],
+            ["61", "Australia"],
+            ["62", "Indonesia"],
+            ["63", "Philippines"],
+            ["65", "Singapore"],
+            ["66", "Thailand"],
+            ["81", "Japan"],
+            ["82", "South Korea"],
+            ["84", "Vietnam"],
+            ["86", "China"],
+            ["90", "Turkey"],
+            ["91", "India"],
+            ["92", "Pakistan"],
+            ["94", "Sri Lanka"],
+            ["95", "Myanmar"],
+            ["966", "Saudi Arabia"],
+            ["971", "UAE"],
+            ["972", "Israel"],
+            ["973", "Bahrain"],
+            ["974", "Qatar"],
+            ["965", "Kuwait"],
+            ["968", "Oman"],
+            ["961", "Lebanon"],
+            ["962", "Jordan"],
+            ["963", "Syria"],
+            ["964", "Iraq"],
+            ["20", "Egypt"],
+            ["27", "South Africa"],
+            ["234", "Nigeria"],
+            ["254", "Kenya"],
+            ["255", "Tanzania"],
+            ["256", "Uganda"],
+            ["49", "Germany"],
+            ["33", "France"],
+            ["34", "Spain"],
+            ["39", "Italy"],
+            ["31", "Netherlands"],
+            ["46", "Sweden"],
+            ["47", "Norway"],
+            ["45", "Denmark"],
+            ["358", "Finland"],
+            ["7", "Russia"],
+            ["55", "Brazil"],
+            ["52", "Mexico"],
+            ["57", "Colombia"],
+            ["51", "Peru"],
+            ["54", "Argentina"],
+            ["64", "New Zealand"],
+            ["880", "Bangladesh"],
+            ["977", "Nepal"],
+            ["98", "Iran"],
+            ["93", "Afghanistan"],
         ];
 
         const COUNTRY_LANGUAGE_MAP = {
-            "Indonesia":             "Bahasa Indonesia",
-            "Malaysia":              "Bahasa Melayu",
-            "Singapore":             "English",
-            "Philippines":           "Filipino / English",
-            "Thailand":              "Thai",
-            "Vietnam":               "Vietnamese",
-            "Myanmar":               "Burmese",
-            "Japan":                 "Japanese",
-            "South Korea":           "Korean",
-            "China":                 "Mandarin",
-            "India":                 "Hindi / English",
-            "Pakistan":              "Urdu",
-            "Bangladesh":            "Bengali",
-            "Sri Lanka":             "Sinhala / Tamil",
-            "Nepal":                 "Nepali",
-            "Saudi Arabia":          "Arabic",
-            "UAE":                   "Arabic",
-            "Bahrain":               "Arabic",
-            "Qatar":                 "Arabic",
-            "Kuwait":                "Arabic",
-            "Oman":                  "Arabic",
-            "Lebanon":               "Arabic",
-            "Jordan":                "Arabic",
-            "Syria":                 "Arabic",
-            "Iraq":                  "Arabic",
-            "Iran":                  "Persian",
-            "Turkey":                "Turkish",
-            "Afghanistan":           "Dari / Pashto",
-            "Egypt":                 "Arabic",
-            "Nigeria":               "English",
-            "South Africa":          "English",
-            "Kenya":                 "Swahili / English",
-            "Tanzania":              "Swahili",
-            "Uganda":                "English",
-            "Germany":               "German",
-            "France":                "French",
-            "Spain":                 "Spanish",
-            "Italy":                 "Italian",
-            "Netherlands":           "Dutch",
-            "Sweden":                "Swedish",
-            "Norway":                "Norwegian",
-            "Denmark":               "Danish",
-            "Finland":               "Finnish",
-            "Russia":                "Russian",
-            "Brazil":                "Portuguese",
-            "Mexico":                "Spanish",
-            "Colombia":              "Spanish",
-            "Peru":                  "Spanish",
-            "Argentina":             "Spanish",
-            "United States / Canada":"English",
-            "United Kingdom":        "English",
-            "Australia":             "English",
-            "New Zealand":           "English",
-            "Israel":                "Hebrew",
+            "Indonesia": "Bahasa Indonesia",
+            "Malaysia": "Bahasa Melayu",
+            "Singapore": "English",
+            "Philippines": "Filipino / English",
+            "Thailand": "Thai",
+            "Vietnam": "Vietnamese",
+            "Myanmar": "Burmese",
+            "Japan": "Japanese",
+            "South Korea": "Korean",
+            "China": "Mandarin",
+            "India": "Hindi / English",
+            "Pakistan": "Urdu",
+            "Bangladesh": "Bengali",
+            "Sri Lanka": "Sinhala / Tamil",
+            "Nepal": "Nepali",
+            "Saudi Arabia": "Arabic",
+            "UAE": "Arabic",
+            "Bahrain": "Arabic",
+            "Qatar": "Arabic",
+            "Kuwait": "Arabic",
+            "Oman": "Arabic",
+            "Lebanon": "Arabic",
+            "Jordan": "Arabic",
+            "Syria": "Arabic",
+            "Iraq": "Arabic",
+            "Iran": "Persian",
+            "Turkey": "Turkish",
+            "Afghanistan": "Dari / Pashto",
+            "Egypt": "Arabic",
+            "Nigeria": "English",
+            "South Africa": "English",
+            "Kenya": "Swahili / English",
+            "Tanzania": "Swahili",
+            "Uganda": "English",
+            "Germany": "German",
+            "France": "French",
+            "Spain": "Spanish",
+            "Italy": "Italian",
+            "Netherlands": "Dutch",
+            "Sweden": "Swedish",
+            "Norway": "Norwegian",
+            "Denmark": "Danish",
+            "Finland": "Finnish",
+            "Russia": "Russian",
+            "Brazil": "Portuguese",
+            "Mexico": "Spanish",
+            "Colombia": "Spanish",
+            "Peru": "Spanish",
+            "Argentina": "Spanish",
+            "United States / Canada": "English",
+            "United Kingdom": "English",
+            "Australia": "English",
+            "New Zealand": "English",
+            "Israel": "Hebrew",
         };
 
         function detectCountryFromPhone(phone) {
@@ -4821,13 +5055,13 @@ ${msg.message || ''}
             const t = text.toLowerCase();
 
             const patterns = [
-                { lang: "Bahasa Indonesia", words: ["saya","anda","tidak","dengan","untuk","yang","adalah","bisa","harga","tolong","terima kasih","selamat","obat","sakit","dokter","rumah sakit"] },
-                { lang: "Bahasa Melayu",    words: ["awak","boleh","nak","kenapa","macam","mana","saya","terima kasih","hospital","doktor"] },
-                { lang: "Thai",             words: ["ครับ","ค่ะ","ขอบคุณ","สวัสดี"] },
-                { lang: "Arabic",           words: ["الحمد","شكرا","مرحبا","كيف"] },
-                { lang: "Japanese",         words: ["です","ます","ください","ありがとう"] },
-                { lang: "Vietnamese",       words: ["tôi","bạn","cảm ơn","xin"] },
-                { lang: "Mandarin",         words: ["谢谢","你好","我","是"] }
+                { lang: "Bahasa Indonesia", words: ["saya", "anda", "tidak", "dengan", "untuk", "yang", "adalah", "bisa", "harga", "tolong", "terima kasih", "selamat", "obat", "sakit", "dokter", "rumah sakit"] },
+                { lang: "Bahasa Melayu", words: ["awak", "boleh", "nak", "kenapa", "macam", "mana", "saya", "terima kasih", "hospital", "doktor"] },
+                { lang: "Thai", words: ["ครับ", "ค่ะ", "ขอบคุณ", "สวัสดี"] },
+                { lang: "Arabic", words: ["الحمد", "شكرا", "مرحبا", "كيف"] },
+                { lang: "Japanese", words: ["です", "ます", "ください", "ありがとう"] },
+                { lang: "Vietnamese", words: ["tôi", "bạn", "cảm ơn", "xin"] },
+                { lang: "Mandarin", words: ["谢谢", "你好", "我", "是"] }
             ];
 
             for (const p of patterns) {
@@ -4914,9 +5148,9 @@ ${msg.message || ''}
             templateContext = context;
 
             const contextMap = {
-                picker:    { list: 'templateList',         vars: 'templateVariables',  inputs: 'variableInputs' },
-                newchat:   { list: 'newChatTemplateList',  vars: 'newChatVariables',   inputs: 'newChatVariableInputs' },
-                broadcast: { list: 'broadcastTemplateList',vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
+                picker: { list: 'templateList', vars: 'templateVariables', inputs: 'variableInputs' },
+                newchat: { list: 'newChatTemplateList', vars: 'newChatVariables', inputs: 'newChatVariableInputs' },
+                broadcast: { list: 'broadcastTemplateList', vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
             };
 
             const ids = contextMap[context];
@@ -5196,7 +5430,7 @@ ${msg.message || ''}
         ========================================================= */
 
         let tmgrButtonCount = 0;
-        let tmgrCachedAll   = []; // all templates from Meta (all statuses)
+        let tmgrCachedAll = []; // all templates from Meta (all statuses)
 
         function saveMetaToken() {
             const val = document.getElementById('tmgrTokenInput').value.trim();
@@ -5296,8 +5530,8 @@ ${msg.message || ''}
             let rows = tmgrCachedAll.map((t, i) => {
                 const bodyComp = (t.components || []).find(c => c.type === 'BODY');
                 const bodyText = bodyComp ? bodyComp.text : '—';
-                const preview  = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
-                const status   = (t.status || 'PENDING').toLowerCase();
+                const preview = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
+                const status = (t.status || 'PENDING').toLowerCase();
                 return `<tr>
                     <td><strong>${escHtml(t.name)}</strong><br><small style="color:#9ca3af;">${escHtml(t.category || '')}</small></td>
                     <td style="color:#6b7280;">${escHtml(preview)}</td>
@@ -5364,7 +5598,7 @@ ${msg.message || ''}
             let match, max = 0;
             while ((match = regex.exec(body)) !== null) max = Math.max(max, parseInt(match[1], 10));
 
-            const box    = document.getElementById('tmgrSamplesBox');
+            const box = document.getElementById('tmgrSamplesBox');
             const inputs = document.getElementById('tmgrSamplesInputs');
             inputs.innerHTML = '';
 
@@ -5373,7 +5607,7 @@ ${msg.message || ''}
             for (let i = 1; i <= max; i++) {
                 const inp = document.createElement('input');
                 inp.type = 'text';
-                inp.id   = `tmgrSample_${i}`;
+                inp.id = `tmgrSample_${i}`;
                 inp.placeholder = `Sample for {{${i}}}`;
                 inp.style.marginBottom = '8px';
                 inputs.appendChild(inp);
@@ -5382,7 +5616,7 @@ ${msg.message || ''}
 
         function tmgrUpdateBtnSection() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const sec  = document.getElementById('tmgrBtnSection');
+            const sec = document.getElementById('tmgrBtnSection');
             sec.style.display = type === 'none' ? 'none' : 'block';
             if (type === 'none') {
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -5392,7 +5626,7 @@ ${msg.message || ''}
 
         function tmgrAddButton() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const max  = type === 'quick_reply' ? 3 : 2;
+            const max = type === 'quick_reply' ? 3 : 2;
             if (tmgrButtonCount >= max) { alert(`Max ${max} buttons allowed.`); return; }
             tmgrButtonCount++;
             const id = `tmgrBtn_${tmgrButtonCount}`;
@@ -5437,13 +5671,13 @@ ${msg.message || ''}
                 return;
             }
 
-            const name     = document.getElementById('tmgrName').value.trim();
-            const lang     = document.getElementById('tmgrLang').value;
+            const name = document.getElementById('tmgrName').value.trim();
+            const lang = document.getElementById('tmgrLang').value;
             const category = document.getElementById('tmgrCategory').value;
-            const header   = document.getElementById('tmgrHeader').value.trim();
-            const body     = document.getElementById('tmgrBody').value.trim();
-            const footer   = document.getElementById('tmgrFooter').value.trim();
-            const btnType  = document.querySelector('input[name="tmgrBtnType"]:checked').value;
+            const header = document.getElementById('tmgrHeader').value.trim();
+            const body = document.getElementById('tmgrBody').value.trim();
+            const footer = document.getElementById('tmgrFooter').value.trim();
+            const btnType = document.querySelector('input[name="tmgrBtnType"]:checked').value;
 
             if (!name || !body) { showTmgrMsg('Template Name and Body are required.', 'error'); return; }
             if (!/^[a-z0-9_]+$/.test(name)) { showTmgrMsg('Name must be lowercase letters, numbers and underscores only.', 'error'); return; }
@@ -5470,7 +5704,7 @@ ${msg.message || ''}
                 } else {
                     buttons = Array.from(btnEls).map(el => {
                         const actionType = el.querySelector('.tmgr-btn-action-type').value;
-                        const actionVal  = el.querySelector('.tmgr-btn-action-value').value;
+                        const actionVal = el.querySelector('.tmgr-btn-action-value').value;
                         const btn = { type: actionType === 'url' ? 'URL' : 'PHONE_NUMBER', text: el.querySelector('.tmgr-btn-text').value };
                         if (actionType === 'url') btn.url = actionVal;
                         else btn.phone_number = actionVal;
@@ -5504,8 +5738,8 @@ ${msg.message || ''}
                 if (result.error) throw new Error(result.error.message);
 
                 showTmgrMsg(`✅ Template "${name}" submitted! Status: ${result.status || 'PENDING'}`, 'success');
-                document.getElementById('tmgrName').value  = '';
-                document.getElementById('tmgrBody').value  = '';
+                document.getElementById('tmgrName').value = '';
+                document.getElementById('tmgrBody').value = '';
                 document.getElementById('tmgrHeader').value = '';
                 document.getElementById('tmgrFooter').value = '';
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -5526,6 +5760,30 @@ ${msg.message || ''}
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[m]));
         }
+
+        // =========================================================
+        // PROFILE PANEL TOGGLE
+        // =========================================================
+        function toggleProfilePanel() {
+
+            const panel =
+                document.getElementById(
+                    "profilePanel"
+                );
+
+            const layout =
+                document.getElementById(
+                    "mainLayout"
+                );
+
+            panel.classList.toggle("hidden");
+
+            layout.classList.toggle(
+                "profile-hidden"
+            );
+
+        }
+
 
     </script>
 
