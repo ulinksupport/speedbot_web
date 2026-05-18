@@ -3995,6 +3995,37 @@
         let chats = [];
         let activeFilter = 'all';
 
+        function normalizePhone(phone) {
+            return String(phone || "").replace(/\D/g, "");
+        }
+
+        function isSameConversation(chat, msg) {
+            if (!chat || !msg) return false;
+
+            if (
+                msg.conversation_id &&
+                chat.id &&
+                String(msg.conversation_id) === String(chat.id)
+            ) {
+                return true;
+            }
+
+            return normalizePhone(chat.phone) === normalizePhone(msg.phone);
+        }
+
+        function getMessageDomId(msg) {
+            return msg.id || `${msg.phone || "unknown"}-${msg.created_at || Date.now()}-${msg.sender || "message"}`;
+        }
+
+        function moveChatToTop(chat) {
+            chats = [
+                chat,
+                ...chats.filter(c => c.id !== chat.id && normalizePhone(c.phone) !== normalizePhone(chat.phone))
+            ];
+
+            renderChats(activeFilter);
+        }
+
         async function loadConversations() {
             const { data, error } = await supabaseClient
                 .from('conversations')
@@ -4032,7 +4063,8 @@
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     messages: [],
-                    unread_count: 0
+                    unread_count: 0,
+                    message_count: conv.message_count || 0
                 };
             });
 
@@ -4179,10 +4211,129 @@
             existing.querySelector(".chat-time").innerText =
                 chat.time;
 
+            const previewRow =
+                existing.querySelector(".chat-preview").parentElement;
+
+            const unreadBadge =
+                existing.querySelector(".unread-badge");
+
+            if (chat.unread_count > 0) {
+
+                if (unreadBadge) {
+
+                    unreadBadge.innerText =
+                        chat.unread_count;
+
+                } else {
+
+                    const badge =
+                        document.createElement("div");
+
+                    badge.className =
+                        "unread-badge";
+
+                    badge.innerText =
+                        chat.unread_count;
+
+                    previewRow.appendChild(badge);
+
+                }
+
+            } else if (unreadBadge) {
+
+                unreadBadge.remove();
+
+            }
+
             const container =
                 document.getElementById("chatItems");
 
             container.prepend(existing);
+
+        }
+
+        function syncRealtimeMessage(msg) {
+
+            let existingChat =
+                chats.find(c => isSameConversation(c, msg));
+
+            if (!existingChat) {
+
+                existingChat = {
+
+                    id: msg.conversation_id || crypto.randomUUID(),
+
+                    phone: msg.phone,
+
+                    name: msg.phone,
+
+                    avatar:
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.phone || 'User')}&background=random`,
+
+                    preview: msg.message || '',
+
+                    time:
+                        formatSGT(msg.created_at),
+
+                    platform: 'WhatsApp',
+
+                    platformType: 'whatsapp',
+
+                    type: 'myinbox',
+
+                    messages: [],
+
+                    unread_count: 0,
+
+                    message_count: 0,
+
+                    country: "Unknown",
+
+                    language: "Unknown"
+
+                };
+
+                autoDetectChatMeta(existingChat);
+
+            }
+
+            const isOpenChat =
+                isSameConversation(currentChat, msg);
+
+            existingChat.preview =
+                msg.message || '';
+
+            existingChat.time =
+                formatSGT(msg.created_at);
+
+            existingChat.message_count =
+                (existingChat.message_count || 0) + 1;
+
+            if (
+                msg.sender === "incoming" &&
+                !isOpenChat
+            ) {
+
+                existingChat.unread_count =
+                    (existingChat.unread_count || 0) + 1;
+
+            }
+
+            moveChatToTop(existingChat);
+
+            updateSidebarCounts();
+
+            if (isOpenChat) {
+
+                currentChat = existingChat;
+
+                currentChat.unread_count = 0;
+
+                appendMessage(msg);
+
+                updateSingleConversationUI(currentChat);
+
+            }
 
         }
 
@@ -4344,6 +4495,11 @@
 
             });
 
+            currentChat.message_count =
+                data.length;
+
+            updateSingleConversationUI(currentChat);
+
         }
 
         /* =========================================================
@@ -4374,106 +4530,7 @@
 
                         (payload) => {
 
-                            const msg = payload.new;
-
-                            let existingChat =
-                                chats.find(c => c.phone === msg.phone);
-
-                            if (!existingChat) {
-
-                                existingChat = {
-
-                                    id: crypto.randomUUID(),
-
-                                    phone: msg.phone,
-
-                                    name: msg.phone,
-
-                                    avatar:
-                                        `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.phone)}&background=random`,
-
-                                    preview: msg.message,
-
-                                    time:
-                                        formatSGT(msg.created_at),
-
-                                    platform: 'WhatsApp',
-
-                                    platformType: 'whatsapp',
-
-                                    type: 'myinbox',
-
-                                    messages: [],
-
-                                    unread_count: 1,
-
-                                    country: "Unknown",
-
-                                    language: "Unknown"
-
-                                };
-
-                                autoDetectChatMeta(existingChat);
-
-                                chats.unshift(existingChat);
-
-                                renderChats(activeFilter);
-
-                            }
-
-                            existingChat.preview =
-                                msg.message || '';
-
-                            if (
-                                msg.sender === "incoming"
-                            ) {
-
-                                if (
-                                    !currentChat ||
-                                    currentChat.phone !== msg.phone
-                                ) {
-
-                                    existingChat.unread_count =
-                                        (existingChat.unread_count || 0) + 1;
-
-                                }
-
-                            }
-
-                            existingChat.time =
-                                formatSGT(msg.created_at);
-
-                            chats = [
-                                existingChat,
-                                ...chats.filter(c => c.phone !== msg.phone)
-                            ];
-
-                            const existingElement =
-                                document.querySelector(
-                                    `[data-chat-id="${existingChat.id}"]`
-                                );
-
-                            if (existingElement) {
-
-                                const container =
-                                    document.getElementById("chatItems");
-
-                                container.prepend(existingElement);
-
-                            }
-
-                            updateSingleConversationUI(existingChat);
-
-                            updateSidebarCounts();
-
-                            if (
-                                currentChat &&
-                                currentChat.phone === msg.phone
-                            ) {
-
-                                appendMessage(msg);
-
-                            }
+                            syncRealtimeMessage(payload.new);
 
                         }
                     )
@@ -4495,7 +4552,27 @@
                                 currentChat.phone === msg.phone
                             ) {
 
-                                fetchMessagesForChat();
+                                const existingMessage =
+                                    document.querySelector(
+                                        `[data-message-id="${msg.id}"]`
+                                    );
+
+                                if (existingMessage) {
+
+                                    const timeDiv =
+                                        existingMessage.querySelector(
+                                            ".message-time"
+                                        );
+
+                                    if (timeDiv) {
+
+                                        timeDiv.innerText =
+                                            msg.created_at_sgt ||
+                                            formatSGT(msg.created_at);
+
+                                    }
+
+                                }
 
                             }
 
@@ -4582,6 +4659,16 @@
             const messagesContainer =
                 document.getElementById("messages");
 
+            // PREVENT DUPLICATE MESSAGE
+
+            if (
+                document.querySelector(
+                    `[data-message-id="${msg.id}"]`
+                )
+            ) {
+                return;
+            }
+
             let senderClass = "incoming";
 
             if (msg.sender === "incoming") {
@@ -4612,6 +4699,11 @@
             const div =
                 document.createElement("div");
 
+            div.setAttribute(
+                "data-message-id",
+                msg.id
+            );
+
             div.className =
                 `message ${senderClass}`;
 
@@ -4639,6 +4731,10 @@ ${label}
 ${msg.message || ''}
 <div class="message-time">${time}</div>
 `;
+
+            // FORCE LIVE DOM UPDATE
+
+            messagesContainer.offsetHeight;
 
             messagesContainer.appendChild(div);
 
