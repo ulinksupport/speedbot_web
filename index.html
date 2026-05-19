@@ -1970,6 +1970,81 @@
             font-size: 14px;
         }
 
+        /* ── Analytics Tab ─────────────────────────── */
+        .analytics-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .analytics-toolbar span { font-size: 13px; color: #6b7280; }
+        .analytics-overview {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .analytics-stat-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        .analytics-stat-num {
+            font-size: 26px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .analytics-stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .analytics-stat-card.green  .analytics-stat-num { color: #16a34a; }
+        .analytics-stat-card.red    .analytics-stat-num { color: #dc2626; }
+        .analytics-stat-card.blue   .analytics-stat-num { color: #2563eb; }
+        .analytics-stat-card.amber  .analytics-stat-num { color: #d97706; }
+        .analytics-broadcast-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .analytics-broadcast-hdr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 16px;
+            background: #f9fafb;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .analytics-broadcast-hdr:hover { background: #f3f4f6; }
+        .analytics-broadcast-hdr strong { font-size: 14px; }
+        .analytics-broadcast-hdr .ab-meta { color: #6b7280; font-size: 12px; margin-top: 2px; }
+        .analytics-broadcast-stats {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            padding: 12px 16px;
+            gap: 6px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .analytics-mini-stat { text-align: center; }
+        .analytics-mini-num  { font-size: 20px; font-weight: 700; }
+        .analytics-mini-lbl  { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+        .analytics-mini-stat.green  .analytics-mini-num { color: #16a34a; }
+        .analytics-mini-stat.red    .analytics-mini-num { color: #dc2626; }
+        .analytics-mini-stat.blue   .analytics-mini-num { color: #2563eb; }
+        .analytics-mini-stat.amber  .analytics-mini-num { color: #d97706; }
+        .analytics-empty {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
         /* 24-hour window expired banner */
         #windowExpiredBanner {
             width: 100%;
@@ -3269,6 +3344,7 @@
             <div class="tmgr-tabs">
                 <button class="tmgr-tab active" onclick="switchTmgrTab('list', this)">My Templates</button>
                 <button class="tmgr-tab" onclick="switchTmgrTab('create', this)">+ Create Template</button>
+                <button class="tmgr-tab" onclick="switchTmgrTab('analytics', this)">📊 Analytics</button>
             </div>
 
             <!-- TAB: LIST -->
@@ -3356,6 +3432,47 @@
                         <i class="fa-solid fa-paper-plane"></i> Submit for Approval
                     </button>
 
+                </div>
+
+            </div>
+
+            <!-- TAB: ANALYTICS -->
+            <div class="tmgr-panel" id="tmgrPanelAnalytics">
+
+                <div class="analytics-toolbar">
+                    <span id="analyticsStatus">Loading…</span>
+                    <button class="tmgr-refresh-btn" onclick="loadBroadcastAnalytics()">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <!-- Totals overview row -->
+                <div class="analytics-overview" id="analyticsOverview">
+                    <div class="analytics-stat-card">
+                        <div class="analytics-stat-num" id="atotal">—</div>
+                        <div class="analytics-stat-label">Total Sent</div>
+                    </div>
+                    <div class="analytics-stat-card green">
+                        <div class="analytics-stat-num" id="asent">—</div>
+                        <div class="analytics-stat-label">✅ Successful</div>
+                    </div>
+                    <div class="analytics-stat-card red">
+                        <div class="analytics-stat-num" id="afailed">—</div>
+                        <div class="analytics-stat-label">❌ Failed</div>
+                    </div>
+                    <div class="analytics-stat-card blue">
+                        <div class="analytics-stat-num" id="areplied">—</div>
+                        <div class="analytics-stat-label">💬 Replied</div>
+                    </div>
+                    <div class="analytics-stat-card amber">
+                        <div class="analytics-stat-num" id="aread">—</div>
+                        <div class="analytics-stat-label">👁 Read/No Reply</div>
+                    </div>
+                </div>
+
+                <!-- Per-broadcast list -->
+                <div id="analyticsList">
+                    <div class="analytics-empty">No broadcast data yet.</div>
                 </div>
 
             </div>
@@ -5612,6 +5729,15 @@ ${bodyHtml}
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
 
+            // Log send attempt regardless of outcome
+            supabaseClient.from('template_sends').insert({
+                phone: currentChat.phone,
+                template_name: selectedTemplate.name,
+                broadcast_id: null,
+                status: result.ok ? 'sent' : 'failed',
+                sent_at: new Date().toISOString()
+            }).then();
+
             if (result.ok) {
                 closeTemplatePicker();
                 // Optimistic local display — realtime will deduplicate if n8n logs it too
@@ -5793,21 +5919,30 @@ ${bodyHtml}
 
             let success = 0;
             let failed = 0;
+            const broadcastId = 'bc_' + Date.now();
+            const sentAt = new Date().toISOString();
 
             for (let i = 0; i < selected.length; i++) {
                 const cb = selected[i];
                 const phone = cb.dataset.phone;
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
-                const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars);
-                if (ok) success++;
-                else failed++;
+                const result = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+                const status = result.ok ? 'sent' : 'failed';
+                if (result.ok) success++; else failed++;
+                supabaseClient.from('template_sends').insert({
+                    phone,
+                    template_name: selectedTemplate.name,
+                    broadcast_id: broadcastId,
+                    status,
+                    sent_at: sentAt
+                }).then();
             }
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-bullhorn"></i> Send Broadcast';
 
             closeBroadcastModal();
-            alert(`Broadcast complete.\n✅ ${success} sent${failed > 0 ? `\n❌ ${failed} failed` : ''}.`);
+            alert(`Broadcast complete.\n✅ ${success} sent${failed > 0 ? `\n❌ ${failed} failed` : ''}`);
         }
 
         document.getElementById('broadcastOverlay').addEventListener('click', function (e) {
@@ -5828,6 +5963,170 @@ ${bodyHtml}
             localStorage.setItem('meta_token', val);
             document.getElementById('tmgrTokenStrip').style.display = 'none';
             fetchTemplatesFromMeta();
+        }
+
+        /* =========================================================
+        BROADCAST ANALYTICS
+        ========================================================= */
+
+        async function loadBroadcastAnalytics() {
+            document.getElementById('analyticsStatus').textContent = 'Loading…';
+            document.getElementById('analyticsList').innerHTML = '<div class="analytics-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Loading…</div>';
+
+            // Fetch all template_sends
+            const { data: sends, error } = await supabaseClient
+                .from('template_sends')
+                .select('*')
+                .order('sent_at', { ascending: false })
+                .limit(2000);
+
+            if (error) {
+                const isTableMissing = error.message?.includes('does not exist') || error.code === '42P01';
+                document.getElementById('analyticsStatus').textContent = isTableMissing
+                    ? '⚠️ Table not found — run the SQL below to create it'
+                    : 'Error: ' + error.message;
+                document.getElementById('analyticsList').innerHTML = isTableMissing
+                    ? `<div class="analytics-empty" style="text-align:left;padding:20px;">
+                        <strong>Create the table in Supabase SQL Editor:</strong>
+                        <pre style="background:#f3f4f6;padding:12px;border-radius:8px;margin-top:10px;font-size:12px;overflow-x:auto;">CREATE TABLE template_sends (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone TEXT NOT NULL,
+  template_name TEXT NOT NULL,
+  broadcast_id TEXT,
+  status TEXT DEFAULT 'sent',
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  read_at TIMESTAMPTZ,
+  replied_at TIMESTAMPTZ
+);
+CREATE INDEX ON template_sends(broadcast_id);
+CREATE INDEX ON template_sends(phone);
+CREATE INDEX ON template_sends(sent_at DESC);</pre>
+                       </div>`
+                    : '<div class="analytics-empty">Failed to load data.</div>';
+                return;
+            }
+
+            if (!sends || sends.length === 0) {
+                document.getElementById('analyticsStatus').textContent = '0 records';
+                ['atotal','asent','afailed','areplied','aread'].forEach(id =>
+                    document.getElementById(id).textContent = '0');
+                document.getElementById('analyticsList').innerHTML =
+                    '<div class="analytics-empty">No template sends recorded yet.</div>';
+                return;
+            }
+
+            // Group by broadcast_id (null = single send, group all together as "Singles")
+            const groups = {};
+            sends.forEach(row => {
+                const key = row.broadcast_id || 'singles';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(row);
+            });
+
+            // For "replied": find incoming messages after each send
+            // Get unique phones and earliest sent_at per group
+            const allPhones = [...new Set(sends.map(r => r.phone))];
+            const oldestSent = sends[sends.length - 1].sent_at;
+
+            const { data: replies } = await supabaseClient
+                .from('messages')
+                .select('phone, created_at')
+                .eq('sender', 'incoming')
+                .gte('created_at', oldestSent)
+                .in('phone', allPhones);
+
+            const replyMap = {}; // phone → array of reply timestamps
+            (replies || []).forEach(r => {
+                if (!replyMap[r.phone]) replyMap[r.phone] = [];
+                replyMap[r.phone].push(r.created_at);
+            });
+
+            // Compute totals
+            const totals = { total: sends.length, sent: 0, failed: 0, replied: 0, read: 0 };
+
+            // Build per-group stats
+            const groupStats = Object.entries(groups).map(([groupKey, rows]) => {
+                const groupSent    = rows.filter(r => r.status !== 'failed').length;
+                const groupFailed  = rows.filter(r => r.status === 'failed').length;
+                const groupRead    = rows.filter(r => r.status === 'read' || r.read_at).length;
+                const earliestSent = rows.reduce((min, r) =>
+                    r.sent_at < min ? r.sent_at : min, rows[0].sent_at);
+                const groupReplied = rows.filter(r => {
+                    const msgs = replyMap[r.phone] || [];
+                    return msgs.some(ts => ts > r.sent_at);
+                }).length;
+
+                totals.sent    += groupSent;
+                totals.failed  += groupFailed;
+                totals.replied += groupReplied;
+                totals.read    += groupRead;
+
+                return {
+                    key: groupKey,
+                    label: groupKey === 'singles'
+                        ? 'Single Sends'
+                        : new Date(earliestSent).toLocaleDateString('en-SG', {
+                            timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric'
+                          }),
+                    templateName: rows[0].template_name,
+                    total: rows.length,
+                    sent: groupSent,
+                    failed: groupFailed,
+                    replied: groupReplied,
+                    read: groupRead,
+                    readNoReply: Math.max(0, groupRead - groupReplied)
+                };
+            });
+
+            // Update overview cards
+            document.getElementById('atotal').textContent  = totals.total;
+            document.getElementById('asent').textContent   = totals.sent;
+            document.getElementById('afailed').textContent = totals.failed;
+            document.getElementById('areplied').textContent = totals.replied;
+            document.getElementById('aread').textContent   = Math.max(0, totals.read - totals.replied);
+
+            document.getElementById('analyticsStatus').textContent =
+                `${sends.length} records across ${groupStats.length} broadcast(s)`;
+
+            // Render per-broadcast cards
+            const list = document.getElementById('analyticsList');
+            list.innerHTML = '';
+            groupStats.forEach(g => {
+                const card = document.createElement('div');
+                card.className = 'analytics-broadcast-item';
+                card.innerHTML = `
+                    <div class="analytics-broadcast-hdr" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
+                        <div>
+                            <strong>${escHtml(g.templateName.replace(/_/g,' '))}</strong>
+                            <div class="ab-meta">${g.label} &nbsp;·&nbsp; ${g.total} recipient${g.total !== 1 ? 's' : ''}</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-down" style="color:#9ca3af;"></i>
+                    </div>
+                    <div class="analytics-broadcast-stats">
+                        <div class="analytics-mini-stat">
+                            <div class="analytics-mini-num">${g.total}</div>
+                            <div class="analytics-mini-lbl">Total</div>
+                        </div>
+                        <div class="analytics-mini-stat green">
+                            <div class="analytics-mini-num">${g.sent}</div>
+                            <div class="analytics-mini-lbl">✅ Sent</div>
+                        </div>
+                        <div class="analytics-mini-stat red">
+                            <div class="analytics-mini-num">${g.failed}</div>
+                            <div class="analytics-mini-lbl">❌ Failed</div>
+                        </div>
+                        <div class="analytics-mini-stat blue">
+                            <div class="analytics-mini-num">${g.replied}</div>
+                            <div class="analytics-mini-lbl">💬 Replied</div>
+                        </div>
+                        <div class="analytics-mini-stat amber">
+                            <div class="analytics-mini-num">${g.readNoReply !== undefined ? g.readNoReply : '—'}</div>
+                            <div class="analytics-mini-lbl">👁 Read/No Reply</div>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
         }
 
         function openTemplateManager() {
@@ -5861,6 +6160,8 @@ ${bodyHtml}
             el.classList.add('active');
             document.getElementById('tmgrPanelList').classList.toggle('active', tab === 'list');
             document.getElementById('tmgrPanelCreate').classList.toggle('active', tab === 'create');
+            document.getElementById('tmgrPanelAnalytics').classList.toggle('active', tab === 'analytics');
+            if (tab === 'analytics') loadBroadcastAnalytics();
         }
 
         /* ── Fetch from Meta ─────────────────────────────── */
