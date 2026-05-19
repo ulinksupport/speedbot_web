@@ -272,8 +272,11 @@
             border-left: 2px solid #e5e7eb;
             transition: border-color 0.15s;
         }
+
         .chatlist-resize-handle:hover,
-        .chatlist-resize-handle.dragging { border-color: #6366f1; }
+        .chatlist-resize-handle.dragging {
+            border-color: #6366f1;
+        }
 
         /* =========================================================
         SIDEBAR
@@ -592,7 +595,9 @@
             align-items: flex-start;
         }
 
-        .search-result-item:hover { background: #f9fafb; }
+        .search-result-item:hover {
+            background: #f9fafb;
+        }
 
         .search-result-snippet {
             font-size: 13px;
@@ -620,9 +625,20 @@
         }
 
         @keyframes msg-highlight-flash {
-            0%   { box-shadow: 0 0 0 4px #fde047; background: #fef9c3; }
-            70%  { box-shadow: 0 0 0 4px #fde047; background: #fef9c3; }
-            100% { box-shadow: none; background: transparent; }
+            0% {
+                box-shadow: 0 0 0 4px #fde047;
+                background: #fef9c3;
+            }
+
+            70% {
+                box-shadow: 0 0 0 4px #fde047;
+                background: #fef9c3;
+            }
+
+            100% {
+                box-shadow: none;
+                background: transparent;
+            }
         }
 
         .msg-highlight {
@@ -904,6 +920,7 @@
             margin: 4px 0;
             flex-shrink: 0;
         }
+
         .date-separator::before,
         .date-separator::after {
             content: '';
@@ -911,6 +928,7 @@
             height: 1px;
             background: #e5e7eb;
         }
+
         .date-separator span {
             font-size: 11px;
             color: #9ca3af;
@@ -1845,7 +1863,9 @@
             color: #6b7280;
         }
 
-        .tmgr-header button:hover { color: #111827; }
+        .tmgr-header button:hover {
+            color: #111827;
+        }
 
         .tmgr-tabs {
             display: flex;
@@ -1873,7 +1893,9 @@
             border-bottom-color: #111827;
         }
 
-        .tmgr-tab:hover { color: #111827; }
+        .tmgr-tab:hover {
+            color: #111827;
+        }
 
         .tmgr-panel {
             display: none;
@@ -1882,7 +1904,9 @@
             padding: 22px 24px;
         }
 
-        .tmgr-panel.active { display: block; }
+        .tmgr-panel.active {
+            display: block;
+        }
 
         /* Template list table */
         .tmgr-toolbar {
@@ -1907,7 +1931,9 @@
             transition: 0.2s;
         }
 
-        .tmgr-refresh-btn:hover { background: #f3f4f6; }
+        .tmgr-refresh-btn:hover {
+            background: #f3f4f6;
+        }
 
         .tmgr-table {
             width: 100%;
@@ -1931,7 +1957,9 @@
             vertical-align: top;
         }
 
-        .tmgr-table tr:hover td { background: #f9fafb; }
+        .tmgr-table tr:hover td {
+            background: #f9fafb;
+        }
 
         .tmgr-status {
             display: inline-block;
@@ -1941,11 +1969,30 @@
             font-weight: 700;
         }
 
-        .tmgr-status-approved  { background: #dcfce7; color: #15803d; }
-        .tmgr-status-pending   { background: #fef9c3; color: #92400e; }
-        .tmgr-status-rejected  { background: #fee2e2; color: #991b1b; }
-        .tmgr-status-paused    { background: #f3f4f6; color: #6b7280; }
-        .tmgr-status-disabled  { background: #f3f4f6; color: #6b7280; }
+        .tmgr-status-approved {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tmgr-status-pending {
+            background: #fef9c3;
+            color: #92400e;
+        }
+
+        .tmgr-status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tmgr-status-paused {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .tmgr-status-disabled {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
 
         .tmgr-send-btn {
             height: 32px;
@@ -1960,8 +2007,14 @@
             transition: 0.2s;
         }
 
-        .tmgr-send-btn:hover { background: #1f2937; }
-        .tmgr-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .tmgr-send-btn:hover {
+            background: #1f2937;
+        }
+
+        .tmgr-send-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
 
         .tmgr-empty {
             text-align: center;
@@ -1982,7 +2035,11 @@
             font-size: 13px;
             color: #92400e;
         }
-        #windowExpiredBanner i { color: #d97706; }
+
+        #windowExpiredBanner i {
+            color: #d97706;
+        }
+
         #windowExpiredBanner .expired-send-btn {
             margin-left: auto;
             background: #1a1a2e;
@@ -1996,7 +2053,10 @@
             align-items: center;
             gap: 6px;
         }
-        #windowExpiredBanner .expired-send-btn:hover { background: #16213e; }
+
+        #windowExpiredBanner .expired-send-btn:hover {
+            background: #16213e;
+        }
 
         /* Toast notifications */
         #toastContainer {
@@ -2009,6 +2069,7 @@
             gap: 10px;
             pointer-events: none;
         }
+
         .toast {
             display: flex;
             align-items: center;
@@ -2018,17 +2079,30 @@
             font-size: 14px;
             font-weight: 500;
             color: #fff;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
             opacity: 0;
             transform: translateY(12px);
             transition: opacity 0.25s, transform 0.25s;
             pointer-events: auto;
             max-width: 340px;
         }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        .toast.success { background: #16a34a; }
-        .toast.error   { background: #dc2626; }
-        .toast.info    { background: #2563eb; }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background: #16a34a;
+        }
+
+        .toast.error {
+            background: #dc2626;
+        }
+
+        .toast.info {
+            background: #2563eb;
+        }
 
         /* Create template form */
         .tmgr-form label {
@@ -2040,7 +2114,9 @@
             margin-top: 16px;
         }
 
-        .tmgr-form label:first-child { margin-top: 0; }
+        .tmgr-form label:first-child {
+            margin-top: 0;
+        }
 
         .tmgr-form input[type="text"],
         .tmgr-form select,
@@ -2056,9 +2132,14 @@
 
         .tmgr-form input:focus,
         .tmgr-form select:focus,
-        .tmgr-form textarea:focus { border-color: #2563eb; }
+        .tmgr-form textarea:focus {
+            border-color: #2563eb;
+        }
 
-        .tmgr-form textarea { resize: vertical; min-height: 100px; }
+        .tmgr-form textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
 
         .tmgr-form-row {
             display: grid;
@@ -2088,7 +2169,9 @@
             font-weight: 600;
         }
 
-        .tmgr-samples-box-body { padding: 12px 16px; }
+        .tmgr-samples-box-body {
+            padding: 12px 16px;
+        }
 
         .tmgr-samples-box input {
             margin-bottom: 8px;
@@ -2160,7 +2243,10 @@
             transition: 0.2s;
         }
 
-        .tmgr-add-btn:hover { border-color: #2563eb; color: #2563eb; }
+        .tmgr-add-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+        }
 
         .tmgr-submit-btn {
             width: 100%;
@@ -2176,8 +2262,14 @@
             transition: 0.2s;
         }
 
-        .tmgr-submit-btn:hover { background: #1f2937; }
-        .tmgr-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tmgr-submit-btn:hover {
+            background: #1f2937;
+        }
+
+        .tmgr-submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         .tmgr-msg {
             margin-top: 14px;
@@ -2187,8 +2279,15 @@
             display: none;
         }
 
-        .tmgr-msg.success { background: #dcfce7; color: #15803d; }
-        .tmgr-msg.error   { background: #fee2e2; color: #991b1b; }
+        .tmgr-msg.success {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tmgr-msg.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
         /* Meta token config strip */
         .tmgr-token-strip {
@@ -2225,7 +2324,6 @@
             font-weight: 600;
             cursor: pointer;
         }
-
     </style>
 
 </head>
@@ -2509,7 +2607,8 @@
 
                     <i class="fa-solid fa-magnifying-glass"></i>
 
-                    <input type="text" id="searchInput" placeholder="Search conversations..." oninput="searchChats(this.value)">
+                    <input type="text" id="searchInput" placeholder="Search conversations..."
+                        oninput="searchChats(this.value)">
 
                 </div>
 
@@ -2568,13 +2667,15 @@
 
                 <div class="chat-list-actions">
 
-                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()" title="Initiate a new conversation">
+                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()"
+                        title="Initiate a new conversation">
 
                         <i class="fa-solid fa-plus"></i> New Chat
 
                     </button>
 
-                    <button class="chat-list-action-btn" onclick="openBroadcastModal()" title="Send a template to multiple contacts">
+                    <button class="chat-list-action-btn" onclick="openBroadcastModal()"
+                        title="Send a template to multiple contacts">
 
                         <i class="fa-solid fa-bullhorn"></i> Broadcast
 
@@ -2698,7 +2799,8 @@
                 </div>
 
                 <!-- Normal input row -->
-                <div id="normalInputArea" style="display:flex;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                <div id="normalInputArea"
+                    style="display:flex;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
 
                     <button class="input-action-btn" onclick="toggleEmojiPicker()">
 
@@ -3048,17 +3150,20 @@
             </div>
             <div style="padding:20px;">
                 <p style="font-size:13px;color:#6b7280;margin:0 0 14px;">
-                    CSV must have columns: <strong>name</strong> and <strong>phone</strong> (with country code, e.g. +628123456789).<br>
+                    CSV must have columns: <strong>name</strong> and <strong>phone</strong> (with country code, e.g.
+                    +628123456789).<br>
                     First row = header row (skipped automatically).
                 </p>
                 <label style="display:block;margin-bottom:12px;">
-                    <input type="file" id="csvFileInput" accept=".csv" style="display:block;width:100%;padding:8px;border:1px dashed #d1d5db;border-radius:8px;cursor:pointer;font-size:13px;">
+                    <input type="file" id="csvFileInput" accept=".csv"
+                        style="display:block;width:100%;padding:8px;border:1px dashed #d1d5db;border-radius:8px;cursor:pointer;font-size:13px;">
                 </label>
                 <div id="csvPreview" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
                 <div id="csvImportMsg" style="font-size:13px;margin-bottom:10px;"></div>
                 <div id="csvMainActions" style="display:flex;gap:10px;">
                     <button class="modal-btn-secondary" onclick="closeCsvImport()" style="flex:1;">Cancel</button>
-                    <button class="modal-btn-primary" id="csvImportBtn" onclick="importCsvContacts()" style="flex:2;" disabled>
+                    <button class="modal-btn-primary" id="csvImportBtn" onclick="importCsvContacts()" style="flex:2;"
+                        disabled>
                         <i class="fa-solid fa-upload"></i> Import Contacts
                     </button>
                 </div>
@@ -3143,7 +3248,8 @@
             <div class="modal-body">
 
                 <span class="modal-label">Phone Number <span style="color:#ef4444;">*</span></span>
-                <input type="text" class="modal-input" id="newChatPhone" placeholder="+628123456789 (include country code)">
+                <input type="text" class="modal-input" id="newChatPhone"
+                    placeholder="+628123456789 (include country code)">
 
                 <span class="modal-label">Contact Name (optional)</span>
                 <input type="text" class="modal-input" id="newChatName" placeholder="e.g. Budi Santoso">
@@ -3293,7 +3399,8 @@
                 <div class="tmgr-form" id="tmgrForm">
 
                     <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">
-                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>, <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
+                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>,
+                        <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
                     </p>
 
                     <div class="tmgr-form-row">
@@ -3327,11 +3434,15 @@
                     <label>Header <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <input type="text" id="tmgrHeader" placeholder="e.g. Ulink Assist Update">
 
-                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;… for variables</span></label>
-                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated." oninput="tmgrUpdateSamples()"></textarea>
+                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;,
+                            &#123;&#123;2&#125;&#125;… for variables</span></label>
+                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated."
+                        oninput="tmgrUpdateSamples()"></textarea>
 
                     <div class="tmgr-samples-box" id="tmgrSamplesBox">
-                        <div class="tmgr-samples-box-head">Variable Samples <span style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for review</span></div>
+                        <div class="tmgr-samples-box-head">Variable Samples <span
+                                style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for
+                                review</span></div>
                         <div class="tmgr-samples-box-body" id="tmgrSamplesInputs"></div>
                     </div>
 
@@ -3340,14 +3451,19 @@
 
                     <label>Buttons <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <div class="tmgr-btn-type-row">
-                        <label><input type="radio" name="tmgrBtnType" value="none" checked onchange="tmgrUpdateBtnSection()"> None</label>
-                        <label><input type="radio" name="tmgrBtnType" value="quick_reply" onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max 3)</small></label>
-                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL / Phone <small style="color:#6b7280;">(CTA)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="none" checked
+                                onchange="tmgrUpdateBtnSection()"> None</label>
+                        <label><input type="radio" name="tmgrBtnType" value="quick_reply"
+                                onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max
+                                3)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL
+                            / Phone <small style="color:#6b7280;">(CTA)</small></label>
                     </div>
 
                     <div id="tmgrBtnSection" style="display:none;">
                         <div id="tmgrBtnList"></div>
-                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add Button</button>
+                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add
+                            Button</button>
                     </div>
 
                     <div class="tmgr-msg" id="tmgrCreateMsg"></div>
@@ -3371,10 +3487,10 @@
 
         const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
-        const META_WABA_ID    = "1328662202356452";
-        const META_PHONE_ID   = "1112140058650260";
-        const META_GRAPH_URL  = "https://graph.facebook.com/v19.0";
-        let   META_TOKEN      = localStorage.getItem("meta_token") || "";
+        const META_WABA_ID = "1328662202356452";
+        const META_PHONE_ID = "1112140058650260";
+        const META_GRAPH_URL = "https://graph.facebook.com/v19.0";
+        let META_TOKEN = localStorage.getItem("meta_token") || "";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -4675,7 +4791,7 @@
                             supabaseClient.from('conversations')
                                 .update({ last_message: msg.message, last_message_time: msg.created_at })
                                 .eq('phone', msg.phone)
-                                .then(() => {});
+                                .then(() => { });
 
                             if (msg.sender === "incoming") {
                                 // Update 24hr window tracking
@@ -5284,117 +5400,117 @@ ${bodyHtml}
         ========================================================= */
 
         const PHONE_COUNTRY_MAP = [
-            ["1",    "United States / Canada"],
-            ["44",   "United Kingdom"],
-            ["60",   "Malaysia"],
-            ["61",   "Australia"],
-            ["62",   "Indonesia"],
-            ["63",   "Philippines"],
-            ["65",   "Singapore"],
-            ["66",   "Thailand"],
-            ["81",   "Japan"],
-            ["82",   "South Korea"],
-            ["84",   "Vietnam"],
-            ["86",   "China"],
-            ["90",   "Turkey"],
-            ["91",   "India"],
-            ["92",   "Pakistan"],
-            ["94",   "Sri Lanka"],
-            ["95",   "Myanmar"],
-            ["966",  "Saudi Arabia"],
-            ["971",  "UAE"],
-            ["972",  "Israel"],
-            ["973",  "Bahrain"],
-            ["974",  "Qatar"],
-            ["965",  "Kuwait"],
-            ["968",  "Oman"],
-            ["961",  "Lebanon"],
-            ["962",  "Jordan"],
-            ["963",  "Syria"],
-            ["964",  "Iraq"],
-            ["20",   "Egypt"],
-            ["27",   "South Africa"],
-            ["234",  "Nigeria"],
-            ["254",  "Kenya"],
-            ["255",  "Tanzania"],
-            ["256",  "Uganda"],
-            ["49",   "Germany"],
-            ["33",   "France"],
-            ["34",   "Spain"],
-            ["39",   "Italy"],
-            ["31",   "Netherlands"],
-            ["46",   "Sweden"],
-            ["47",   "Norway"],
-            ["45",   "Denmark"],
-            ["358",  "Finland"],
-            ["7",    "Russia"],
-            ["55",   "Brazil"],
-            ["52",   "Mexico"],
-            ["57",   "Colombia"],
-            ["51",   "Peru"],
-            ["54",   "Argentina"],
-            ["64",   "New Zealand"],
-            ["880",  "Bangladesh"],
-            ["977",  "Nepal"],
-            ["98",   "Iran"],
-            ["93",   "Afghanistan"],
+            ["1", "United States / Canada"],
+            ["44", "United Kingdom"],
+            ["60", "Malaysia"],
+            ["61", "Australia"],
+            ["62", "Indonesia"],
+            ["63", "Philippines"],
+            ["65", "Singapore"],
+            ["66", "Thailand"],
+            ["81", "Japan"],
+            ["82", "South Korea"],
+            ["84", "Vietnam"],
+            ["86", "China"],
+            ["90", "Turkey"],
+            ["91", "India"],
+            ["92", "Pakistan"],
+            ["94", "Sri Lanka"],
+            ["95", "Myanmar"],
+            ["966", "Saudi Arabia"],
+            ["971", "UAE"],
+            ["972", "Israel"],
+            ["973", "Bahrain"],
+            ["974", "Qatar"],
+            ["965", "Kuwait"],
+            ["968", "Oman"],
+            ["961", "Lebanon"],
+            ["962", "Jordan"],
+            ["963", "Syria"],
+            ["964", "Iraq"],
+            ["20", "Egypt"],
+            ["27", "South Africa"],
+            ["234", "Nigeria"],
+            ["254", "Kenya"],
+            ["255", "Tanzania"],
+            ["256", "Uganda"],
+            ["49", "Germany"],
+            ["33", "France"],
+            ["34", "Spain"],
+            ["39", "Italy"],
+            ["31", "Netherlands"],
+            ["46", "Sweden"],
+            ["47", "Norway"],
+            ["45", "Denmark"],
+            ["358", "Finland"],
+            ["7", "Russia"],
+            ["55", "Brazil"],
+            ["52", "Mexico"],
+            ["57", "Colombia"],
+            ["51", "Peru"],
+            ["54", "Argentina"],
+            ["64", "New Zealand"],
+            ["880", "Bangladesh"],
+            ["977", "Nepal"],
+            ["98", "Iran"],
+            ["93", "Afghanistan"],
         ];
 
         const COUNTRY_LANGUAGE_MAP = {
-            "Indonesia":             "Bahasa Indonesia",
-            "Malaysia":              "Bahasa Melayu",
-            "Singapore":             "English",
-            "Philippines":           "Filipino / English",
-            "Thailand":              "Thai",
-            "Vietnam":               "Vietnamese",
-            "Myanmar":               "Burmese",
-            "Japan":                 "Japanese",
-            "South Korea":           "Korean",
-            "China":                 "Mandarin",
-            "India":                 "Hindi / English",
-            "Pakistan":              "Urdu",
-            "Bangladesh":            "Bengali",
-            "Sri Lanka":             "Sinhala / Tamil",
-            "Nepal":                 "Nepali",
-            "Saudi Arabia":          "Arabic",
-            "UAE":                   "Arabic",
-            "Bahrain":               "Arabic",
-            "Qatar":                 "Arabic",
-            "Kuwait":                "Arabic",
-            "Oman":                  "Arabic",
-            "Lebanon":               "Arabic",
-            "Jordan":                "Arabic",
-            "Syria":                 "Arabic",
-            "Iraq":                  "Arabic",
-            "Iran":                  "Persian",
-            "Turkey":                "Turkish",
-            "Afghanistan":           "Dari / Pashto",
-            "Egypt":                 "Arabic",
-            "Nigeria":               "English",
-            "South Africa":          "English",
-            "Kenya":                 "Swahili / English",
-            "Tanzania":              "Swahili",
-            "Uganda":                "English",
-            "Germany":               "German",
-            "France":                "French",
-            "Spain":                 "Spanish",
-            "Italy":                 "Italian",
-            "Netherlands":           "Dutch",
-            "Sweden":                "Swedish",
-            "Norway":                "Norwegian",
-            "Denmark":               "Danish",
-            "Finland":               "Finnish",
-            "Russia":                "Russian",
-            "Brazil":                "Portuguese",
-            "Mexico":                "Spanish",
-            "Colombia":              "Spanish",
-            "Peru":                  "Spanish",
-            "Argentina":             "Spanish",
-            "United States / Canada":"English",
-            "United Kingdom":        "English",
-            "Australia":             "English",
-            "New Zealand":           "English",
-            "Israel":                "Hebrew",
+            "Indonesia": "Bahasa Indonesia",
+            "Malaysia": "Bahasa Melayu",
+            "Singapore": "English",
+            "Philippines": "Filipino / English",
+            "Thailand": "Thai",
+            "Vietnam": "Vietnamese",
+            "Myanmar": "Burmese",
+            "Japan": "Japanese",
+            "South Korea": "Korean",
+            "China": "Mandarin",
+            "India": "Hindi / English",
+            "Pakistan": "Urdu",
+            "Bangladesh": "Bengali",
+            "Sri Lanka": "Sinhala / Tamil",
+            "Nepal": "Nepali",
+            "Saudi Arabia": "Arabic",
+            "UAE": "Arabic",
+            "Bahrain": "Arabic",
+            "Qatar": "Arabic",
+            "Kuwait": "Arabic",
+            "Oman": "Arabic",
+            "Lebanon": "Arabic",
+            "Jordan": "Arabic",
+            "Syria": "Arabic",
+            "Iraq": "Arabic",
+            "Iran": "Persian",
+            "Turkey": "Turkish",
+            "Afghanistan": "Dari / Pashto",
+            "Egypt": "Arabic",
+            "Nigeria": "English",
+            "South Africa": "English",
+            "Kenya": "Swahili / English",
+            "Tanzania": "Swahili",
+            "Uganda": "English",
+            "Germany": "German",
+            "France": "French",
+            "Spain": "Spanish",
+            "Italy": "Italian",
+            "Netherlands": "Dutch",
+            "Sweden": "Swedish",
+            "Norway": "Norwegian",
+            "Denmark": "Danish",
+            "Finland": "Finnish",
+            "Russia": "Russian",
+            "Brazil": "Portuguese",
+            "Mexico": "Spanish",
+            "Colombia": "Spanish",
+            "Peru": "Spanish",
+            "Argentina": "Spanish",
+            "United States / Canada": "English",
+            "United Kingdom": "English",
+            "Australia": "English",
+            "New Zealand": "English",
+            "Israel": "Hebrew",
         };
 
         function detectCountryFromPhone(phone) {
@@ -5430,13 +5546,13 @@ ${bodyHtml}
             const t = text.toLowerCase();
 
             const patterns = [
-                { lang: "Bahasa Indonesia", words: ["saya","anda","tidak","dengan","untuk","yang","adalah","bisa","harga","tolong","terima kasih","selamat","obat","sakit","dokter","rumah sakit"] },
-                { lang: "Bahasa Melayu",    words: ["awak","boleh","nak","kenapa","macam","mana","saya","terima kasih","hospital","doktor"] },
-                { lang: "Thai",             words: ["ครับ","ค่ะ","ขอบคุณ","สวัสดี"] },
-                { lang: "Arabic",           words: ["الحمد","شكرا","مرحبا","كيف"] },
-                { lang: "Japanese",         words: ["です","ます","ください","ありがとう"] },
-                { lang: "Vietnamese",       words: ["tôi","bạn","cảm ơn","xin"] },
-                { lang: "Mandarin",         words: ["谢谢","你好","我","是"] }
+                { lang: "Bahasa Indonesia", words: ["saya", "anda", "tidak", "dengan", "untuk", "yang", "adalah", "bisa", "harga", "tolong", "terima kasih", "selamat", "obat", "sakit", "dokter", "rumah sakit"] },
+                { lang: "Bahasa Melayu", words: ["awak", "boleh", "nak", "kenapa", "macam", "mana", "saya", "terima kasih", "hospital", "doktor"] },
+                { lang: "Thai", words: ["ครับ", "ค่ะ", "ขอบคุณ", "สวัสดี"] },
+                { lang: "Arabic", words: ["الحمد", "شكرا", "مرحبا", "كيف"] },
+                { lang: "Japanese", words: ["です", "ます", "ください", "ありがとう"] },
+                { lang: "Vietnamese", words: ["tôi", "bạn", "cảm ơn", "xin"] },
+                { lang: "Mandarin", words: ["谢谢", "你好", "我", "是"] }
             ];
 
             for (const p of patterns) {
@@ -5523,9 +5639,9 @@ ${bodyHtml}
             templateContext = context;
 
             const contextMap = {
-                picker:    { list: 'templateList',         vars: 'templateVariables',  inputs: 'variableInputs' },
-                newchat:   { list: 'newChatTemplateList',  vars: 'newChatVariables',   inputs: 'newChatVariableInputs' },
-                broadcast: { list: 'broadcastTemplateList',vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
+                picker: { list: 'templateList', vars: 'templateVariables', inputs: 'variableInputs' },
+                newchat: { list: 'newChatTemplateList', vars: 'newChatVariables', inputs: 'newChatVariableInputs' },
+                broadcast: { list: 'broadcastTemplateList', vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
             };
 
             const ids = contextMap[context];
@@ -5568,7 +5684,7 @@ ${bodyHtml}
                     body: JSON.stringify(payload)
                 });
                 let data = {};
-                try { data = await resp.json(); } catch (_) {}
+                try { data = await resp.json(); } catch (_) { }
                 if (!resp.ok) return { ok: false, error: data?.message || `HTTP ${resp.status}` };
                 if (data?.error) return { ok: false, error: data.error.message || JSON.stringify(data.error) };
                 return { ok: true };
@@ -5819,7 +5935,7 @@ ${bodyHtml}
         ========================================================= */
 
         let tmgrButtonCount = 0;
-        let tmgrCachedAll   = []; // all templates from Meta (all statuses)
+        let tmgrCachedAll = []; // all templates from Meta (all statuses)
 
         function saveMetaToken() {
             const val = document.getElementById('tmgrTokenInput').value.trim();
@@ -5919,8 +6035,8 @@ ${bodyHtml}
             let rows = tmgrCachedAll.map((t, i) => {
                 const bodyComp = (t.components || []).find(c => c.type === 'BODY');
                 const bodyText = bodyComp ? bodyComp.text : '—';
-                const preview  = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
-                const status   = (t.status || 'PENDING').toLowerCase();
+                const preview = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
+                const status = (t.status || 'PENDING').toLowerCase();
                 return `<tr>
                     <td><strong>${escHtml(t.name)}</strong><br><small style="color:#9ca3af;">${escHtml(t.category || '')}</small></td>
                     <td style="color:#6b7280;">${escHtml(preview)}</td>
@@ -5987,7 +6103,7 @@ ${bodyHtml}
             let match, max = 0;
             while ((match = regex.exec(body)) !== null) max = Math.max(max, parseInt(match[1], 10));
 
-            const box    = document.getElementById('tmgrSamplesBox');
+            const box = document.getElementById('tmgrSamplesBox');
             const inputs = document.getElementById('tmgrSamplesInputs');
             inputs.innerHTML = '';
 
@@ -5996,7 +6112,7 @@ ${bodyHtml}
             for (let i = 1; i <= max; i++) {
                 const inp = document.createElement('input');
                 inp.type = 'text';
-                inp.id   = `tmgrSample_${i}`;
+                inp.id = `tmgrSample_${i}`;
                 inp.placeholder = `Sample for {{${i}}}`;
                 inp.style.marginBottom = '8px';
                 inputs.appendChild(inp);
@@ -6005,7 +6121,7 @@ ${bodyHtml}
 
         function tmgrUpdateBtnSection() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const sec  = document.getElementById('tmgrBtnSection');
+            const sec = document.getElementById('tmgrBtnSection');
             sec.style.display = type === 'none' ? 'none' : 'block';
             if (type === 'none') {
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -6015,7 +6131,7 @@ ${bodyHtml}
 
         function tmgrAddButton() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const max  = type === 'quick_reply' ? 3 : 2;
+            const max = type === 'quick_reply' ? 3 : 2;
             if (tmgrButtonCount >= max) { alert(`Max ${max} buttons allowed.`); return; }
             tmgrButtonCount++;
             const id = `tmgrBtn_${tmgrButtonCount}`;
@@ -6060,13 +6176,13 @@ ${bodyHtml}
                 return;
             }
 
-            const name     = document.getElementById('tmgrName').value.trim();
-            const lang     = document.getElementById('tmgrLang').value;
+            const name = document.getElementById('tmgrName').value.trim();
+            const lang = document.getElementById('tmgrLang').value;
             const category = document.getElementById('tmgrCategory').value;
-            const header   = document.getElementById('tmgrHeader').value.trim();
-            const body     = document.getElementById('tmgrBody').value.trim();
-            const footer   = document.getElementById('tmgrFooter').value.trim();
-            const btnType  = document.querySelector('input[name="tmgrBtnType"]:checked').value;
+            const header = document.getElementById('tmgrHeader').value.trim();
+            const body = document.getElementById('tmgrBody').value.trim();
+            const footer = document.getElementById('tmgrFooter').value.trim();
+            const btnType = document.querySelector('input[name="tmgrBtnType"]:checked').value;
 
             if (!name || !body) { showTmgrMsg('Template Name and Body are required.', 'error'); return; }
             if (!/^[a-z0-9_]+$/.test(name)) { showTmgrMsg('Name must be lowercase letters, numbers and underscores only.', 'error'); return; }
@@ -6093,7 +6209,7 @@ ${bodyHtml}
                 } else {
                     buttons = Array.from(btnEls).map(el => {
                         const actionType = el.querySelector('.tmgr-btn-action-type').value;
-                        const actionVal  = el.querySelector('.tmgr-btn-action-value').value;
+                        const actionVal = el.querySelector('.tmgr-btn-action-value').value;
                         const btn = { type: actionType === 'url' ? 'URL' : 'PHONE_NUMBER', text: el.querySelector('.tmgr-btn-text').value };
                         if (actionType === 'url') btn.url = actionVal;
                         else btn.phone_number = actionVal;
@@ -6127,8 +6243,8 @@ ${bodyHtml}
                 if (result.error) throw new Error(result.error.message);
 
                 showTmgrMsg(`✅ Template "${name}" submitted! Status: ${result.status || 'PENDING'}`, 'success');
-                document.getElementById('tmgrName').value  = '';
-                document.getElementById('tmgrBody').value  = '';
+                document.getElementById('tmgrName').value = '';
+                document.getElementById('tmgrBody').value = '';
                 document.getElementById('tmgrHeader').value = '';
                 document.getElementById('tmgrFooter').value = '';
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -6319,7 +6435,7 @@ ${bodyHtml}
                         if (timeEl) timeEl.innerText = chat.time;
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
         }, 3000);
 
         /* =========================================================
@@ -6370,7 +6486,7 @@ ${bodyHtml}
                 for (let i = 1; i < lines.length; i++) {
                     const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
                     const phone = cols[phoneIdx] || '';
-                    const name  = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
+                    const name = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
                     if (phone) csvParsedContacts.push({ name, phone });
                 }
                 const preview = document.getElementById('csvPreview');
