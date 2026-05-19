@@ -3311,26 +3311,13 @@
         };
 
         function formatSGT(date) {
-
-            const d = new Date(date);
-
-            const singaporeTime =
-                new Date(
-                    d.toLocaleString(
-                        "en-US",
-                        { timeZone: "Asia/Singapore" }
-                    )
-                );
-
-            return singaporeTime.toLocaleTimeString(
-                "en-SG",
-                {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: true
-                }
-            );
-
+            if (!date) return '';
+            return new Date(date).toLocaleTimeString('en-SG', {
+                timeZone: 'Asia/Singapore',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
         }
 
         // Returns "YYYY-MM-DD" for a date in SGT
@@ -4045,9 +4032,7 @@
                     if (latest && latest.message) {
                         c.preview = latest.message;
                         c.lastPreviewAt = latest.created_at || c.lastPreviewAt;
-                        c.time = latest.created_at
-                            ? formatSGT(latest.created_at)
-                            : (latest.created_at_sgt || c.time);
+                        c.time = latest.created_at_sgt || (latest.created_at ? formatSGT(latest.created_at) : c.time);
                     }
                 });
                 // Sort by actual last activity
