@@ -825,6 +825,30 @@
             min-height: 0;
         }
 
+        .date-separator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 4px 0;
+            flex-shrink: 0;
+        }
+        .date-separator::before,
+        .date-separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+        .date-separator span {
+            font-size: 11px;
+            color: #9ca3af;
+            white-space: nowrap;
+            padding: 2px 8px;
+            background: #f9fafb;
+            border-radius: 99px;
+            border: 1px solid #e5e7eb;
+        }
+
         #welcomeScreen {
             height: 100%;
             display: flex;
@@ -3309,6 +3333,27 @@
 
         }
 
+        // Returns "YYYY-MM-DD" for a date in SGT
+        function dateSGTKey(d) {
+            return new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Singapore',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(d);
+        }
+
+        function formatDateSGT(isoString) {
+            if (!isoString) return null;
+            const d = new Date(isoString);
+            const key = dateSGTKey(d);
+            if (key === dateSGTKey(new Date())) return 'Today';
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            if (key === dateSGTKey(yesterday)) return 'Yesterday';
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Singapore',
+                weekday: 'long', day: 'numeric', month: 'long'
+            }).format(d);
+        }
+
         /* =========================================================
         LOGIN
         ========================================================= */
@@ -4167,10 +4212,16 @@
             if (!chat) return;
             currentChat = chat;
             chat.unread_count = 0;
+            _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
+
+            // Remove unread badge in place — no full re-render needed
+            const chatEl = element || document.querySelector(`[data-chat-id="${id}"]`);
+            if (chatEl) {
+                const badge = chatEl.querySelector('.unread-badge');
+                if (badge) badge.remove();
+            }
 
             updateSidebarCounts();
-
-            renderChats(activeFilter);
 
             document.getElementById(
                 "mainLayout"
@@ -4307,6 +4358,7 @@
                 document.getElementById("messages");
 
             messagesContainer.innerHTML = "";
+            _lastRenderedMsgDate = null;
 
             data.forEach(msg => appendMessage(msg, true));
 
@@ -4571,6 +4623,18 @@
 
             const messagesContainer =
                 document.getElementById("messages");
+
+            // Date separator
+            if (msg.created_at) {
+                const key = dateSGTKey(new Date(msg.created_at));
+                if (key !== _lastRenderedMsgDate) {
+                    _lastRenderedMsgDate = key;
+                    const sep = document.createElement('div');
+                    sep.className = 'date-separator';
+                    sep.innerHTML = `<span>${formatDateSGT(msg.created_at)}</span>`;
+                    messagesContainer.appendChild(sep);
+                }
+            }
 
             let senderClass = "incoming";
 
@@ -5985,6 +6049,7 @@ ${bodyHtml}
         ========================================================= */
 
         let _lastMsgPollTime = null;
+        let _lastRenderedMsgDate = null;
 
         setInterval(async () => {
             if (document.hidden || !currentChat) return;
@@ -6005,17 +6070,20 @@ ${bodyHtml}
                 const savedScroll = container.scrollTop;
                 await fetchMessagesForChat();
                 if (!wasAtBottom) container.scrollTop = savedScroll;
-                // Update sidebar preview
+                // Update sidebar preview text only — no prepend/move to avoid glitch
                 const chat = chats.find(c => c.phone === currentChat.phone);
-                if (chat) {
-                    const latest = data[0];
-                    const latestTime = new Date(latest.created_at).getTime();
-                    const chatTime = chat.lastPreviewAt ? new Date(chat.lastPreviewAt).getTime() : 0;
-                    if (latestTime >= chatTime) {
-                        chat.preview = latest.message || chat.preview;
-                        chat.lastPreviewAt = latest.created_at;
-                        chat.time = formatSGT(latest.created_at);
-                        updateSingleConversationUI(chat);
+                if (chat && data[0] && data[0].message) {
+                    chat.preview = data[0].message;
+                    if (data[0].created_at) {
+                        chat.lastPreviewAt = data[0].created_at;
+                        chat.time = formatSGT(data[0].created_at);
+                    }
+                    const el = document.querySelector(`[data-chat-id="${chat.id}"]`);
+                    if (el) {
+                        const previewEl = el.querySelector('.chat-preview');
+                        const timeEl = el.querySelector('.chat-time');
+                        if (previewEl) previewEl.innerText = chat.preview;
+                        if (timeEl) timeEl.innerText = chat.time;
                     }
                 }
             } catch (_) {}
