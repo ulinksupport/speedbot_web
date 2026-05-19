@@ -3983,6 +3983,37 @@
 
             chats.forEach(c => autoDetectChatMeta(c));
 
+            // Fetch actual latest messages to fix stale last_message in conversations table
+            const { data: recentMsgs } = await supabaseClient
+                .from('messages')
+                .select('phone, message, created_at')
+                .order('created_at', { ascending: false })
+                .limit(500);
+            if (recentMsgs) {
+                const latestByPhone = {};
+                for (const m of recentMsgs) {
+                    if (!latestByPhone[m.phone]) latestByPhone[m.phone] = m;
+                }
+                chats.forEach(c => {
+                    const latest = latestByPhone[c.phone];
+                    if (latest) {
+                        const latestTime = new Date(latest.created_at).getTime();
+                        const chatTime = c.lastPreviewAt ? new Date(c.lastPreviewAt).getTime() : 0;
+                        if (latestTime >= chatTime) {
+                            c.preview = latest.message || c.preview;
+                            c.lastPreviewAt = latest.created_at;
+                            c.time = formatSGT(latest.created_at);
+                        }
+                    }
+                });
+                // Re-sort by actual last message time
+                chats.sort((a, b) => {
+                    const ta = a.lastPreviewAt ? new Date(a.lastPreviewAt).getTime() : 0;
+                    const tb = b.lastPreviewAt ? new Date(b.lastPreviewAt).getTime() : 0;
+                    return tb - ta;
+                });
+            }
+
             if (currentChat) {
 
                 currentChat = chats.find(
@@ -4278,16 +4309,10 @@
 
             messagesContainer.innerHTML = "";
 
-            data.forEach(msg => {
+            data.forEach(msg => appendMessage(msg, true));
 
-                appendMessage(msg);
-
-            });
-
-            // Scroll to latest — double-rAF ensures paint is complete
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }));
+            // Jump to bottom instantly — no animation
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         }
 
@@ -4541,7 +4566,7 @@
         APPEND MESSAGE
         ========================================================= */
 
-        function appendMessage(msg) {
+        function appendMessage(msg, suppressScroll = false) {
 
             if (!msg.message) return;
 
@@ -4630,8 +4655,7 @@ ${bodyHtml}
 
             messagesContainer.appendChild(div);
 
-            // Only auto-scroll if user is near the bottom (within 100px)
-            if (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) {
+            if (!suppressScroll && messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
 
