@@ -247,31 +247,33 @@
             display: grid;
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) 6px var(--profile-width, 300px);
+                var(--sidebar-width, 260px) var(--chatlist-width, 360px) 4px minmax(420px, 1fr) 6px var(--profile-width, 300px);
 
             height: calc(100vh - 66px);
             min-height: 0;
 
-            transition: 0.25s ease;
-        }
-
-        .main-layout.profile-hidden {
-
-            grid-template-columns:
-                var(--sidebar-width, 260px) 360px minmax(420px, 1fr) 0 0;
-
+            transition: grid-template-columns 0s;
         }
 
         .main-layout.welcome-mode {
 
             grid-template-columns:
-                var(--sidebar-width, 260px) 360px 1fr 0 0;
+                var(--sidebar-width, 260px) var(--chatlist-width, 360px) 4px 1fr 0 0;
 
         }
 
         body.sidebar-collapsed {
             --sidebar-width: 82px;
         }
+
+        .chatlist-resize-handle {
+            cursor: col-resize;
+            background: transparent;
+            border-left: 2px solid #e5e7eb;
+            transition: border-color 0.15s;
+        }
+        .chatlist-resize-handle:hover,
+        .chatlist-resize-handle.dragging { border-color: #6366f1; }
 
         /* =========================================================
         SIDEBAR
@@ -282,12 +284,26 @@
             overflow: hidden;
         }
 
+        .sidebar {
+            overflow: hidden;
+            min-width: 0;
+        }
+
         .sidebar.collapsed {
-            width: 82px;
+            overflow: hidden;
         }
 
         .sidebar-menu {
             padding: 14px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100%;
+        }
+
+        .menu-left span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sidebar-toggle {
@@ -317,7 +333,9 @@
         .sidebar.collapsed #count-unassigned,
         .sidebar.collapsed #count-unreplied,
         .sidebar.collapsed #count-followup,
-        .sidebar.collapsed #count-unread {
+        .sidebar.collapsed #count-unread,
+        .sidebar.collapsed #count-active,
+        .sidebar.collapsed #count-expired {
             display: none;
         }
 
@@ -1005,22 +1023,7 @@
             background: white;
             border-left: 1px solid #e5e7eb;
             overflow-y: auto;
-        }
-
-        .profile-panel.hidden {
-
-            width: 0 !important;
-
-            min-width: 0 !important;
-
-            overflow: hidden;
-
-            border-left: none;
-
-            opacity: 0;
-
-            pointer-events: none;
-
+            display: none;
         }
 
         .profile-top {
@@ -1746,9 +1749,7 @@
             color: #6b7280;
         }
 
-        .tmgr-header button:hover {
-            color: #111827;
-        }
+        .tmgr-header button:hover { color: #111827; }
 
         .tmgr-tabs {
             display: flex;
@@ -1776,9 +1777,7 @@
             border-bottom-color: #111827;
         }
 
-        .tmgr-tab:hover {
-            color: #111827;
-        }
+        .tmgr-tab:hover { color: #111827; }
 
         .tmgr-panel {
             display: none;
@@ -1787,9 +1786,7 @@
             padding: 22px 24px;
         }
 
-        .tmgr-panel.active {
-            display: block;
-        }
+        .tmgr-panel.active { display: block; }
 
         /* Template list table */
         .tmgr-toolbar {
@@ -1814,9 +1811,7 @@
             transition: 0.2s;
         }
 
-        .tmgr-refresh-btn:hover {
-            background: #f3f4f6;
-        }
+        .tmgr-refresh-btn:hover { background: #f3f4f6; }
 
         .tmgr-table {
             width: 100%;
@@ -1840,9 +1835,7 @@
             vertical-align: top;
         }
 
-        .tmgr-table tr:hover td {
-            background: #f9fafb;
-        }
+        .tmgr-table tr:hover td { background: #f9fafb; }
 
         .tmgr-status {
             display: inline-block;
@@ -1852,30 +1845,11 @@
             font-weight: 700;
         }
 
-        .tmgr-status-approved {
-            background: #dcfce7;
-            color: #15803d;
-        }
-
-        .tmgr-status-pending {
-            background: #fef9c3;
-            color: #92400e;
-        }
-
-        .tmgr-status-rejected {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .tmgr-status-paused {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-
-        .tmgr-status-disabled {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
+        .tmgr-status-approved  { background: #dcfce7; color: #15803d; }
+        .tmgr-status-pending   { background: #fef9c3; color: #92400e; }
+        .tmgr-status-rejected  { background: #fee2e2; color: #991b1b; }
+        .tmgr-status-paused    { background: #f3f4f6; color: #6b7280; }
+        .tmgr-status-disabled  { background: #f3f4f6; color: #6b7280; }
 
         .tmgr-send-btn {
             height: 32px;
@@ -1890,14 +1864,8 @@
             transition: 0.2s;
         }
 
-        .tmgr-send-btn:hover {
-            background: #1f2937;
-        }
-
-        .tmgr-send-btn:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
+        .tmgr-send-btn:hover { background: #1f2937; }
+        .tmgr-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
         .tmgr-empty {
             text-align: center;
@@ -1905,6 +1873,66 @@
             color: #9ca3af;
             font-size: 14px;
         }
+
+        /* 24-hour window expired banner */
+        #windowExpiredBanner {
+            width: 100%;
+            background: #fef3c7;
+            border-top: 1px solid #fde68a;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #92400e;
+        }
+        #windowExpiredBanner i { color: #d97706; }
+        #windowExpiredBanner .expired-send-btn {
+            margin-left: auto;
+            background: #1a1a2e;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #windowExpiredBanner .expired-send-btn:hover { background: #16213e; }
+
+        /* Toast notifications */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: auto;
+            max-width: 340px;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #16a34a; }
+        .toast.error   { background: #dc2626; }
+        .toast.info    { background: #2563eb; }
 
         /* Create template form */
         .tmgr-form label {
@@ -1916,9 +1944,7 @@
             margin-top: 16px;
         }
 
-        .tmgr-form label:first-child {
-            margin-top: 0;
-        }
+        .tmgr-form label:first-child { margin-top: 0; }
 
         .tmgr-form input[type="text"],
         .tmgr-form select,
@@ -1934,14 +1960,9 @@
 
         .tmgr-form input:focus,
         .tmgr-form select:focus,
-        .tmgr-form textarea:focus {
-            border-color: #2563eb;
-        }
+        .tmgr-form textarea:focus { border-color: #2563eb; }
 
-        .tmgr-form textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
+        .tmgr-form textarea { resize: vertical; min-height: 100px; }
 
         .tmgr-form-row {
             display: grid;
@@ -1971,9 +1992,7 @@
             font-weight: 600;
         }
 
-        .tmgr-samples-box-body {
-            padding: 12px 16px;
-        }
+        .tmgr-samples-box-body { padding: 12px 16px; }
 
         .tmgr-samples-box input {
             margin-bottom: 8px;
@@ -2045,10 +2064,7 @@
             transition: 0.2s;
         }
 
-        .tmgr-add-btn:hover {
-            border-color: #2563eb;
-            color: #2563eb;
-        }
+        .tmgr-add-btn:hover { border-color: #2563eb; color: #2563eb; }
 
         .tmgr-submit-btn {
             width: 100%;
@@ -2064,14 +2080,8 @@
             transition: 0.2s;
         }
 
-        .tmgr-submit-btn:hover {
-            background: #1f2937;
-        }
-
-        .tmgr-submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .tmgr-submit-btn:hover { background: #1f2937; }
+        .tmgr-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .tmgr-msg {
             margin-top: 14px;
@@ -2081,15 +2091,8 @@
             display: none;
         }
 
-        .tmgr-msg.success {
-            background: #dcfce7;
-            color: #15803d;
-        }
-
-        .tmgr-msg.error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
+        .tmgr-msg.success { background: #dcfce7; color: #15803d; }
+        .tmgr-msg.error   { background: #fee2e2; color: #991b1b; }
 
         /* Meta token config strip */
         .tmgr-token-strip {
@@ -2126,6 +2129,7 @@
             font-weight: 600;
             cursor: pointer;
         }
+
     </style>
 
 </head>
@@ -2293,7 +2297,7 @@
 
     <!-- MAIN -->
 
-    <div class="main-layout profile-hidden" id="mainLayout">
+    <div class="main-layout" id="mainLayout">
 
         <!-- SIDEBAR -->
 
@@ -2373,6 +2377,28 @@
 
                 </div>
 
+                <div class="menu-item" onclick="filterChats('active', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-solid fa-circle" style="color:#16a34a;font-size:10px;"></i>
+                        <span>Active (24h)</span>
+                    </div>
+
+                    <div id="count-active">0</div>
+
+                </div>
+
+                <div class="menu-item" onclick="filterChats('expired', this)">
+
+                    <div class="menu-left">
+                        <i class="fa-regular fa-clock" style="color:#dc2626;"></i>
+                        <span>Expired</span>
+                    </div>
+
+                    <div id="count-expired">0</div>
+
+                </div>
+
             </div>
 
         </div>
@@ -2387,7 +2413,7 @@
 
                     <i class="fa-solid fa-magnifying-glass"></i>
 
-                    <input type="text" placeholder="Search conversations...">
+                    <input type="text" id="searchInput" placeholder="Search conversations..." oninput="searchChats(this.value)">
 
                 </div>
 
@@ -2395,53 +2421,41 @@
 
                 <div class="tabs-row">
 
-                    <div style="display:flex; gap:8px; align-items:center;">
+                    <!-- FILTER -->
 
-                        <!-- FILTER -->
+                    <div class="filter-wrap">
 
-                        <div class="filter-wrap">
+                        <button class="filter-btn" onclick="toggleChannelDropdown(event)">
 
-                            <button class="filter-btn" onclick="toggleChannelDropdown(event)">
+                            <i class="fa-solid fa-filter"></i>
 
-                                <i class="fa-solid fa-filter"></i>
+                        </button>
 
-                            </button>
+                        <div class="channel-dropdown" id="channelDropdown">
 
-                            <div class="channel-dropdown" id="channelDropdown">
+                            <div class="channel-option active">
 
-                                <div class="channel-option active">
+                                <i class="fa-brands fa-whatsapp"></i>
 
-                                    <i class="fa-brands fa-whatsapp"></i>
-
-                                    WhatsApp
-
-                                </div>
-
-                                <div class="channel-option">
-
-                                    <i class="fa-brands fa-instagram"></i>
-
-                                    Instagram
-
-                                </div>
-
-                                <div class="channel-option">
-
-                                    <i class="fa-brands fa-facebook-messenger"></i>
-
-                                    Messenger
-
-                                </div>
+                                WhatsApp
 
                             </div>
 
-                        </div>
+                            <div class="channel-option">
 
-                        <!-- BACKUP -->
+                                <i class="fa-brands fa-instagram"></i>
 
-                        <div class="icon-btn" onclick="backupChats()" title="Backup Chats">
+                                Instagram
 
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+
+                            <div class="channel-option">
+
+                                <i class="fa-brands fa-facebook-messenger"></i>
+
+                                Messenger
+
+                            </div>
 
                         </div>
 
@@ -2453,17 +2467,21 @@
 
                 <div class="chat-list-actions">
 
-                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()"
-                        title="Initiate a new conversation">
+                    <button class="chat-list-action-btn primary" onclick="openNewChatModal()" title="Initiate a new conversation">
 
                         <i class="fa-solid fa-plus"></i> New Chat
 
                     </button>
 
-                    <button class="chat-list-action-btn" onclick="openBroadcastModal()"
-                        title="Send a template to multiple contacts">
+                    <button class="chat-list-action-btn" onclick="openBroadcastModal()" title="Send a template to multiple contacts">
 
                         <i class="fa-solid fa-bullhorn"></i> Broadcast
+
+                    </button>
+
+                    <button class="chat-list-action-btn" onclick="openCsvImport()" title="Import contacts from CSV">
+
+                        <i class="fa-solid fa-file-csv"></i>
 
                     </button>
 
@@ -2478,6 +2496,9 @@
             </div>
 
         </div>
+
+        <!-- CHAT LIST RESIZE HANDLE -->
+        <div class="chatlist-resize-handle" id="chatListResizeHandle"></div>
 
         <!-- CHAT WINDOW -->
 
@@ -2524,21 +2545,6 @@
                         <i class="fa-solid fa-star"></i>
 
                     </div>
-                    <!-- EXPORT CHAT -->
-
-                    <div class="icon-btn" onclick="exportCurrentChat()" title="Export Chat">
-
-                        <i class="fa-solid fa-file-export"></i>
-
-                    </div>
-
-                    <!-- PROFILE TOGGLE -->
-
-                    <div class="icon-btn" onclick="toggleProfilePanel()" title="Profile Details">
-
-                        <i class="fa-solid fa-circle-info"></i>
-
-                    </div>
 
                 </div>
 
@@ -2574,51 +2580,65 @@
 
             <!-- CHAT INPUT -->
 
-            <div class="chat-input" id="chatInputArea">
+            <div class="chat-input" id="chatInputArea" style="flex-direction:column;padding:0;">
 
-                <button class="input-action-btn" onclick="toggleEmojiPicker()">
-
-                    <i class="fa-regular fa-face-smile"></i>
-
-                </button>
-
-                <label class="input-action-btn">
-
-                    <i class="fa-solid fa-paperclip"></i>
-
-                    <input type="file" hidden onchange="handleFileUpload(event)">
-
-                </label>
-
-                <!-- TEMPLATE BUTTON -->
-
-                <button class="input-action-btn" onclick="openTemplatePicker()" title="Send Template Message">
-
-                    <i class="fa-solid fa-bolt"></i>
-
-                </button>
-
-                <div class="input-box">
-
-                    <input type="text" id="messageInput" placeholder="Type message...">
-
+                <!-- 24hr window expired banner -->
+                <div id="windowExpiredBanner" style="display:none;">
+                    <i class="fa-regular fa-clock"></i>
+                    <span>24-hour messaging window has expired. Only template messages can be sent.</span>
+                    <button class="expired-send-btn" onclick="openTemplatePicker()">
+                        <i class="fa-solid fa-bolt"></i> Send Template
+                    </button>
                 </div>
 
-                <button class="send-btn" onclick="sendMessage()">
+                <!-- Normal input row -->
+                <div id="normalInputArea" style="display:flex;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
 
-                    <i class="fa-solid fa-paper-plane"></i>
+                    <button class="input-action-btn" onclick="toggleEmojiPicker()">
 
-                </button>
+                        <i class="fa-regular fa-face-smile"></i>
 
-                <!-- EMOJI -->
+                    </button>
 
-                <div class="emoji-picker" id="emojiPicker">
+                    <label class="input-action-btn">
 
-                    <span onclick="addEmoji('😀')">😀</span>
-                    <span onclick="addEmoji('😂')">😂</span>
-                    <span onclick="addEmoji('❤️')">❤️</span>
-                    <span onclick="addEmoji('👍')">👍</span>
-                    <span onclick="addEmoji('🙏')">🙏</span>
+                        <i class="fa-solid fa-paperclip"></i>
+
+                        <input type="file" hidden onchange="handleFileUpload(event)">
+
+                    </label>
+
+                    <!-- TEMPLATE BUTTON -->
+
+                    <button class="input-action-btn" onclick="openTemplatePicker()" title="Send Template Message">
+
+                        <i class="fa-solid fa-bolt"></i>
+
+                    </button>
+
+                    <div class="input-box" style="flex:1;">
+
+                        <input type="text" id="messageInput" placeholder="Type message...">
+
+                    </div>
+
+                    <button class="send-btn" onclick="sendMessage()">
+
+                        <i class="fa-solid fa-paper-plane"></i>
+
+                    </button>
+
+                    <!-- EMOJI -->
+
+                    <div class="emoji-picker" id="emojiPicker">
+
+                        <span onclick="addEmoji('😀')">😀</span>
+                        <span onclick="addEmoji('😂')">😂</span>
+                        <span onclick="addEmoji('❤️')">❤️</span>
+                        <span onclick="addEmoji('👍')">👍</span>
+                        <span onclick="addEmoji('🙏')">🙏</span>
+
+                    </div>
 
                 </div>
 
@@ -2632,7 +2652,7 @@
 
         <!-- PROFILE -->
 
-        <div class="profile-panel hidden" id="profilePanel">
+        <div class="profile-panel" id="profilePanel">
 
             <div class="profile-top">
 
@@ -2911,6 +2931,42 @@
     </div>
 
     <!-- =========================================================
+    CSV IMPORT MODAL
+    ========================================================= -->
+
+    <div class="template-overlay" id="csvImportOverlay">
+        <div class="template-modal" style="max-width:540px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-csv"></i> Import Contacts from CSV</h3>
+                <button class="modal-close" onclick="closeCsvImport()">×</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="font-size:13px;color:#6b7280;margin:0 0 14px;">
+                    CSV must have columns: <strong>name</strong> and <strong>phone</strong> (with country code, e.g. +628123456789).<br>
+                    First row = header row (skipped automatically).
+                </p>
+                <label style="display:block;margin-bottom:12px;">
+                    <input type="file" id="csvFileInput" accept=".csv" style="display:block;width:100%;padding:8px;border:1px dashed #d1d5db;border-radius:8px;cursor:pointer;font-size:13px;">
+                </label>
+                <div id="csvPreview" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
+                <div id="csvImportMsg" style="font-size:13px;margin-bottom:10px;"></div>
+                <div id="csvMainActions" style="display:flex;gap:10px;">
+                    <button class="modal-btn-secondary" onclick="closeCsvImport()" style="flex:1;">Cancel</button>
+                    <button class="modal-btn-primary" id="csvImportBtn" onclick="importCsvContacts()" style="flex:2;" disabled>
+                        <i class="fa-solid fa-upload"></i> Import Contacts
+                    </button>
+                </div>
+                <div id="csvPostImportActions" style="display:none;gap:10px;margin-top:8px;">
+                    <button class="modal-btn-secondary" onclick="closeCsvImport()" style="flex:1;">Done</button>
+                    <button class="modal-btn-primary" onclick="openBroadcastFromImport()" style="flex:2;">
+                        <i class="fa-solid fa-bullhorn"></i> Broadcast to All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================
     TEMPLATE PICKER MODAL
     ========================================================= -->
 
@@ -2981,8 +3037,7 @@
             <div class="modal-body">
 
                 <span class="modal-label">Phone Number <span style="color:#ef4444;">*</span></span>
-                <input type="text" class="modal-input" id="newChatPhone"
-                    placeholder="+628123456789 (include country code)">
+                <input type="text" class="modal-input" id="newChatPhone" placeholder="+628123456789 (include country code)">
 
                 <span class="modal-label">Contact Name (optional)</span>
                 <input type="text" class="modal-input" id="newChatName" placeholder="e.g. Budi Santoso">
@@ -3132,8 +3187,7 @@
                 <div class="tmgr-form" id="tmgrForm">
 
                     <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">
-                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>,
-                        <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
+                        Submit a new template to Meta for approval. Use <strong>&#123;&#123;1&#125;&#125;</strong>, <strong>&#123;&#123;2&#125;&#125;</strong>… for variables in the body.
                     </p>
 
                     <div class="tmgr-form-row">
@@ -3167,15 +3221,11 @@
                     <label>Header <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <input type="text" id="tmgrHeader" placeholder="e.g. Ulink Assist Update">
 
-                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;,
-                            &#123;&#123;2&#125;&#125;… for variables</span></label>
-                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated."
-                        oninput="tmgrUpdateSamples()"></textarea>
+                    <label>Body * <span style="font-weight:400;color:#9ca3af;">— use &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;… for variables</span></label>
+                    <textarea id="tmgrBody" placeholder="Dear {{1}}, your enquiry regarding {{2}} has been updated." oninput="tmgrUpdateSamples()"></textarea>
 
                     <div class="tmgr-samples-box" id="tmgrSamplesBox">
-                        <div class="tmgr-samples-box-head">Variable Samples <span
-                                style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for
-                                review</span></div>
+                        <div class="tmgr-samples-box-head">Variable Samples <span style="font-weight:400;color:#6b7280;font-size:12px;">— required by Meta for review</span></div>
                         <div class="tmgr-samples-box-body" id="tmgrSamplesInputs"></div>
                     </div>
 
@@ -3184,19 +3234,14 @@
 
                     <label>Buttons <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <div class="tmgr-btn-type-row">
-                        <label><input type="radio" name="tmgrBtnType" value="none" checked
-                                onchange="tmgrUpdateBtnSection()"> None</label>
-                        <label><input type="radio" name="tmgrBtnType" value="quick_reply"
-                                onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max
-                                3)</small></label>
-                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL
-                            / Phone <small style="color:#6b7280;">(CTA)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="none" checked onchange="tmgrUpdateBtnSection()"> None</label>
+                        <label><input type="radio" name="tmgrBtnType" value="quick_reply" onchange="tmgrUpdateBtnSection()"> Quick Reply <small style="color:#6b7280;">(max 3)</small></label>
+                        <label><input type="radio" name="tmgrBtnType" value="cta" onchange="tmgrUpdateBtnSection()"> URL / Phone <small style="color:#6b7280;">(CTA)</small></label>
                     </div>
 
                     <div id="tmgrBtnSection" style="display:none;">
                         <div id="tmgrBtnList"></div>
-                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add
-                            Button</button>
+                        <button type="button" class="tmgr-add-btn" id="tmgrAddBtn" onclick="tmgrAddButton()">+ Add Button</button>
                     </div>
 
                     <div class="tmgr-msg" id="tmgrCreateMsg"></div>
@@ -3220,10 +3265,10 @@
 
         const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
-        const META_WABA_ID = "1328662202356452";
-        const META_PHONE_ID = "1112140058650260";
-        const META_GRAPH_URL = "https://graph.facebook.com/v19.0";
-        let META_TOKEN = localStorage.getItem("meta_token") || "";
+        const META_WABA_ID    = "1328662202356452";
+        const META_PHONE_ID   = "1112140058650260";
+        const META_GRAPH_URL  = "https://graph.facebook.com/v19.0";
+        let   META_TOKEN      = localStorage.getItem("meta_token") || "";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -3658,119 +3703,6 @@
 
         }
 
-        // =========================================================
-        // EXPORT CURRENT CHAT
-        // =========================================================
-
-        async function exportCurrentChat() {
-
-            if (!currentChat) {
-
-                alert("Please open a conversation first.");
-
-                return;
-
-            }
-
-            try {
-
-                const response = await fetch(
-
-                    "https://ulink.app.n8n.cloud/webhook/export-chat",
-
-                    {
-
-                        method: "POST",
-
-                        headers: {
-
-                            "Content-Type": "application/json"
-
-                        },
-
-                        body: JSON.stringify({
-
-                            conversation_id: currentChat.id,
-
-                            phone: currentChat.phone,
-
-                            name: currentChat.name
-
-                        })
-
-                    }
-
-                );
-
-                const data = await response.json();
-
-                if (data.download_url) {
-
-                    window.open(
-                        data.download_url,
-                        "_blank"
-                    );
-
-                } else {
-
-                    alert("Export completed.");
-
-                }
-
-            } catch (err) {
-
-                console.error(err);
-
-                alert("Failed to export chat.");
-
-            }
-
-        }
-
-        // =========================================================
-        // BACKUP ALL CHATS
-        // =========================================================
-
-        async function backupChats() {
-
-            const confirmed = confirm(
-
-                "Backup all chats now?"
-
-            );
-
-            if (!confirmed) return;
-
-            try {
-
-                await fetch(
-
-                    "https://ulink.app.n8n.cloud/webhook/backup-chats",
-
-                    {
-
-                        method: "POST"
-
-                    }
-
-                );
-
-                alert(
-
-                    "Backup started successfully."
-
-                );
-
-            } catch (err) {
-
-                console.error(err);
-
-                alert("Backup failed.");
-
-            }
-
-        }
-
         /* =========================================================
         EDIT PROFILE
         ========================================================= */
@@ -3988,43 +3920,18 @@
 
         }
 
+        function searchChats(query) {
+            searchQuery = query.trim();
+            renderChats(activeFilter);
+        }
+
         /* =========================================================
         CHAT DATABASE
         ========================================================= */
 
         let chats = [];
         let activeFilter = 'all';
-
-        function normalizePhone(phone) {
-            return String(phone || "").replace(/\D/g, "");
-        }
-
-        function isSameConversation(chat, msg) {
-            if (!chat || !msg) return false;
-
-            if (
-                msg.conversation_id &&
-                chat.id &&
-                String(msg.conversation_id) === String(chat.id)
-            ) {
-                return true;
-            }
-
-            return normalizePhone(chat.phone) === normalizePhone(msg.phone);
-        }
-
-        function getMessageDomId(msg) {
-            return msg.id || `${msg.phone || "unknown"}-${msg.created_at || Date.now()}-${msg.sender || "message"}`;
-        }
-
-        function moveChatToTop(chat) {
-            chats = [
-                chat,
-                ...chats.filter(c => c.id !== chat.id && normalizePhone(c.phone) !== normalizePhone(chat.phone))
-            ];
-
-            renderChats(activeFilter);
-        }
+        let searchQuery = '';
 
         async function loadConversations() {
             const { data, error } = await supabaseClient
@@ -4064,7 +3971,10 @@
                     language: conv.language || "Unknown",
                     messages: [],
                     unread_count: 0,
-                    message_count: conv.message_count || 0
+                    last_incoming_at: conv.last_incoming_at || null,
+                    windowExpired: conv.last_incoming_at
+                        ? (Date.now() - new Date(conv.last_incoming_at).getTime() > 86400000)
+                        : true
                 };
             });
 
@@ -4083,28 +3993,23 @@
         }
 
         function updateSidebarCounts() {
+            const now = Date.now();
             document.getElementById('count-all').innerText = chats.length;
             document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-followup').innerText =
-                chats.filter(c => c.follow_up === true).length;
-            document.getElementById(
-                'count-unread'
-            ).innerText = chats.filter(
-                c => (c.unread_count || 0) > 0
+            document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up === true).length;
+            document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
+            document.getElementById('count-active').innerText = chats.filter(c =>
+                c.last_incoming_at && (now - new Date(c.last_incoming_at).getTime() <= 86400000)
+            ).length;
+            document.getElementById('count-expired').innerText = chats.filter(c =>
+                !c.last_incoming_at || (now - new Date(c.last_incoming_at).getTime() > 86400000)
             ).length;
 
-            const totalUnread =
-                chats.reduce(
-                    (sum, c) =>
-                        sum + (c.unread_count || 0),
-                    0
-                );
-
-            document.getElementById(
-                'allMessageBadge'
-            ).innerText = totalUnread;
+            const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            document.getElementById('allMessageBadge').innerText = totalUnread;
+            document.title = totalUnread > 0 ? `(${totalUnread}) Speedbot Console` : 'Speedbot Console';
         }
 
         /* =========================================================
@@ -4122,29 +4027,28 @@
 
             chats.forEach(chat => {
 
+                const now = Date.now();
                 if (filter === "unread") {
-
-                    if (
-                        !chat.unread_count ||
-                        chat.unread_count <= 0
-                    ) return;
-
-                }
-
-                else if (
-                    filter !== "all" &&
-                    chat.type !== filter
-                ) return;
-
-                if (
-                    filter === "unread" &&
-                    (!chat.unread_count || chat.unread_count <= 0)
-                ) return;
+                    if (!chat.unread_count || chat.unread_count <= 0) return;
+                } else if (filter === "active") {
+                    if (!chat.last_incoming_at || (now - new Date(chat.last_incoming_at).getTime() > 86400000)) return;
+                } else if (filter === "expired") {
+                    if (chat.last_incoming_at && (now - new Date(chat.last_incoming_at).getTime() <= 86400000)) return;
+                } else if (filter !== "all" && chat.type !== filter) return;
 
                 if (
                     currentPlatform !== "all" &&
                     chat.platformType !== currentPlatform
                 ) return;
+
+                // Search filter
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const matchName = (chat.name || '').toLowerCase().includes(q);
+                    const matchPhone = (chat.phone || '').includes(q);
+                    const matchPreview = (chat.preview || '').toLowerCase().includes(q);
+                    if (!matchName && !matchPhone && !matchPreview) return;
+                }
 
                 const div =
                     document.createElement("div");
@@ -4211,129 +4115,10 @@
             existing.querySelector(".chat-time").innerText =
                 chat.time;
 
-            const previewRow =
-                existing.querySelector(".chat-preview").parentElement;
-
-            const unreadBadge =
-                existing.querySelector(".unread-badge");
-
-            if (chat.unread_count > 0) {
-
-                if (unreadBadge) {
-
-                    unreadBadge.innerText =
-                        chat.unread_count;
-
-                } else {
-
-                    const badge =
-                        document.createElement("div");
-
-                    badge.className =
-                        "unread-badge";
-
-                    badge.innerText =
-                        chat.unread_count;
-
-                    previewRow.appendChild(badge);
-
-                }
-
-            } else if (unreadBadge) {
-
-                unreadBadge.remove();
-
-            }
-
             const container =
                 document.getElementById("chatItems");
 
             container.prepend(existing);
-
-        }
-
-        function syncRealtimeMessage(msg) {
-
-            let existingChat =
-                chats.find(c => isSameConversation(c, msg));
-
-            if (!existingChat) {
-
-                existingChat = {
-
-                    id: msg.conversation_id || crypto.randomUUID(),
-
-                    phone: msg.phone,
-
-                    name: msg.phone,
-
-                    avatar:
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.phone || 'User')}&background=random`,
-
-                    preview: msg.message || '',
-
-                    time:
-                        formatSGT(msg.created_at),
-
-                    platform: 'WhatsApp',
-
-                    platformType: 'whatsapp',
-
-                    type: 'myinbox',
-
-                    messages: [],
-
-                    unread_count: 0,
-
-                    message_count: 0,
-
-                    country: "Unknown",
-
-                    language: "Unknown"
-
-                };
-
-                autoDetectChatMeta(existingChat);
-
-            }
-
-            const isOpenChat =
-                isSameConversation(currentChat, msg);
-
-            existingChat.preview =
-                msg.message || '';
-
-            existingChat.time =
-                formatSGT(msg.created_at);
-
-            existingChat.message_count =
-                (existingChat.message_count || 0) + 1;
-
-            if (
-                msg.sender === "incoming" &&
-                !isOpenChat
-            ) {
-
-                existingChat.unread_count =
-                    (existingChat.unread_count || 0) + 1;
-
-            }
-
-            moveChatToTop(existingChat);
-
-            updateSidebarCounts();
-
-            if (isOpenChat) {
-
-                currentChat = existingChat;
-
-                currentChat.unread_count = 0;
-
-                appendMessage(msg);
-
-                updateSingleConversationUI(currentChat);
-
-            }
 
         }
 
@@ -4433,6 +4218,7 @@
             document.getElementById("languageValue").innerText = chat.language;
 
             fetchMessagesForChat();
+            checkWindowExpiry();
         }
 
         /* =========================================================
@@ -4495,10 +4281,10 @@
 
             });
 
-            currentChat.message_count =
-                data.length;
-
-            updateSingleConversationUI(currentChat);
+            // Scroll to latest — double-rAF ensures paint is complete
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }));
 
         }
 
@@ -4530,7 +4316,119 @@
 
                         (payload) => {
 
-                            syncRealtimeMessage(payload.new);
+                            const msg = payload.new;
+
+                            let existingChat =
+                                chats.find(c => c.phone === msg.phone);
+
+                            if (!existingChat) {
+
+                                existingChat = {
+
+                                    id: crypto.randomUUID(),
+
+                                    phone: msg.phone,
+
+                                    name: msg.phone,
+
+                                    avatar:
+                                        `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.phone)}&background=random`,
+
+                                    preview: msg.message,
+
+                                    time:
+                                        formatSGT(msg.created_at),
+
+                                    platform: 'WhatsApp',
+
+                                    platformType: 'whatsapp',
+
+                                    type: 'myinbox',
+
+                                    messages: [],
+
+                                    unread_count: 1,
+
+                                    country: "Unknown",
+
+                                    language: "Unknown"
+
+                                };
+
+                                autoDetectChatMeta(existingChat);
+
+                                chats.unshift(existingChat);
+
+                                renderChats(activeFilter);
+
+                            }
+
+                            existingChat.preview =
+                                msg.message || '';
+
+                            if (msg.sender === "incoming") {
+                                // Update 24hr window tracking
+                                existingChat.last_incoming_at = msg.created_at;
+                                existingChat.windowExpired = false;
+
+                                if (!currentChat || currentChat.phone !== msg.phone) {
+                                    existingChat.unread_count = (existingChat.unread_count || 0) + 1;
+
+                                    // Browser notification
+                                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                        const senderName = existingChat.name || msg.phone;
+                                        const notif = new Notification(`New message from ${senderName}`, {
+                                            body: msg.message?.substring(0, 120) || '',
+                                            icon: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(senderName) + '&background=1a1a2e&color=fff'
+                                        });
+                                        notif.onclick = () => {
+                                            window.focus();
+                                            const c = chats.find(x => x.phone === msg.phone);
+                                            if (c) openChat(c.id);
+                                        };
+                                    }
+                                } else {
+                                    // Currently viewing this chat — refresh window state
+                                    currentChat.last_incoming_at = msg.created_at;
+                                    currentChat.windowExpired = false;
+                                    updateChatInputState();
+                                }
+                            }
+
+                            existingChat.time =
+                                formatSGT(msg.created_at);
+
+                            chats = [
+                                existingChat,
+                                ...chats.filter(c => c.phone !== msg.phone)
+                            ];
+
+                            const existingElement =
+                                document.querySelector(
+                                    `[data-chat-id="${existingChat.id}"]`
+                                );
+
+                            if (existingElement) {
+
+                                const container =
+                                    document.getElementById("chatItems");
+
+                                container.prepend(existingElement);
+
+                            }
+
+                            updateSingleConversationUI(existingChat);
+
+                            updateSidebarCounts();
+
+                            if (
+                                currentChat &&
+                                currentChat.phone === msg.phone
+                            ) {
+
+                                appendMessage(msg);
+
+                            }
 
                         }
                     )
@@ -4552,27 +4450,7 @@
                                 currentChat.phone === msg.phone
                             ) {
 
-                                const existingMessage =
-                                    document.querySelector(
-                                        `[data-message-id="${msg.id}"]`
-                                    );
-
-                                if (existingMessage) {
-
-                                    const timeDiv =
-                                        existingMessage.querySelector(
-                                            ".message-time"
-                                        );
-
-                                    if (timeDiv) {
-
-                                        timeDiv.innerText =
-                                            msg.created_at_sgt ||
-                                            formatSGT(msg.created_at);
-
-                                    }
-
-                                }
+                                fetchMessagesForChat();
 
                             }
 
@@ -4659,16 +4537,6 @@
             const messagesContainer =
                 document.getElementById("messages");
 
-            // PREVENT DUPLICATE MESSAGE
-
-            if (
-                document.querySelector(
-                    `[data-message-id="${msg.id}"]`
-                )
-            ) {
-                return;
-            }
-
             let senderClass = "incoming";
 
             if (msg.sender === "incoming") {
@@ -4699,11 +4567,6 @@
             const div =
                 document.createElement("div");
 
-            div.setAttribute(
-                "data-message-id",
-                msg.id
-            );
-
             div.className =
                 `message ${senderClass}`;
 
@@ -4724,26 +4587,42 @@
 
             }
 
+            // Render template messages as a card
+            const tmplMatch = (msg.message || '').match(/^\[Template:\s*(.+?)\]$/);
+            let bodyHtml;
+            if (tmplMatch) {
+                const tName = tmplMatch[1];
+                const tData = (tmgrCachedAll.length ? tmgrCachedAll : templates)
+                    .find(t => (t.name || t.display_name || '').toLowerCase() === tName.toLowerCase());
+                const bodyText = tData
+                    ? (tData.components
+                        ? (tData.components.find(c => c.type === 'BODY') || {}).text || ''
+                        : tData.body || '')
+                    : '';
+                bodyHtml = `<div style="border:1px solid rgba(0,0,0,0.12);border-radius:8px;overflow:hidden;font-size:13px;max-width:320px;">
+  <div style="background:rgba(0,0,0,0.06);padding:6px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;">
+    <span>⚡</span><span>Template: ${escHtml(tName)}</span>
+  </div>
+  ${bodyText ? `<div style="padding:8px 10px;white-space:pre-wrap;">${escHtml(bodyText)}</div>` : ''}
+</div>`;
+            } else {
+                bodyHtml = escHtml(msg.message || '').replace(/\n/g, '<br>');
+            }
+
             div.innerHTML = `
 <div style="font-size:10px;font-weight:700;opacity:0.7;margin-bottom:6px;letter-spacing:0.5px;">
 ${label}
 </div>
-${msg.message || ''}
+${bodyHtml}
 <div class="message-time">${time}</div>
 `;
 
-            // FORCE LIVE DOM UPDATE
-
-            messagesContainer.offsetHeight;
-
             messagesContainer.appendChild(div);
 
-            requestAnimationFrame(() => {
-
-                messagesContainer.scrollTop =
-                    messagesContainer.scrollHeight;
-
-            });
+            // Only auto-scroll if user is near the bottom (within 100px)
+            if (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
 
         }
 
@@ -4980,9 +4859,26 @@ ${msg.message || ''}
                 "mainLayout"
             ).classList.add("welcome-mode");
 
+            // Always start with sidebar expanded (clear any stale collapsed state)
+            document.querySelector('.sidebar').classList.remove('collapsed');
+            document.body.classList.remove('sidebar-collapsed');
+
             loadTemplates();
             loadConversations();
             setupRealtime();
+
+            // Reconnect realtime when tab becomes visible again
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    setupRealtime();
+                    loadConversations();
+                }
+            });
+
+            // Periodic conversation refresh every 30s as fallback
+            setInterval(() => {
+                if (!document.hidden) loadConversations();
+            }, 30000);
 
         });
 
@@ -5001,121 +4897,173 @@ ${msg.message || ''}
         }
 
         /* =========================================================
+        RESIZABLE PANELS
+        ========================================================= */
+
+        (function initResizeHandles() {
+            // Right panel (profile) resize
+            const profileHandle = document.getElementById('resizeHandle');
+            if (profileHandle) {
+                let dragging = false, startX = 0, startW = 0;
+                profileHandle.addEventListener('mousedown', e => {
+                    dragging = true;
+                    startX = e.clientX;
+                    startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
+                    profileHandle.classList.add('dragging');
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', e => {
+                    if (!dragging) return;
+                    const delta = startX - e.clientX;
+                    const newW = Math.max(220, Math.min(480, startW + delta));
+                    document.documentElement.style.setProperty('--profile-width', newW + 'px');
+                });
+                document.addEventListener('mouseup', () => {
+                    dragging = false;
+                    profileHandle.classList.remove('dragging');
+                });
+            }
+
+            // Chat list width resize (drag right edge of chat-list)
+            const chatList = document.querySelector('.chat-list');
+            if (chatList) {
+                const chatHandle = document.createElement('div');
+                chatHandle.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;';
+                chatList.style.position = 'relative';
+                chatList.appendChild(chatHandle);
+                let dragging = false, startX = 0, startW = 0;
+                chatHandle.addEventListener('mousedown', e => {
+                    dragging = true;
+                    startX = e.clientX;
+                    startW = chatList.offsetWidth;
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', e => {
+                    if (!dragging) return;
+                    const newW = Math.max(260, Math.min(560, startW + (e.clientX - startX)));
+                    chatList.style.width = newW + 'px';
+                    chatList.style.flex = 'none';
+                });
+                document.addEventListener('mouseup', () => { dragging = false; });
+            }
+        })();
+
+        /* =========================================================
         COUNTRY + LANGUAGE AUTO-DETECT
         ========================================================= */
 
         const PHONE_COUNTRY_MAP = [
-            ["1", "United States / Canada"],
-            ["44", "United Kingdom"],
-            ["60", "Malaysia"],
-            ["61", "Australia"],
-            ["62", "Indonesia"],
-            ["63", "Philippines"],
-            ["65", "Singapore"],
-            ["66", "Thailand"],
-            ["81", "Japan"],
-            ["82", "South Korea"],
-            ["84", "Vietnam"],
-            ["86", "China"],
-            ["90", "Turkey"],
-            ["91", "India"],
-            ["92", "Pakistan"],
-            ["94", "Sri Lanka"],
-            ["95", "Myanmar"],
-            ["966", "Saudi Arabia"],
-            ["971", "UAE"],
-            ["972", "Israel"],
-            ["973", "Bahrain"],
-            ["974", "Qatar"],
-            ["965", "Kuwait"],
-            ["968", "Oman"],
-            ["961", "Lebanon"],
-            ["962", "Jordan"],
-            ["963", "Syria"],
-            ["964", "Iraq"],
-            ["20", "Egypt"],
-            ["27", "South Africa"],
-            ["234", "Nigeria"],
-            ["254", "Kenya"],
-            ["255", "Tanzania"],
-            ["256", "Uganda"],
-            ["49", "Germany"],
-            ["33", "France"],
-            ["34", "Spain"],
-            ["39", "Italy"],
-            ["31", "Netherlands"],
-            ["46", "Sweden"],
-            ["47", "Norway"],
-            ["45", "Denmark"],
-            ["358", "Finland"],
-            ["7", "Russia"],
-            ["55", "Brazil"],
-            ["52", "Mexico"],
-            ["57", "Colombia"],
-            ["51", "Peru"],
-            ["54", "Argentina"],
-            ["64", "New Zealand"],
-            ["880", "Bangladesh"],
-            ["977", "Nepal"],
-            ["98", "Iran"],
-            ["93", "Afghanistan"],
+            ["1",    "United States / Canada"],
+            ["44",   "United Kingdom"],
+            ["60",   "Malaysia"],
+            ["61",   "Australia"],
+            ["62",   "Indonesia"],
+            ["63",   "Philippines"],
+            ["65",   "Singapore"],
+            ["66",   "Thailand"],
+            ["81",   "Japan"],
+            ["82",   "South Korea"],
+            ["84",   "Vietnam"],
+            ["86",   "China"],
+            ["90",   "Turkey"],
+            ["91",   "India"],
+            ["92",   "Pakistan"],
+            ["94",   "Sri Lanka"],
+            ["95",   "Myanmar"],
+            ["966",  "Saudi Arabia"],
+            ["971",  "UAE"],
+            ["972",  "Israel"],
+            ["973",  "Bahrain"],
+            ["974",  "Qatar"],
+            ["965",  "Kuwait"],
+            ["968",  "Oman"],
+            ["961",  "Lebanon"],
+            ["962",  "Jordan"],
+            ["963",  "Syria"],
+            ["964",  "Iraq"],
+            ["20",   "Egypt"],
+            ["27",   "South Africa"],
+            ["234",  "Nigeria"],
+            ["254",  "Kenya"],
+            ["255",  "Tanzania"],
+            ["256",  "Uganda"],
+            ["49",   "Germany"],
+            ["33",   "France"],
+            ["34",   "Spain"],
+            ["39",   "Italy"],
+            ["31",   "Netherlands"],
+            ["46",   "Sweden"],
+            ["47",   "Norway"],
+            ["45",   "Denmark"],
+            ["358",  "Finland"],
+            ["7",    "Russia"],
+            ["55",   "Brazil"],
+            ["52",   "Mexico"],
+            ["57",   "Colombia"],
+            ["51",   "Peru"],
+            ["54",   "Argentina"],
+            ["64",   "New Zealand"],
+            ["880",  "Bangladesh"],
+            ["977",  "Nepal"],
+            ["98",   "Iran"],
+            ["93",   "Afghanistan"],
         ];
 
         const COUNTRY_LANGUAGE_MAP = {
-            "Indonesia": "Bahasa Indonesia",
-            "Malaysia": "Bahasa Melayu",
-            "Singapore": "English",
-            "Philippines": "Filipino / English",
-            "Thailand": "Thai",
-            "Vietnam": "Vietnamese",
-            "Myanmar": "Burmese",
-            "Japan": "Japanese",
-            "South Korea": "Korean",
-            "China": "Mandarin",
-            "India": "Hindi / English",
-            "Pakistan": "Urdu",
-            "Bangladesh": "Bengali",
-            "Sri Lanka": "Sinhala / Tamil",
-            "Nepal": "Nepali",
-            "Saudi Arabia": "Arabic",
-            "UAE": "Arabic",
-            "Bahrain": "Arabic",
-            "Qatar": "Arabic",
-            "Kuwait": "Arabic",
-            "Oman": "Arabic",
-            "Lebanon": "Arabic",
-            "Jordan": "Arabic",
-            "Syria": "Arabic",
-            "Iraq": "Arabic",
-            "Iran": "Persian",
-            "Turkey": "Turkish",
-            "Afghanistan": "Dari / Pashto",
-            "Egypt": "Arabic",
-            "Nigeria": "English",
-            "South Africa": "English",
-            "Kenya": "Swahili / English",
-            "Tanzania": "Swahili",
-            "Uganda": "English",
-            "Germany": "German",
-            "France": "French",
-            "Spain": "Spanish",
-            "Italy": "Italian",
-            "Netherlands": "Dutch",
-            "Sweden": "Swedish",
-            "Norway": "Norwegian",
-            "Denmark": "Danish",
-            "Finland": "Finnish",
-            "Russia": "Russian",
-            "Brazil": "Portuguese",
-            "Mexico": "Spanish",
-            "Colombia": "Spanish",
-            "Peru": "Spanish",
-            "Argentina": "Spanish",
-            "United States / Canada": "English",
-            "United Kingdom": "English",
-            "Australia": "English",
-            "New Zealand": "English",
-            "Israel": "Hebrew",
+            "Indonesia":             "Bahasa Indonesia",
+            "Malaysia":              "Bahasa Melayu",
+            "Singapore":             "English",
+            "Philippines":           "Filipino / English",
+            "Thailand":              "Thai",
+            "Vietnam":               "Vietnamese",
+            "Myanmar":               "Burmese",
+            "Japan":                 "Japanese",
+            "South Korea":           "Korean",
+            "China":                 "Mandarin",
+            "India":                 "Hindi / English",
+            "Pakistan":              "Urdu",
+            "Bangladesh":            "Bengali",
+            "Sri Lanka":             "Sinhala / Tamil",
+            "Nepal":                 "Nepali",
+            "Saudi Arabia":          "Arabic",
+            "UAE":                   "Arabic",
+            "Bahrain":               "Arabic",
+            "Qatar":                 "Arabic",
+            "Kuwait":                "Arabic",
+            "Oman":                  "Arabic",
+            "Lebanon":               "Arabic",
+            "Jordan":                "Arabic",
+            "Syria":                 "Arabic",
+            "Iraq":                  "Arabic",
+            "Iran":                  "Persian",
+            "Turkey":                "Turkish",
+            "Afghanistan":           "Dari / Pashto",
+            "Egypt":                 "Arabic",
+            "Nigeria":               "English",
+            "South Africa":          "English",
+            "Kenya":                 "Swahili / English",
+            "Tanzania":              "Swahili",
+            "Uganda":                "English",
+            "Germany":               "German",
+            "France":                "French",
+            "Spain":                 "Spanish",
+            "Italy":                 "Italian",
+            "Netherlands":           "Dutch",
+            "Sweden":                "Swedish",
+            "Norway":                "Norwegian",
+            "Denmark":               "Danish",
+            "Finland":               "Finnish",
+            "Russia":                "Russian",
+            "Brazil":                "Portuguese",
+            "Mexico":                "Spanish",
+            "Colombia":              "Spanish",
+            "Peru":                  "Spanish",
+            "Argentina":             "Spanish",
+            "United States / Canada":"English",
+            "United Kingdom":        "English",
+            "Australia":             "English",
+            "New Zealand":           "English",
+            "Israel":                "Hebrew",
         };
 
         function detectCountryFromPhone(phone) {
@@ -5151,13 +5099,13 @@ ${msg.message || ''}
             const t = text.toLowerCase();
 
             const patterns = [
-                { lang: "Bahasa Indonesia", words: ["saya", "anda", "tidak", "dengan", "untuk", "yang", "adalah", "bisa", "harga", "tolong", "terima kasih", "selamat", "obat", "sakit", "dokter", "rumah sakit"] },
-                { lang: "Bahasa Melayu", words: ["awak", "boleh", "nak", "kenapa", "macam", "mana", "saya", "terima kasih", "hospital", "doktor"] },
-                { lang: "Thai", words: ["ครับ", "ค่ะ", "ขอบคุณ", "สวัสดี"] },
-                { lang: "Arabic", words: ["الحمد", "شكرا", "مرحبا", "كيف"] },
-                { lang: "Japanese", words: ["です", "ます", "ください", "ありがとう"] },
-                { lang: "Vietnamese", words: ["tôi", "bạn", "cảm ơn", "xin"] },
-                { lang: "Mandarin", words: ["谢谢", "你好", "我", "是"] }
+                { lang: "Bahasa Indonesia", words: ["saya","anda","tidak","dengan","untuk","yang","adalah","bisa","harga","tolong","terima kasih","selamat","obat","sakit","dokter","rumah sakit"] },
+                { lang: "Bahasa Melayu",    words: ["awak","boleh","nak","kenapa","macam","mana","saya","terima kasih","hospital","doktor"] },
+                { lang: "Thai",             words: ["ครับ","ค่ะ","ขอบคุณ","สวัสดี"] },
+                { lang: "Arabic",           words: ["الحمد","شكرا","مرحبا","كيف"] },
+                { lang: "Japanese",         words: ["です","ます","ください","ありがとう"] },
+                { lang: "Vietnamese",       words: ["tôi","bạn","cảm ơn","xin"] },
+                { lang: "Mandarin",         words: ["谢谢","你好","我","是"] }
             ];
 
             for (const p of patterns) {
@@ -5244,9 +5192,9 @@ ${msg.message || ''}
             templateContext = context;
 
             const contextMap = {
-                picker: { list: 'templateList', vars: 'templateVariables', inputs: 'variableInputs' },
-                newchat: { list: 'newChatTemplateList', vars: 'newChatVariables', inputs: 'newChatVariableInputs' },
-                broadcast: { list: 'broadcastTemplateList', vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
+                picker:    { list: 'templateList',         vars: 'templateVariables',  inputs: 'variableInputs' },
+                newchat:   { list: 'newChatTemplateList',  vars: 'newChatVariables',   inputs: 'newChatVariableInputs' },
+                broadcast: { list: 'broadcastTemplateList',vars: 'broadcastVariables', inputs: 'broadcastVariableInputs' }
             };
 
             const ids = contextMap[context];
@@ -5274,7 +5222,7 @@ ${msg.message || ''}
             });
         }
 
-        /* Call the n8n template-send webhook */
+        /* Call the n8n template-send webhook — returns { ok, error } */
         async function callTemplateSendWebhook(phone, template, variables) {
             const payload = {
                 phone: phone.replace(/\s/g, ''),
@@ -5288,9 +5236,13 @@ ${msg.message || ''}
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                return resp.ok;
+                let data = {};
+                try { data = await resp.json(); } catch (_) {}
+                if (!resp.ok) return { ok: false, error: data?.message || `HTTP ${resp.status}` };
+                if (data?.error) return { ok: false, error: data.error.message || JSON.stringify(data.error) };
+                return { ok: true };
             } catch (e) {
-                return false;
+                return { ok: false, error: e.message };
             }
         }
 
@@ -5324,15 +5276,25 @@ ${msg.message || ''}
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
 
-            const ok = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
+            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
 
-            if (ok) {
+            if (result.ok) {
                 closeTemplatePicker();
+                // Optimistic local display — realtime will deduplicate if n8n logs it too
+                appendMessage({
+                    message: `[Template: ${selectedTemplate.name}]`,
+                    sender: 'outgoing',
+                    sender_type: 'human',
+                    created_at_sgt: new Intl.DateTimeFormat('en-SG', {
+                        timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
+                    }).format(new Date())
+                });
+                showToast('Template sent successfully!', 'success');
             } else {
-                alert('Failed to send template.\n\nMake sure the n8n workflow "send-template-message" is active.');
+                showToast('Failed to send template: ' + (result.error || 'Unknown error'), 'error', 6000);
             }
         }
 
@@ -5526,7 +5488,7 @@ ${msg.message || ''}
         ========================================================= */
 
         let tmgrButtonCount = 0;
-        let tmgrCachedAll = []; // all templates from Meta (all statuses)
+        let tmgrCachedAll   = []; // all templates from Meta (all statuses)
 
         function saveMetaToken() {
             const val = document.getElementById('tmgrTokenInput').value.trim();
@@ -5626,8 +5588,8 @@ ${msg.message || ''}
             let rows = tmgrCachedAll.map((t, i) => {
                 const bodyComp = (t.components || []).find(c => c.type === 'BODY');
                 const bodyText = bodyComp ? bodyComp.text : '—';
-                const preview = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
-                const status = (t.status || 'PENDING').toLowerCase();
+                const preview  = bodyText.length > 90 ? bodyText.slice(0, 90) + '…' : bodyText;
+                const status   = (t.status || 'PENDING').toLowerCase();
                 return `<tr>
                     <td><strong>${escHtml(t.name)}</strong><br><small style="color:#9ca3af;">${escHtml(t.category || '')}</small></td>
                     <td style="color:#6b7280;">${escHtml(preview)}</td>
@@ -5694,7 +5656,7 @@ ${msg.message || ''}
             let match, max = 0;
             while ((match = regex.exec(body)) !== null) max = Math.max(max, parseInt(match[1], 10));
 
-            const box = document.getElementById('tmgrSamplesBox');
+            const box    = document.getElementById('tmgrSamplesBox');
             const inputs = document.getElementById('tmgrSamplesInputs');
             inputs.innerHTML = '';
 
@@ -5703,7 +5665,7 @@ ${msg.message || ''}
             for (let i = 1; i <= max; i++) {
                 const inp = document.createElement('input');
                 inp.type = 'text';
-                inp.id = `tmgrSample_${i}`;
+                inp.id   = `tmgrSample_${i}`;
                 inp.placeholder = `Sample for {{${i}}}`;
                 inp.style.marginBottom = '8px';
                 inputs.appendChild(inp);
@@ -5712,7 +5674,7 @@ ${msg.message || ''}
 
         function tmgrUpdateBtnSection() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const sec = document.getElementById('tmgrBtnSection');
+            const sec  = document.getElementById('tmgrBtnSection');
             sec.style.display = type === 'none' ? 'none' : 'block';
             if (type === 'none') {
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -5722,7 +5684,7 @@ ${msg.message || ''}
 
         function tmgrAddButton() {
             const type = document.querySelector('input[name="tmgrBtnType"]:checked').value;
-            const max = type === 'quick_reply' ? 3 : 2;
+            const max  = type === 'quick_reply' ? 3 : 2;
             if (tmgrButtonCount >= max) { alert(`Max ${max} buttons allowed.`); return; }
             tmgrButtonCount++;
             const id = `tmgrBtn_${tmgrButtonCount}`;
@@ -5767,13 +5729,13 @@ ${msg.message || ''}
                 return;
             }
 
-            const name = document.getElementById('tmgrName').value.trim();
-            const lang = document.getElementById('tmgrLang').value;
+            const name     = document.getElementById('tmgrName').value.trim();
+            const lang     = document.getElementById('tmgrLang').value;
             const category = document.getElementById('tmgrCategory').value;
-            const header = document.getElementById('tmgrHeader').value.trim();
-            const body = document.getElementById('tmgrBody').value.trim();
-            const footer = document.getElementById('tmgrFooter').value.trim();
-            const btnType = document.querySelector('input[name="tmgrBtnType"]:checked').value;
+            const header   = document.getElementById('tmgrHeader').value.trim();
+            const body     = document.getElementById('tmgrBody').value.trim();
+            const footer   = document.getElementById('tmgrFooter').value.trim();
+            const btnType  = document.querySelector('input[name="tmgrBtnType"]:checked').value;
 
             if (!name || !body) { showTmgrMsg('Template Name and Body are required.', 'error'); return; }
             if (!/^[a-z0-9_]+$/.test(name)) { showTmgrMsg('Name must be lowercase letters, numbers and underscores only.', 'error'); return; }
@@ -5800,7 +5762,7 @@ ${msg.message || ''}
                 } else {
                     buttons = Array.from(btnEls).map(el => {
                         const actionType = el.querySelector('.tmgr-btn-action-type').value;
-                        const actionVal = el.querySelector('.tmgr-btn-action-value').value;
+                        const actionVal  = el.querySelector('.tmgr-btn-action-value').value;
                         const btn = { type: actionType === 'url' ? 'URL' : 'PHONE_NUMBER', text: el.querySelector('.tmgr-btn-text').value };
                         if (actionType === 'url') btn.url = actionVal;
                         else btn.phone_number = actionVal;
@@ -5834,8 +5796,8 @@ ${msg.message || ''}
                 if (result.error) throw new Error(result.error.message);
 
                 showTmgrMsg(`✅ Template "${name}" submitted! Status: ${result.status || 'PENDING'}`, 'success');
-                document.getElementById('tmgrName').value = '';
-                document.getElementById('tmgrBody').value = '';
+                document.getElementById('tmgrName').value  = '';
+                document.getElementById('tmgrBody').value  = '';
                 document.getElementById('tmgrHeader').value = '';
                 document.getElementById('tmgrFooter').value = '';
                 document.getElementById('tmgrBtnList').innerHTML = '';
@@ -5857,31 +5819,293 @@ ${msg.message || ''}
             }[m]));
         }
 
-        // =========================================================
-        // PROFILE PANEL TOGGLE
-        // =========================================================
-        function toggleProfilePanel() {
 
-            const panel =
-                document.getElementById(
-                    "profilePanel"
-                );
+        /* =========================================================
+        24-HOUR WINDOW + NOTIFICATION PERMISSION
+        ========================================================= */
 
-            const layout =
-                document.getElementById(
-                    "mainLayout"
-                );
-
-            panel.classList.toggle("hidden");
-
-            layout.classList.toggle(
-                "profile-hidden"
-            );
-
+        // Request browser notification permission on load
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission();
         }
 
+        async function checkWindowExpiry() {
+            if (!currentChat || !currentChat.phone) return;
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('created_at')
+                    .eq('phone', currentChat.phone)
+                    .eq('sender', 'incoming')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                const lastIncomingAt = data?.[0]?.created_at || null;
+                currentChat.last_incoming_at = lastIncomingAt;
+                currentChat.windowExpired = !lastIncomingAt ||
+                    (Date.now() - new Date(lastIncomingAt).getTime() > 86400000);
+                // Also update in chats array
+                const c = chats.find(x => x.id === currentChat.id);
+                if (c) { c.last_incoming_at = lastIncomingAt; c.windowExpired = currentChat.windowExpired; }
+            } catch (_) {
+                currentChat.windowExpired = false; // default open on error
+            }
+            updateChatInputState();
+            updateSidebarCounts();
+        }
+
+        function updateChatInputState() {
+            if (!currentChat) return;
+            const banner = document.getElementById('windowExpiredBanner');
+            const normalArea = document.getElementById('normalInputArea');
+            if (!banner || !normalArea) return;
+
+            if (currentChat.windowExpired) {
+                banner.style.display = 'flex';
+                normalArea.style.display = 'none';
+            } else {
+                banner.style.display = 'none';
+                normalArea.style.display = 'flex';
+                // Reapply bot/human disable state
+                const input = document.getElementById('messageInput');
+                const sendBtn = document.querySelector('.send-btn');
+                if (currentChat.bot_enabled !== false) {
+                    if (input) { input.disabled = true; input.placeholder = 'Conversation handled by AI Agent'; }
+                    if (sendBtn) sendBtn.disabled = true;
+                } else {
+                    if (input) { input.disabled = false; input.placeholder = 'Type message...'; }
+                    if (sendBtn) sendBtn.disabled = false;
+                }
+            }
+        }
+
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerHTML = `<span>${icons[type] || ''}</span><span>${escHtml(message)}</span>`;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.add('show'));
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
+        }
+
+        /* =========================================================
+        PANEL RESIZE HANDLES
+        ========================================================= */
+
+        (function initResizeHandles() {
+            // --- Chat list ↔ Chat window ---
+            const chatHandle = document.getElementById('chatListResizeHandle');
+            let chatDragging = false, chatStartX = 0, chatStartW = 0;
+            chatHandle.addEventListener('mousedown', e => {
+                chatDragging = true;
+                chatStartX = e.clientX;
+                chatStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chatlist-width') || '360');
+                chatHandle.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', e => {
+                if (!chatDragging) return;
+                const newW = Math.max(240, Math.min(600, chatStartW + (e.clientX - chatStartX)));
+                document.documentElement.style.setProperty('--chatlist-width', newW + 'px');
+            });
+            document.addEventListener('mouseup', () => {
+                if (!chatDragging) return;
+                chatDragging = false;
+                chatHandle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+
+            // --- Chat window ↔ Profile panel ---
+            const profileHandle = document.getElementById('resizeHandle');
+            if (!profileHandle) return;
+            let profDragging = false, profStartX = 0, profStartW = 0;
+            profileHandle.style.cursor = 'col-resize';
+            profileHandle.addEventListener('mousedown', e => {
+                profDragging = true;
+                profStartX = e.clientX;
+                profStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', e => {
+                if (!profDragging) return;
+                const newW = Math.max(200, Math.min(500, profStartW - (e.clientX - profStartX)));
+                document.documentElement.style.setProperty('--profile-width', newW + 'px');
+            });
+            document.addEventListener('mouseup', () => {
+                if (!profDragging) return;
+                profDragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        })();
+
+        /* =========================================================
+        MESSAGE POLLING FALLBACK (for when realtime drops)
+        ========================================================= */
+
+        let _lastMsgPollTime = null;
+
+        setInterval(async () => {
+            if (document.hidden || !currentChat) return;
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .eq('phone', currentChat.phone)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (!data || !data[0]) return;
+                const latestId = data[0].id;
+                if (_lastMsgPollTime === latestId) return; // no new message
+                _lastMsgPollTime = latestId;
+                // New message detected — do a silent full refresh
+                const container = document.getElementById('messages');
+                const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+                const savedScroll = container.scrollTop;
+                await fetchMessagesForChat();
+                if (!wasAtBottom) container.scrollTop = savedScroll;
+            } catch (_) {}
+        }, 10000);
+
+        /* =========================================================
+        CSV CONTACT IMPORT
+        ========================================================= */
+
+        let csvParsedContacts = [];
+
+        function openCsvImport() {
+            csvParsedContacts = [];
+            document.getElementById('csvFileInput').value = '';
+            document.getElementById('csvPreview').innerHTML = '';
+            document.getElementById('csvImportMsg').innerHTML = '';
+            const btn = document.getElementById('csvImportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-upload"></i> Import Contacts';
+            document.getElementById('csvMainActions').style.display = 'flex';
+            document.getElementById('csvPostImportActions').style.display = 'none';
+            document.getElementById('csvImportOverlay').classList.add('show');
+        }
+
+        function closeCsvImport() {
+            document.getElementById('csvImportOverlay').classList.remove('show');
+        }
+
+        document.getElementById('csvImportOverlay').addEventListener('click', e => {
+            if (e.target.id === 'csvImportOverlay') closeCsvImport();
+        });
+
+        document.getElementById('csvFileInput').addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">File has no data rows.</p>';
+                    return;
+                }
+                const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+                const nameIdx = header.indexOf('name');
+                const phoneIdx = header.indexOf('phone');
+                if (phoneIdx === -1) {
+                    document.getElementById('csvPreview').innerHTML = '<p style="color:#dc2626;font-size:13px;">No "phone" column found. Required columns: name, phone</p>';
+                    return;
+                }
+                csvParsedContacts = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+                    const phone = cols[phoneIdx] || '';
+                    const name  = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
+                    if (phone) csvParsedContacts.push({ name, phone });
+                }
+                const preview = document.getElementById('csvPreview');
+                if (!csvParsedContacts.length) {
+                    preview.innerHTML = '<p style="color:#dc2626;font-size:13px;">No valid rows found.</p>';
+                    return;
+                }
+                let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="background:#f3f4f6;">
+                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Name</th>
+                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Phone</th>
+                    </tr></thead><tbody>`;
+                csvParsedContacts.slice(0, 20).forEach(c => {
+                    html += `<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.phone)}</td></tr>`;
+                });
+                if (csvParsedContacts.length > 20) {
+                    html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                }
+                html += '</tbody></table>';
+                preview.innerHTML = html;
+                document.getElementById('csvImportMsg').innerHTML = `<span style="color:#16a34a;">✓ ${csvParsedContacts.length} contact(s) ready to import</span>`;
+                document.getElementById('csvImportBtn').disabled = false;
+            };
+            reader.readAsText(file);
+        });
+
+        async function importCsvContacts() {
+            if (!csvParsedContacts.length) return;
+            const btn = document.getElementById('csvImportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing...';
+            const msg = document.getElementById('csvImportMsg');
+
+            // Fetch existing phones to avoid overwriting existing contacts
+            const { data: existingRows } = await supabaseClient
+                .from('conversations')
+                .select('phone');
+            const existingPhones = new Set((existingRows || []).map(r => r.phone));
+
+            const newContacts = csvParsedContacts.filter(c => !existingPhones.has(c.phone.replace(/\s/g, '')));
+            const skipped = csvParsedContacts.length - newContacts.length;
+
+            let imported = 0, failed = 0;
+            for (const contact of newContacts) {
+                try {
+                    const phone = contact.phone.replace(/\s/g, '');
+                    const { error } = await supabaseClient
+                        .from('conversations')
+                        .insert({
+                            phone,
+                            name: contact.name,
+                            platform: 'WhatsApp',
+                            status: 'open',
+                            bot_enabled: false
+                        });
+                    if (error) { failed++; } else { imported++; }
+                } catch (_) { failed++; }
+            }
+
+            let resultHtml = `<span style="color:#16a34a;">✓ ${imported} new contact(s) added</span>`;
+            if (skipped) resultHtml += ` <span style="color:#6b7280;">· ${skipped} already exist (skipped)</span>`;
+            if (failed) resultHtml += ` <span style="color:#dc2626;"> ✗ ${failed} failed</span>`;
+            msg.innerHTML = resultHtml;
+
+            document.getElementById('csvMainActions').style.display = 'none';
+            document.getElementById('csvPostImportActions').style.display = 'flex';
+
+            await loadConversations();
+            if (imported > 0) showToast(`${imported} new contact(s) imported`, 'success');
+        }
+
+        function openBroadcastFromImport() {
+            closeCsvImport();
+            openBroadcastModal();
+            setTimeout(() => {
+                const selectAll = document.getElementById('broadcastSelectAll');
+                if (selectAll) { selectAll.checked = true; toggleSelectAllContacts(); }
+            }, 100);
+        }
 
     </script>
+
+    <div id="toastContainer"></div>
 
 </body>
 
