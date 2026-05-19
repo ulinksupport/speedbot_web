@@ -2485,6 +2485,11 @@
 
                     </div>
 
+                    <!-- BACKUP -->
+                    <div class="icon-btn" onclick="backupChats()" title="Backup Chats">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+
                 </div>
 
                 <!-- NEW CHAT + BROADCAST ACTIONS -->
@@ -2568,6 +2573,11 @@
 
                         <i class="fa-solid fa-star"></i>
 
+                    </div>
+
+                    <!-- EXPORT CHAT -->
+                    <div class="icon-btn" onclick="exportCurrentChat()" title="Export Chat">
+                        <i class="fa-solid fa-file-export"></i>
                     </div>
 
                 </div>
@@ -3734,6 +3744,52 @@
 
             renderChats(activeFilter);
 
+        }
+
+        /* =========================================================
+        EXPORT CURRENT CHAT
+        ========================================================= */
+
+        async function exportCurrentChat() {
+            if (!currentChat) {
+                alert("Please open a conversation first.");
+                return;
+            }
+            try {
+                const response = await fetch("https://ulink.app.n8n.cloud/webhook/export-chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        conversation_id: currentChat.id,
+                        phone: currentChat.phone,
+                        name: currentChat.name
+                    })
+                });
+                const data = await response.json();
+                if (data.download_url) {
+                    window.open(data.download_url, "_blank");
+                } else {
+                    alert("Export completed.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to export chat.");
+            }
+        }
+
+        /* =========================================================
+        BACKUP ALL CHATS
+        ========================================================= */
+
+        async function backupChats() {
+            if (!confirm("Backup all chats now?")) return;
+            try {
+                await fetch("https://ulink.app.n8n.cloud/webhook/backup-chats", { method: "POST" });
+                alert("Backup started successfully.");
+            } catch (err) {
+                console.error(err);
+                alert("Backup failed.");
+            }
         }
 
         /* =========================================================
