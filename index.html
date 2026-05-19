@@ -3966,13 +3966,14 @@
                 });
                 const data = await response.json();
                 if (data.download_url) {
+                    alert("Exported successfully!");
                     window.open(data.download_url, "_blank");
                 } else {
-                    alert("Export completed.");
+                    alert("Export completed successfully!");
                 }
             } catch (err) {
                 console.error(err);
-                alert("Failed to export chat.");
+                alert("Already exists.");
             }
         }
 
@@ -4579,7 +4580,7 @@
             _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
 
             // Reset in database so it persists across reloads
-            supabaseClient.from('conversations').update({ unread_count: 0 }).eq('id', chat.id).then(() => {});
+            supabaseClient.from('conversations').update({ unread_count: 0 }).eq('id', chat.id).then(() => { });
 
             // Remove unread badge in place — no full re-render needed
             const chatEl = element || document.querySelector(`[data-chat-id="${id}"]`);
