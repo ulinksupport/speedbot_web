@@ -163,7 +163,30 @@ Add a **Supabase** node after the Code Node (parallel to the IF node or after Wh
 | `intel_raw` | `{{ JSON.stringify($json.intel) }}` |
 | `created_at` | (auto, use Supabase default) |
 
-### Supabase SQL — Create the table:
+### Supabase SQL — `template_sends` table:
+```sql
+CREATE TABLE template_sends (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone TEXT NOT NULL,
+  template_name TEXT NOT NULL,
+  broadcast_id TEXT,
+  wamid TEXT,                     -- WhatsApp message ID from Meta API; matched by Cloudflare worker
+  status TEXT DEFAULT 'queued',   -- queued | sent | delivered | read | failed
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
+  failed_at TIMESTAMPTZ,
+  failure_code TEXT,
+  failure_message TEXT,
+  replied_at TIMESTAMPTZ
+);
+CREATE INDEX ON template_sends(wamid);
+CREATE INDEX ON template_sends(broadcast_id);
+CREATE INDEX ON template_sends(phone);
+CREATE INDEX ON template_sends(sent_at DESC);
+```
+
+### Supabase SQL — `conversation_intel` table:
 ```sql
 create table conversation_intel (
   id uuid default gen_random_uuid() primary key,

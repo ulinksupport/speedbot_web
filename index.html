@@ -5670,7 +5670,7 @@ ${bodyHtml}
             });
         }
 
-        /* Call the n8n template-send webhook — returns { ok, error } */
+        /* Call the n8n template-send webhook — returns { ok, wamid, error } */
         async function callTemplateSendWebhook(phone, template, variables) {
             const payload = {
                 phone: phone.replace(/\s/g, ''),
@@ -5686,11 +5686,13 @@ ${bodyHtml}
                 });
                 let data = {};
                 try { data = await resp.json(); } catch (_) {}
-                if (!resp.ok) return { ok: false, error: data?.message || `HTTP ${resp.status}` };
-                if (data?.error) return { ok: false, error: data.error.message || JSON.stringify(data.error) };
-                return { ok: true };
+                if (!resp.ok) return { ok: false, wamid: null, error: data?.message || `HTTP ${resp.status}` };
+                if (data?.error) return { ok: false, wamid: null, error: data.error.message || JSON.stringify(data.error) };
+                // n8n should return the wamid from Meta's response
+                const wamid = data?.wamid || data?.messages?.[0]?.id || null;
+                return { ok: true, wamid };
             } catch (e) {
-                return { ok: false, error: e.message };
+                return { ok: false, wamid: null, error: e.message };
             }
         }
 
@@ -5734,6 +5736,7 @@ ${bodyHtml}
                 phone: currentChat.phone,
                 template_name: selectedTemplate.name,
                 broadcast_id: null,
+                wamid: result.wamid || null,
                 status: result.ok ? 'sent' : 'failed',
                 sent_at: new Date().toISOString()
             }).then();
@@ -5933,6 +5936,7 @@ ${bodyHtml}
                     phone,
                     template_name: selectedTemplate.name,
                     broadcast_id: broadcastId,
+                    wamid: result.wamid || null,
                     status,
                     sent_at: sentAt
                 }).then();
