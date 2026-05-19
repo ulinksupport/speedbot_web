@@ -262,20 +262,20 @@
 
         }
 
+        .main-layout.profile-hidden {
+
+            grid-template-columns:
+                var(--sidebar-width, 260px) var(--chatlist-width, 360px) 4px minmax(420px, 1fr) 0 0;
+
+        }
+
         body.sidebar-collapsed {
             --sidebar-width: 82px;
         }
 
         .chatlist-resize-handle {
-            cursor: col-resize;
-            background: transparent;
-            border-left: 2px solid #e5e7eb;
-            transition: border-color 0.15s;
-        }
-
-        .chatlist-resize-handle:hover,
-        .chatlist-resize-handle.dragging {
-            border-color: #6366f1;
+            background: white;
+            border-left: 1px solid #e5e7eb;
         }
 
         /* =========================================================
@@ -828,16 +828,18 @@
         }
 
         .unread-badge {
-            width: 20px;
+            min-width: 20px;
             height: 20px;
-            border-radius: 50%;
-            background: #111827;
+            border-radius: 10px;
+            background: #25D366;
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 11px;
-            margin-top: 8px;
+            font-weight: 600;
+            padding: 0 6px;
+            flex-shrink: 0;
         }
 
         /* =========================================================
@@ -1486,17 +1488,11 @@
 
         .resize-handle {
             width: 6px;
-            background: transparent;
-            cursor: col-resize;
+            background: white;
+            border-left: 1px solid #e5e7eb;
             position: relative;
             z-index: 10;
             flex-shrink: 0;
-            transition: background 0.2s;
-        }
-
-        .resize-handle:hover,
-        .resize-handle.dragging {
-            background: #2563eb33;
         }
 
         .resize-handle::after {
@@ -2748,6 +2744,12 @@
 
                     </div>
 
+                    <div class="icon-btn" id="profileToggleBtn" onclick="toggleProfile()" title="Toggle Profile">
+
+                        <i class="fa-solid fa-circle-info"></i>
+
+                    </div>
+
                     <!-- EXPORT CHAT -->
                     <div class="icon-btn" onclick="exportCurrentChat()" title="Export Chat">
                         <i class="fa-solid fa-file-export"></i>
@@ -3887,6 +3889,15 @@
         });
 
         /* =========================================================
+        TOGGLE PROFILE
+        ========================================================= */
+
+        function toggleProfile() {
+            const mainLayout = document.querySelector(".main-layout");
+            mainLayout.classList.toggle("profile-hidden");
+        }
+
+        /* =========================================================
         FOLLOW UP STAR
         ========================================================= */
 
@@ -4360,7 +4371,7 @@
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     messages: [],
-                    unread_count: 0,
+                    unread_count: conv.unread_count || 0,
                     last_incoming_at: conv.last_incoming_at || null,
                     windowExpired: conv.last_incoming_at
                         ? (Date.now() - new Date(conv.last_incoming_at).getTime() > 86400000)
@@ -4533,6 +4544,19 @@
             existing.querySelector(".chat-time").innerText =
                 chat.time;
 
+            let badge = existing.querySelector('.unread-badge');
+            if (chat.unread_count > 0) {
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.className = 'unread-badge';
+                    const containerRow = existing.querySelector(".chat-preview").parentElement;
+                    containerRow.appendChild(badge);
+                }
+                badge.innerText = chat.unread_count;
+            } else {
+                if (badge) badge.remove();
+            }
+
             const container =
                 document.getElementById("chatItems");
 
@@ -4553,6 +4577,9 @@
             currentChat = chat;
             chat.unread_count = 0;
             _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
+
+            // Reset in database so it persists across reloads
+            supabaseClient.from('conversations').update({ unread_count: 0 }).eq('id', chat.id).then(() => {});
 
             // Remove unread badge in place — no full re-render needed
             const chatEl = element || document.querySelector(`[data-chat-id="${id}"]`);
@@ -4787,11 +4814,7 @@
                             existingChat.preview = msg.message || '';
                             existingChat.lastPreviewAt = msg.created_at;
 
-                            // Keep conversations table in sync so 30s reload shows correct preview
-                            supabaseClient.from('conversations')
-                                .update({ last_message: msg.message, last_message_time: msg.created_at })
-                                .eq('phone', msg.phone)
-                                .then(() => { });
+                            let updatePayload = { last_message: msg.message, last_message_time: msg.created_at };
 
                             if (msg.sender === "incoming") {
                                 // Update 24hr window tracking
@@ -4800,6 +4823,18 @@
 
                                 if (!currentChat || currentChat.phone !== msg.phone) {
                                     existingChat.unread_count = (existingChat.unread_count || 0) + 1;
+                                    updatePayload.unread_count = existingChat.unread_count;
+                                }
+                            }
+
+                            // Keep conversations table in sync so 30s reload shows correct preview
+                            supabaseClient.from('conversations')
+                                .update(updatePayload)
+                                .eq('phone', msg.phone)
+                                .then(() => { });
+
+                            if (msg.sender === "incoming") {
+                                if (!currentChat || currentChat.phone !== msg.phone) {
 
                                     // Browser notification
                                     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -5347,53 +5382,7 @@ ${bodyHtml}
         RESIZABLE PANELS
         ========================================================= */
 
-        (function initResizeHandles() {
-            // Right panel (profile) resize
-            const profileHandle = document.getElementById('resizeHandle');
-            if (profileHandle) {
-                let dragging = false, startX = 0, startW = 0;
-                profileHandle.addEventListener('mousedown', e => {
-                    dragging = true;
-                    startX = e.clientX;
-                    startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
-                    profileHandle.classList.add('dragging');
-                    e.preventDefault();
-                });
-                document.addEventListener('mousemove', e => {
-                    if (!dragging) return;
-                    const delta = startX - e.clientX;
-                    const newW = Math.max(220, Math.min(480, startW + delta));
-                    document.documentElement.style.setProperty('--profile-width', newW + 'px');
-                });
-                document.addEventListener('mouseup', () => {
-                    dragging = false;
-                    profileHandle.classList.remove('dragging');
-                });
-            }
-
-            // Chat list width resize (drag right edge of chat-list)
-            const chatList = document.querySelector('.chat-list');
-            if (chatList) {
-                const chatHandle = document.createElement('div');
-                chatHandle.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;';
-                chatList.style.position = 'relative';
-                chatList.appendChild(chatHandle);
-                let dragging = false, startX = 0, startW = 0;
-                chatHandle.addEventListener('mousedown', e => {
-                    dragging = true;
-                    startX = e.clientX;
-                    startW = chatList.offsetWidth;
-                    e.preventDefault();
-                });
-                document.addEventListener('mousemove', e => {
-                    if (!dragging) return;
-                    const newW = Math.max(260, Math.min(560, startW + (e.clientX - startX)));
-                    chatList.style.width = newW + 'px';
-                    chatList.style.flex = 'none';
-                });
-                document.addEventListener('mouseup', () => { dragging = false; });
-            }
-        })();
+        /* Resizing functionality has been removed to keep columns fixed */
 
         /* =========================================================
         COUNTRY + LANGUAGE AUTO-DETECT
@@ -6343,55 +6332,7 @@ ${bodyHtml}
         PANEL RESIZE HANDLES
         ========================================================= */
 
-        (function initResizeHandles() {
-            // --- Chat list ↔ Chat window ---
-            const chatHandle = document.getElementById('chatListResizeHandle');
-            let chatDragging = false, chatStartX = 0, chatStartW = 0;
-            chatHandle.addEventListener('mousedown', e => {
-                chatDragging = true;
-                chatStartX = e.clientX;
-                chatStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chatlist-width') || '360');
-                chatHandle.classList.add('dragging');
-                document.body.style.cursor = 'col-resize';
-                document.body.style.userSelect = 'none';
-            });
-            document.addEventListener('mousemove', e => {
-                if (!chatDragging) return;
-                const newW = Math.max(240, Math.min(600, chatStartW + (e.clientX - chatStartX)));
-                document.documentElement.style.setProperty('--chatlist-width', newW + 'px');
-            });
-            document.addEventListener('mouseup', () => {
-                if (!chatDragging) return;
-                chatDragging = false;
-                chatHandle.classList.remove('dragging');
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            });
-
-            // --- Chat window ↔ Profile panel ---
-            const profileHandle = document.getElementById('resizeHandle');
-            if (!profileHandle) return;
-            let profDragging = false, profStartX = 0, profStartW = 0;
-            profileHandle.style.cursor = 'col-resize';
-            profileHandle.addEventListener('mousedown', e => {
-                profDragging = true;
-                profStartX = e.clientX;
-                profStartW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--profile-width') || '300');
-                document.body.style.cursor = 'col-resize';
-                document.body.style.userSelect = 'none';
-            });
-            document.addEventListener('mousemove', e => {
-                if (!profDragging) return;
-                const newW = Math.max(200, Math.min(500, profStartW - (e.clientX - profStartX)));
-                document.documentElement.style.setProperty('--profile-width', newW + 'px');
-            });
-            document.addEventListener('mouseup', () => {
-                if (!profDragging) return;
-                profDragging = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            });
-        })();
+        /* Resizing functionality has been removed to keep columns fixed */
 
         /* =========================================================
         MESSAGE POLLING FALLBACK (for when realtime drops)
