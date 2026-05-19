@@ -3983,30 +3983,29 @@
 
             chats.forEach(c => autoDetectChatMeta(c));
 
-            // Fetch actual latest messages to fix stale last_message in conversations table
+            // Override stale conversations.last_message with actual latest from messages table
+            // n8n only writes incoming messages to conversations.last_message — bot replies are messages-table-only
             const { data: recentMsgs } = await supabaseClient
                 .from('messages')
-                .select('phone, message, created_at')
-                .order('created_at', { ascending: false })
+                .select('phone, message, created_at, created_at_sgt')
+                .order('created_at', { ascending: false, nullsFirst: false })
                 .limit(500);
-            if (recentMsgs) {
+            if (recentMsgs && recentMsgs.length > 0) {
                 const latestByPhone = {};
                 for (const m of recentMsgs) {
                     if (!latestByPhone[m.phone]) latestByPhone[m.phone] = m;
                 }
                 chats.forEach(c => {
                     const latest = latestByPhone[c.phone];
-                    if (latest) {
-                        const latestTime = new Date(latest.created_at).getTime();
-                        const chatTime = c.lastPreviewAt ? new Date(c.lastPreviewAt).getTime() : 0;
-                        if (latestTime >= chatTime) {
-                            c.preview = latest.message || c.preview;
-                            c.lastPreviewAt = latest.created_at;
-                            c.time = formatSGT(latest.created_at);
-                        }
+                    if (latest && latest.message) {
+                        c.preview = latest.message;
+                        c.lastPreviewAt = latest.created_at || c.lastPreviewAt;
+                        c.time = latest.created_at
+                            ? formatSGT(latest.created_at)
+                            : (latest.created_at_sgt || c.time);
                     }
                 });
-                // Re-sort by actual last message time
+                // Sort by actual last activity
                 chats.sort((a, b) => {
                     const ta = a.lastPreviewAt ? new Date(a.lastPreviewAt).getTime() : 0;
                     const tb = b.lastPreviewAt ? new Date(b.lastPreviewAt).getTime() : 0;
@@ -4311,8 +4310,8 @@
 
             data.forEach(msg => appendMessage(msg, true));
 
-            // Jump to bottom instantly — no animation
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // scrollTo with behavior:'instant' overrides CSS scroll-behavior:smooth
+            messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'instant' });
 
         }
 
