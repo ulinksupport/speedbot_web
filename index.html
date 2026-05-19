@@ -3277,6 +3277,7 @@
 
         let currentChat = null;
         let realtimeChannel = null;
+        let realtimeConvChannel = null;
 
         const SGT_FORMAT = {
             timeZone: "Asia/Singapore",
@@ -3937,6 +3938,7 @@
             const { data, error } = await supabaseClient
                 .from('conversations')
                 .select('*')
+                .order('last_message_time', { ascending: false })
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -3958,6 +3960,7 @@
                     name: conv.name || conv.phone || "Unknown User",
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || conv.phone || 'User')}&background=random`,
                     preview: conv.last_message || "New conversation...",
+                    lastPreviewAt: conv.last_message_time || conv.created_at,
                     time:
                         conv.last_message_time_sgt ||
                         formatSGT(
@@ -4294,13 +4297,8 @@
 
         function setupRealtime() {
 
-            if (realtimeChannel) {
-
-                supabaseClient.removeChannel(
-                    realtimeChannel
-                );
-
-            }
+            if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+            if (realtimeConvChannel) supabaseClient.removeChannel(realtimeConvChannel);
 
             realtimeChannel =
                 supabaseClient
@@ -4363,8 +4361,14 @@
 
                             }
 
-                            existingChat.preview =
-                                msg.message || '';
+                            existingChat.preview = msg.message || '';
+                            existingChat.lastPreviewAt = msg.created_at;
+
+                            // Keep conversations table in sync so 30s reload shows correct preview
+                            supabaseClient.from('conversations')
+                                .update({ last_message: msg.message, last_message_time: msg.created_at })
+                                .eq('phone', msg.phone)
+                                .then(() => {});
 
                             if (msg.sender === "incoming") {
                                 // Update 24hr window tracking
@@ -4463,7 +4467,7 @@
 
                     .subscribe();
 
-            supabaseClient
+            realtimeConvChannel = supabaseClient
                 .channel('realtime-conversations')
                 .on(
                     'postgres_changes',
@@ -4490,7 +4494,14 @@
                         if (existing) {
 
                             existing.bot_enabled = conv.bot_enabled;
-                            existing.preview = conv.last_message || existing.preview;
+                            // Only update preview from conversations table if it's newer
+                            // than what we already set from the messages channel
+                            const convTime = conv.last_message_time ? new Date(conv.last_message_time).getTime() : 0;
+                            const chatTime = existing.lastPreviewAt ? new Date(existing.lastPreviewAt).getTime() : 0;
+                            if (conv.last_message && convTime >= chatTime) {
+                                existing.preview = conv.last_message;
+                                existing.lastPreviewAt = conv.last_message_time;
+                            }
                             existing.type = conv.status === 'open' && !conv.assigned_to
                                 ? 'unassigned'
                                 : 'myinbox';
@@ -5965,14 +5976,27 @@ ${bodyHtml}
                 const latestId = data[0].id;
                 if (_lastMsgPollTime === latestId) return; // no new message
                 _lastMsgPollTime = latestId;
-                // New message detected — do a silent full refresh
+                // New message detected — refresh chat view
                 const container = document.getElementById('messages');
                 const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
                 const savedScroll = container.scrollTop;
                 await fetchMessagesForChat();
                 if (!wasAtBottom) container.scrollTop = savedScroll;
+                // Update sidebar preview
+                const chat = chats.find(c => c.phone === currentChat.phone);
+                if (chat) {
+                    const latest = data[0];
+                    const latestTime = new Date(latest.created_at).getTime();
+                    const chatTime = chat.lastPreviewAt ? new Date(chat.lastPreviewAt).getTime() : 0;
+                    if (latestTime >= chatTime) {
+                        chat.preview = latest.message || chat.preview;
+                        chat.lastPreviewAt = latest.created_at;
+                        chat.time = formatSGT(latest.created_at);
+                        updateSingleConversationUI(chat);
+                    }
+                }
             } catch (_) {}
-        }, 10000);
+        }, 3000);
 
         /* =========================================================
         CSV CONTACT IMPORT
