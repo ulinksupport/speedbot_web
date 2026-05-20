@@ -3981,15 +3981,15 @@
         BACKUP ALL CHATS
         ========================================================= */
 
-        async function backupChats() {
-            if (!confirm("Backup all chats now?")) return;
-            try {
-                await fetch("https://ulink.app.n8n.cloud/webhook/backup-chats", { method: "POST" });
-                alert("Backup started successfully.");
-            } catch (err) {
-                console.error(err);
-                alert("Backup failed.");
-            }
+        function backupChats() {
+            if (!confirm("Start mass backup? This process takes a few minutes.")) return;
+
+            alert("Backup initialized! It is safely running in the background. You can continue using the dashboard and check OneDrive later.");
+
+            // Fire and forget: We don't await the fetch, so the browser doesn't hang waiting for 60+ chats to process.
+            fetch("https://ulink.app.n8n.cloud/webhook/backup-chats", { method: "POST" }).catch(err => {
+                console.error("Background backup network log:", err);
+            });
         }
 
         /* =========================================================
