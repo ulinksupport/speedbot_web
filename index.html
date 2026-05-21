@@ -2589,6 +2589,22 @@
 
                 </div>
 
+                <div class="menu-item" onclick="filterChats('human', this)">
+                    <div class="menu-left">
+                        <i class="fa-solid fa-user-check" style="color:#3b82f6;"></i>
+                        <span>Human Active</span>
+                    </div>
+                    <div id="count-human">0</div>
+                </div>
+
+                <div class="menu-item" onclick="filterChats('bot', this)">
+                    <div class="menu-left">
+                        <i class="fa-solid fa-robot" style="color:#8b5cf6;"></i>
+                        <span>Bot Active</span>
+                    </div>
+                    <div id="count-bot">0</div>
+                </div>
+
             </div>
 
         </div>
@@ -4374,9 +4390,7 @@
                     messages: [],
                     unread_count: conv.unread_count || 0,
                     last_incoming_at: conv.last_incoming_at || null,
-                    windowExpired: conv.last_incoming_at
-                        ? (Date.now() - new Date(conv.last_incoming_at).getTime() > 86400000)
-                        : true
+                    windowExpired: isWindowExpired(conv.last_incoming_at)
                 };
             });
 
@@ -4422,20 +4436,25 @@
             renderChats(activeFilter);
         }
 
+        function isWindowExpired(lastIncomingAt) {
+            if (!lastIncomingAt) return true;
+            let parseDate = lastIncomingAt;
+            // Ensure UTC parsing if timezone is missing
+            if (!parseDate.endsWith('Z') && !parseDate.includes('+')) parseDate += 'Z';
+            return (Date.now() - new Date(parseDate).getTime() > 86400000);
+        }
+
         function updateSidebarCounts() {
-            const now = Date.now();
             document.getElementById('count-all').innerText = chats.length;
             document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
             document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up === true).length;
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
-            document.getElementById('count-active').innerText = chats.filter(c =>
-                c.last_incoming_at && (now - new Date(c.last_incoming_at).getTime() <= 86400000)
-            ).length;
-            document.getElementById('count-expired').innerText = chats.filter(c =>
-                !c.last_incoming_at || (now - new Date(c.last_incoming_at).getTime() > 86400000)
-            ).length;
+            document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
+            document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
+            document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false).length;
+            document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false).length;
 
             const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             document.getElementById('allMessageBadge').innerText = totalUnread;
@@ -4457,13 +4476,16 @@
 
             chats.forEach(chat => {
 
-                const now = Date.now();
                 if (filter === "unread") {
                     if (!chat.unread_count || chat.unread_count <= 0) return;
                 } else if (filter === "active") {
-                    if (!chat.last_incoming_at || (now - new Date(chat.last_incoming_at).getTime() > 86400000)) return;
+                    if (isWindowExpired(chat.last_incoming_at)) return;
                 } else if (filter === "expired") {
-                    if (chat.last_incoming_at && (now - new Date(chat.last_incoming_at).getTime() <= 86400000)) return;
+                    if (!isWindowExpired(chat.last_incoming_at)) return;
+                } else if (filter === "human") {
+                    if (chat.bot_enabled !== false) return;
+                } else if (filter === "bot") {
+                    if (chat.bot_enabled === false) return;
                 } else if (filter !== "all" && chat.type !== filter) return;
 
                 if (
@@ -6278,16 +6300,7 @@ ${bodyHtml}
                     .limit(1);
                 const lastIncomingAt = data?.[0]?.created_at || null;
                 currentChat.last_incoming_at = lastIncomingAt;
-
-                let parseDate = lastIncomingAt;
-                // Supabase sometimes returns UTC timestamps without a timezone suffix.
-                // If we don't append 'Z', the browser parses it as Local Time, artificially changing its age!
-                if (parseDate && !parseDate.endsWith('Z') && !parseDate.includes('+')) {
-                    parseDate += 'Z';
-                }
-
-                currentChat.windowExpired = !lastIncomingAt ||
-                    (Date.now() - new Date(parseDate).getTime() > 86400000);
+                currentChat.windowExpired = isWindowExpired(lastIncomingAt);
                 // Also update in chats array
                 const c = chats.find(x => x.id === currentChat.id);
                 if (c) { c.last_incoming_at = lastIncomingAt; c.windowExpired = currentChat.windowExpired; }
