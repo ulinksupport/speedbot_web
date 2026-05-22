@@ -1868,6 +1868,40 @@
             margin-top: 4px;
         }
 
+        .merge-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .merge-chip:hover { background: #dbeafe; }
+        .merge-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 7px 10px;
+            line-height: 1.5;
+        }
+        .merge-hint code {
+            background: #e5e7eb;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #374151;
+        }
+
         /* =========================================================
         BROADCAST CONTACT LIST
         ========================================================= */
@@ -6080,9 +6114,30 @@ ${bodyHtml}
 
             const varNames = selectedTemplate.variables || [];
             if (varNames.length > 0) {
-                document.getElementById(ids.inputs).innerHTML = varNames.map((v, i) =>
-                    `<input type="text" class="modal-input" id="${ids.inputs}_var_${i}" placeholder="${v}">`
-                ).join('');
+                if (context === 'broadcast') {
+                    document.getElementById(ids.inputs).innerHTML =
+                        varNames.map((v, i) => `
+                            <div style="margin-bottom:10px;">
+                                <input type="text" class="modal-input" id="${ids.inputs}_var_${i}"
+                                    placeholder="${v}" style="margin-bottom:5px;">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <span class="merge-chip" onclick="insertMergeTag('${ids.inputs}_var_${i}','{name}')">👤 Customer Name</span>
+                                    <span class="merge-chip" onclick="insertMergeTag('${ids.inputs}_var_${i}','{phone}')">📞 Phone Number</span>
+                                </div>
+                            </div>`).join('') +
+                        `<div class="merge-hint">
+                            💡 Click a chip to insert a personalisation tag.<br>
+                            <code>{name}</code> → each recipient's name &nbsp;·&nbsp; <code>{phone}</code> → their phone number
+                        </div>`;
+                } else {
+                    // Single-chat picker / new chat — auto-fill first variable with known contact name
+                    const autoName = currentChat?.name || '';
+                    document.getElementById(ids.inputs).innerHTML = varNames.map((v, i) => {
+                        const autoVal = (i === 0 && autoName) ? autoName : '';
+                        return `<input type="text" class="modal-input" id="${ids.inputs}_var_${i}"
+                            placeholder="${v}" value="${escHtml(autoVal)}">`;
+                    }).join('');
+                }
                 document.getElementById(ids.vars).style.display = 'block';
             } else {
                 document.getElementById(ids.vars).style.display = 'none';
@@ -6094,6 +6149,21 @@ ${bodyHtml}
                 const el = document.getElementById(`${inputsId}_var_${i}`);
                 return el ? el.value.trim() : '';
             });
+        }
+
+        function insertMergeTag(inputId, tag) {
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            el.value = tag;
+            el.focus();
+        }
+
+        function resolveMergeTags(vars, contact, phone) {
+            const name = contact?.name || '';
+            return vars.map(v =>
+                v.replace(/\{name\}/gi, name)
+                 .replace(/\{phone\}/gi, phone || '')
+            );
         }
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
@@ -6337,10 +6407,17 @@ ${bodyHtml}
             }
 
             const vars = getVariableValues('broadcastVariableInputs', selectedTemplate.variables.length);
+            const hasMergeTags = vars.some(v => /\{name\}|\{phone\}/i.test(v));
             const confirmed = window.confirm(
-                `Send "${selectedTemplate.display_name}" to ${selected.length} contact(s)?\n\nThis cannot be undone.`
+                `Send "${selectedTemplate.display_name}" to ${selected.length} contact(s)?` +
+                (hasMergeTags ? '\n\n✅ Personalisation tags detected — each recipient will get their own name/phone.' : '') +
+                '\n\nThis cannot be undone.'
             );
             if (!confirmed) return;
+
+            // Build phone → contact map for merge tag resolution
+            const contactMap = {};
+            chats.forEach(c => { contactMap[c.phone] = c; });
 
             const btn = document.querySelector('#broadcastOverlay .modal-btn-primary');
             btn.disabled = true;
@@ -6355,7 +6432,8 @@ ${bodyHtml}
                 const cb = selected[i];
                 const phone = cb.dataset.phone;
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
-                const result = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+                const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
+                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars);
                 const status = result.ok ? 'sent' : 'failed';
                 if (result.ok) success++; else failed++;
                 supabaseClient.from('template_sends').insert({
