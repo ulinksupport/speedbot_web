@@ -3722,6 +3722,9 @@
 
                 <div class="analytics-toolbar">
                     <span id="analyticsStatus">Loading…</span>
+                    <button class="tmgr-refresh-btn" onclick="exportAnalyticsCSV()" id="analyticsExportBtn" style="background:#16a34a;color:#fff;border-color:#16a34a;" disabled>
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
                     <button class="tmgr-refresh-btn" onclick="loadBroadcastAnalytics()">
                         <i class="fa-solid fa-rotate"></i> Refresh
                     </button>
@@ -4637,6 +4640,7 @@
         let _pendingScrollMsgId = null;
         let selectionMode = false;
         let selectedChatIds = new Set();
+        let _analyticsCache = null;
 
         async function loadConversations() {
             const { data, error } = await supabaseClient
@@ -6479,15 +6483,18 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 .gte('created_at', oldestSent)
                 .in('phone', allPhones);
 
-            // phone → [{created_at, isBtn}]
+            // phone → [{ts, message, isBtn}] sorted ascending so first reply is index 0
             const inboundMap = {};
             (inbound || []).forEach(r => {
                 if (!inboundMap[r.phone]) inboundMap[r.phone] = [];
                 inboundMap[r.phone].push({
                     ts: r.created_at,
+                    message: r.message || '',
                     isBtn: !!(r.message && r.message.startsWith('[Button:'))
                 });
             });
+            Object.keys(inboundMap).forEach(p => inboundMap[p].sort((a, b) => a.ts.localeCompare(b.ts)));
+            _analyticsCache = { sends, inboundMap };
 
             // ── Compute per-row stats ─────────────────────────────
             function rowStats(rows) {
@@ -6522,6 +6529,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
             document.getElementById('analyticsStatus').textContent =
                 `${sends.length} sends · ${_pct(t.delivered, t.total)} delivered · ${_pct(t.replied, base)} responded`;
+            document.getElementById('analyticsExportBtn').disabled = false;
 
             // ── Per-template summary table ────────────────────────
             const byTemplate = {};
@@ -6629,6 +6637,77 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         </div>`;
                     list.appendChild(card);
                 });
+        }
+
+        async function exportAnalyticsCSV() {
+            const btn = document.getElementById('analyticsExportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting…';
+
+            try {
+                let { sends, inboundMap } = _analyticsCache || {};
+
+                // Fetch conversations for customer name + any extra fields
+                const allPhones = [...new Set((sends || []).map(r => r.phone))];
+                const { data: convs } = await supabaseClient
+                    .from('conversations')
+                    .select('*')
+                    .in('phone', allPhones);
+                const convMap = {};
+                (convs || []).forEach(c => { convMap[c.phone] = c; });
+
+                const headers = [
+                    'Template Name', 'Customer', 'Phone Number', 'Branch', 'Tag',
+                    'Params', 'Status', 'Meta Message ID', 'Date Triggered', 'Sent At',
+                    'Delivered At', 'Read At', 'Replied At', 'Reply Content',
+                    'Failure Code', 'Failure Message', 'Send Error'
+                ];
+
+                const csvRows = (sends || []).map(r => {
+                    const conv = convMap[r.phone] || {};
+                    const msgs = (inboundMap && inboundMap[r.phone]) || [];
+                    const firstReply = msgs.find(m => m.ts > (r.sent_at || ''));
+                    return [
+                        r.template_name || '',
+                        conv.name || '',
+                        r.phone || '',
+                        conv.branch || conv.assigned_to || '',
+                        conv.tag || conv.follow_up || '',
+                        r.params ? (typeof r.params === 'object' ? JSON.stringify(r.params) : String(r.params)) : '',
+                        r.status || '',
+                        r.wamid || '',
+                        r.triggered_at || r.sent_at || '',
+                        r.sent_at || '',
+                        r.delivered_at || '',
+                        r.read_at || '',
+                        firstReply ? firstReply.ts : '',
+                        firstReply ? firstReply.message : '',
+                        r.failure_code || '',
+                        r.failure_message || '',
+                        r.error || ''
+                    ].map(v => {
+                        const s = String(v ?? '');
+                        return (s.includes(',') || s.includes('"') || s.includes('\n'))
+                            ? `"${s.replace(/"/g, '""')}"` : s;
+                    }).join(',');
+                });
+
+                const csv = '﻿' + [headers.join(','), ...csvRows].join('\r\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `speedbot_analytics_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Export failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-file-csv"></i> Export CSV';
+            }
         }
 
         function openTemplateManager() {
