@@ -2159,6 +2159,22 @@
         .analytics-stat-card.red    .analytics-stat-num { color: #dc2626; }
         .analytics-stat-card.blue   .analytics-stat-num { color: #2563eb; }
         .analytics-stat-card.amber  .analytics-stat-num { color: #d97706; }
+        .analytics-stat-sub { font-size: 11px; color: #9ca3af; margin-top: 3px; font-weight: 500; }
+
+        .tmpl-perf-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .tmpl-perf-table th { background: #f9fafb; padding: 7px 10px; text-align: left; font-weight: 700; color: #374151; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+        .tmpl-perf-table td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+        .tmpl-perf-table tr:hover td { background: #f9fafb; }
+        .rate-pill { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .rate-pill.good { background: #dcfce7; color: #16a34a; }
+        .rate-pill.mid  { background: #fef3c7; color: #d97706; }
+        .rate-pill.low  { background: #fee2e2; color: #dc2626; }
+        .analytics-broadcast-hdr .ab-badge {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+        }
+        .ab-stat-pill {
+            font-size: 11px; padding: 2px 8px; border-radius: 20px; background: #f3f4f6; color: #374151; font-weight: 600;
+        }
         .analytics-broadcast-item {
             border: 1px solid #e5e7eb;
             border-radius: 12px;
@@ -3712,26 +3728,43 @@
                 </div>
 
                 <!-- Totals overview row -->
-                <div class="analytics-overview" id="analyticsOverview">
+                <div class="analytics-overview" id="analyticsOverview" style="grid-template-columns:repeat(6,1fr);">
                     <div class="analytics-stat-card">
                         <div class="analytics-stat-num" id="atotal">—</div>
-                        <div class="analytics-stat-label">Total Sent</div>
+                        <div class="analytics-stat-label">📤 Total Sent</div>
                     </div>
                     <div class="analytics-stat-card green">
                         <div class="analytics-stat-num" id="asent">—</div>
-                        <div class="analytics-stat-label">✅ Successful</div>
+                        <div class="analytics-stat-label">✅ Delivered</div>
+                        <div class="analytics-stat-sub" id="asentRate"></div>
+                    </div>
+                    <div class="analytics-stat-card blue">
+                        <div class="analytics-stat-num" id="aread">—</div>
+                        <div class="analytics-stat-label">👁 Read</div>
+                        <div class="analytics-stat-sub" id="areadRate"></div>
+                    </div>
+                    <div class="analytics-stat-card" style="--c:#7c3aed;">
+                        <div class="analytics-stat-num" style="color:#7c3aed;" id="areplied">—</div>
+                        <div class="analytics-stat-label">💬 Replied</div>
+                        <div class="analytics-stat-sub" id="arepliedRate"></div>
+                    </div>
+                    <div class="analytics-stat-card amber">
+                        <div class="analytics-stat-num" id="abtnclicks">—</div>
+                        <div class="analytics-stat-label">🖱 Btn Clicks</div>
+                        <div class="analytics-stat-sub" id="abtnRate"></div>
                     </div>
                     <div class="analytics-stat-card red">
                         <div class="analytics-stat-num" id="afailed">—</div>
                         <div class="analytics-stat-label">❌ Failed</div>
+                        <div class="analytics-stat-sub" id="afailedRate"></div>
                     </div>
-                    <div class="analytics-stat-card blue">
-                        <div class="analytics-stat-num" id="areplied">—</div>
-                        <div class="analytics-stat-label">💬 Replied</div>
-                    </div>
-                    <div class="analytics-stat-card amber">
-                        <div class="analytics-stat-num" id="aread">—</div>
-                        <div class="analytics-stat-label">👁 Read/No Reply</div>
+                </div>
+
+                <!-- Per-template performance table -->
+                <div id="analyticsTemplateTable" style="margin-bottom:18px;display:none;">
+                    <div style="font-size:12px;font-weight:700;color:#374151;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">Template Performance</div>
+                    <div style="overflow-x:auto;">
+                        <table class="tmpl-perf-table" id="tmplPerfTableBody"></table>
                     </div>
                 </div>
 
@@ -6356,11 +6389,23 @@ ${bodyHtml}
         BROADCAST ANALYTICS
         ========================================================= */
 
+        function _ratePill(n, d) {
+            if (!d) return '<span class="rate-pill low">—</span>';
+            const pct = Math.round(n / d * 100);
+            const cls = pct >= 30 ? 'good' : pct >= 10 ? 'mid' : 'low';
+            return `<span class="rate-pill ${cls}">${pct}%</span>`;
+        }
+        function _pct(n, d) {
+            if (!d) return '—';
+            return Math.round(n / d * 100) + '%';
+        }
+
         async function loadBroadcastAnalytics() {
             document.getElementById('analyticsStatus').textContent = 'Loading…';
-            document.getElementById('analyticsList').innerHTML = '<div class="analytics-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Loading…</div>';
+            document.getElementById('analyticsList').innerHTML =
+                '<div class="analytics-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Loading…</div>';
+            document.getElementById('analyticsTemplateTable').style.display = 'none';
 
-            // Fetch all template_sends
             const { data: sends, error } = await supabaseClient
                 .from('template_sends')
                 .select('*')
@@ -6368,152 +6413,216 @@ ${bodyHtml}
                 .limit(2000);
 
             if (error) {
-                const isTableMissing = error.message?.includes('does not exist') || error.code === '42P01';
-                document.getElementById('analyticsStatus').textContent = isTableMissing
-                    ? '⚠️ Table not found — run the SQL below to create it'
+                const missing = error.message?.includes('does not exist') || error.code === '42P01';
+                document.getElementById('analyticsStatus').textContent = missing
+                    ? '⚠️ Table missing — run SQL below'
                     : 'Error: ' + error.message;
-                document.getElementById('analyticsList').innerHTML = isTableMissing
+                document.getElementById('analyticsList').innerHTML = missing
                     ? `<div class="analytics-empty" style="text-align:left;padding:20px;">
-                        <strong>Create the table in Supabase SQL Editor:</strong>
-                        <pre style="background:#f3f4f6;padding:12px;border-radius:8px;margin-top:10px;font-size:12px;overflow-x:auto;">CREATE TABLE template_sends (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  phone TEXT NOT NULL,
-  template_name TEXT NOT NULL,
-  broadcast_id TEXT,
-  status TEXT DEFAULT 'sent',
-  sent_at TIMESTAMPTZ DEFAULT NOW(),
-  read_at TIMESTAMPTZ,
-  replied_at TIMESTAMPTZ
+<strong>Run this in Supabase SQL Editor to create / migrate the table:</strong>
+<pre style="background:#f3f4f6;padding:12px;border-radius:8px;margin-top:10px;font-size:11px;overflow-x:auto;line-height:1.6;">-- Create fresh (skip if table exists)
+CREATE TABLE IF NOT EXISTS template_sends (
+  id               UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone            TEXT         NOT NULL,
+  template_name    TEXT         NOT NULL,
+  broadcast_id     TEXT,
+  wamid            TEXT,
+  status           TEXT         DEFAULT 'sent',
+  sent_at          TIMESTAMPTZ  DEFAULT NOW(),
+  delivered_at     TIMESTAMPTZ,
+  read_at          TIMESTAMPTZ,
+  failed_at        TIMESTAMPTZ,
+  failure_code     TEXT,
+  failure_message  TEXT
 );
-CREATE INDEX ON template_sends(broadcast_id);
-CREATE INDEX ON template_sends(phone);
-CREATE INDEX ON template_sends(sent_at DESC);</pre>
-                       </div>`
+CREATE INDEX IF NOT EXISTS ON template_sends(broadcast_id);
+CREATE INDEX IF NOT EXISTS ON template_sends(phone);
+CREATE INDEX IF NOT EXISTS ON template_sends(wamid);
+CREATE INDEX IF NOT EXISTS ON template_sends(sent_at DESC);
+
+-- Add missing columns to an existing table
+ALTER TABLE template_sends
+  ADD COLUMN IF NOT EXISTS wamid           TEXT,
+  ADD COLUMN IF NOT EXISTS delivered_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS failed_at       TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS failure_code    TEXT,
+  ADD COLUMN IF NOT EXISTS failure_message TEXT;
+CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     : '<div class="analytics-empty">Failed to load data.</div>';
                 return;
             }
 
             if (!sends || sends.length === 0) {
                 document.getElementById('analyticsStatus').textContent = '0 records';
-                ['atotal','asent','afailed','areplied','aread'].forEach(id =>
+                ['atotal','asent','afailed','areplied','aread','abtnclicks'].forEach(id =>
                     document.getElementById(id).textContent = '0');
+                ['asentRate','areadRate','arepliedRate','afailedRate','abtnRate'].forEach(id =>
+                    document.getElementById(id).textContent = '');
                 document.getElementById('analyticsList').innerHTML =
-                    '<div class="analytics-empty">No template sends recorded yet.</div>';
+                    '<div class="analytics-empty">No template sends recorded yet. Send a broadcast to start tracking.</div>';
                 return;
             }
 
-            // Group by broadcast_id (null = single send, group all together as "Singles")
-            const groups = {};
-            sends.forEach(row => {
-                const key = row.broadcast_id || 'singles';
-                if (!groups[key]) groups[key] = [];
-                groups[key].push(row);
-            });
-
-            // For "replied": find incoming messages after each send
-            // Get unique phones and earliest sent_at per group
-            const allPhones = [...new Set(sends.map(r => r.phone))];
-            const oldestSent = sends[sends.length - 1].sent_at;
-
-            const { data: replies } = await supabaseClient
+            // Fetch incoming messages for reply + button-click detection
+            const allPhones  = [...new Set(sends.map(r => r.phone))];
+            const oldestSent = sends[sends.length - 1]?.sent_at;
+            const { data: inbound } = await supabaseClient
                 .from('messages')
-                .select('phone, created_at')
+                .select('phone, created_at, message')
                 .eq('sender', 'incoming')
                 .gte('created_at', oldestSent)
                 .in('phone', allPhones);
 
-            const replyMap = {}; // phone → array of reply timestamps
-            (replies || []).forEach(r => {
-                if (!replyMap[r.phone]) replyMap[r.phone] = [];
-                replyMap[r.phone].push(r.created_at);
+            // phone → [{created_at, isBtn}]
+            const inboundMap = {};
+            (inbound || []).forEach(r => {
+                if (!inboundMap[r.phone]) inboundMap[r.phone] = [];
+                inboundMap[r.phone].push({
+                    ts: r.created_at,
+                    isBtn: !!(r.message && r.message.startsWith('[Button:'))
+                });
             });
 
-            // Compute totals
-            const totals = { total: sends.length, sent: 0, failed: 0, replied: 0, read: 0 };
+            // ── Compute per-row stats ─────────────────────────────
+            function rowStats(rows) {
+                const total     = rows.length;
+                const delivered = rows.filter(r => ['delivered','read'].includes(r.status) || r.delivered_at || r.read_at).length;
+                const read      = rows.filter(r => r.status === 'read' || r.read_at).length;
+                const failed    = rows.filter(r => r.status === 'failed' || r.failed_at).length;
+                let   replied   = 0, btnClicks = 0;
+                rows.forEach(r => {
+                    const msgs = inboundMap[r.phone] || [];
+                    const afterSend = msgs.filter(m => m.ts > r.sent_at);
+                    if (afterSend.length)                               replied++;
+                    if (afterSend.some(m => m.isBtn))                  btnClicks++;
+                });
+                return { total, delivered, read, failed, replied, btnClicks };
+            }
 
-            // Build per-group stats
-            const groupStats = Object.entries(groups).map(([groupKey, rows]) => {
-                const groupSent    = rows.filter(r => r.status !== 'failed').length;
-                const groupFailed  = rows.filter(r => r.status === 'failed').length;
-                const groupRead    = rows.filter(r => r.status === 'read' || r.read_at).length;
-                const earliestSent = rows.reduce((min, r) =>
-                    r.sent_at < min ? r.sent_at : min, rows[0].sent_at);
-                const groupReplied = rows.filter(r => {
-                    const msgs = replyMap[r.phone] || [];
-                    return msgs.some(ts => ts > r.sent_at);
-                }).length;
-
-                totals.sent    += groupSent;
-                totals.failed  += groupFailed;
-                totals.replied += groupReplied;
-                totals.read    += groupRead;
-
-                return {
-                    key: groupKey,
-                    label: groupKey === 'singles'
-                        ? 'Single Sends'
-                        : new Date(earliestSent).toLocaleDateString('en-SG', {
-                            timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric'
-                          }),
-                    templateName: rows[0].template_name,
-                    total: rows.length,
-                    sent: groupSent,
-                    failed: groupFailed,
-                    replied: groupReplied,
-                    read: groupRead,
-                    readNoReply: Math.max(0, groupRead - groupReplied)
-                };
-            });
-
-            // Update overview cards
-            document.getElementById('atotal').textContent  = totals.total;
-            document.getElementById('asent').textContent   = totals.sent;
-            document.getElementById('afailed').textContent = totals.failed;
-            document.getElementById('areplied').textContent = totals.replied;
-            document.getElementById('aread').textContent   = Math.max(0, totals.read - totals.replied);
+            // ── Totals overview ───────────────────────────────────
+            const t = rowStats(sends);
+            document.getElementById('atotal').textContent    = t.total;
+            document.getElementById('asent').textContent     = t.delivered;
+            document.getElementById('aread').textContent     = t.read;
+            document.getElementById('areplied').textContent  = t.replied;
+            document.getElementById('abtnclicks').textContent = t.btnClicks;
+            document.getElementById('afailed').textContent   = t.failed;
+            const base = t.total - t.failed;
+            document.getElementById('asentRate').textContent    = `${_pct(t.delivered, t.total)} of sent`;
+            document.getElementById('areadRate').textContent    = `${_pct(t.read, t.delivered)} of delivered`;
+            document.getElementById('arepliedRate').textContent = `${_pct(t.replied, base)} response rate`;
+            document.getElementById('abtnRate').textContent     = `${_pct(t.btnClicks, base)} click rate`;
+            document.getElementById('afailedRate').textContent  = `${_pct(t.failed, t.total)} failure rate`;
 
             document.getElementById('analyticsStatus').textContent =
-                `${sends.length} records across ${groupStats.length} broadcast(s)`;
+                `${sends.length} sends · ${_pct(t.delivered, t.total)} delivered · ${_pct(t.replied, base)} responded`;
 
-            // Render per-broadcast cards
+            // ── Per-template summary table ────────────────────────
+            const byTemplate = {};
+            sends.forEach(r => {
+                const k = r.template_name;
+                if (!byTemplate[k]) byTemplate[k] = [];
+                byTemplate[k].push(r);
+            });
+            const tmplStats = Object.entries(byTemplate)
+                .map(([name, rows]) => ({ name, ...rowStats(rows) }))
+                .sort((a, b) => b.total - a.total);
+
+            const tblWrap = document.getElementById('analyticsTemplateTable');
+            const tbl = document.getElementById('tmplPerfTableBody');
+            tbl.innerHTML = `
+                <thead>
+                  <tr>
+                    <th>Template</th>
+                    <th>Sent</th>
+                    <th>Delivered</th>
+                    <th>Read</th>
+                    <th>Replied</th>
+                    <th>Btn Clicks</th>
+                    <th>Failed</th>
+                    <th>Response Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tmplStats.map(s => `
+                    <tr>
+                      <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(s.name)}">${escHtml(s.name.replace(/_/g,' '))}</td>
+                      <td>${s.total}</td>
+                      <td>${s.delivered} <small style="color:#9ca3af;">${_pct(s.delivered,s.total)}</small></td>
+                      <td>${s.read} <small style="color:#9ca3af;">${_pct(s.read,s.delivered)}</small></td>
+                      <td>${s.replied}</td>
+                      <td>${s.btnClicks}</td>
+                      <td>${s.failed > 0 ? `<span style="color:#dc2626;">${s.failed}</span>` : '0'}</td>
+                      <td>${_ratePill(s.replied, s.total - s.failed)}</td>
+                    </tr>`).join('')}
+                </tbody>`;
+            tblWrap.style.display = 'block';
+
+            // ── Per-broadcast cards ───────────────────────────────
+            const groups = {};
+            sends.forEach(r => {
+                const k = r.broadcast_id || 'singles';
+                if (!groups[k]) groups[k] = [];
+                groups[k].push(r);
+            });
+
             const list = document.getElementById('analyticsList');
             list.innerHTML = '';
-            groupStats.forEach(g => {
-                const card = document.createElement('div');
-                card.className = 'analytics-broadcast-item';
-                card.innerHTML = `
-                    <div class="analytics-broadcast-hdr" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
-                        <div>
-                            <strong>${escHtml(g.templateName.replace(/_/g,' '))}</strong>
-                            <div class="ab-meta">${g.label} &nbsp;·&nbsp; ${g.total} recipient${g.total !== 1 ? 's' : ''}</div>
+
+            Object.entries(groups)
+                .sort(([,a],[,b]) => b[0].sent_at.localeCompare(a[0].sent_at))
+                .forEach(([key, rows]) => {
+                    const s = rowStats(rows);
+                    const earliest = rows.reduce((m,r) => r.sent_at < m ? r.sent_at : m, rows[0].sent_at);
+                    const label = key === 'singles' ? 'Single Sends'
+                        : new Date(earliest).toLocaleDateString('en-SG', {
+                            timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                          });
+                    const responseBase = s.total - s.failed;
+                    const card = document.createElement('div');
+                    card.className = 'analytics-broadcast-item';
+                    card.innerHTML = `
+                        <div class="analytics-broadcast-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'grid':'none'">
+                            <div>
+                                <strong>${escHtml(rows[0].template_name.replace(/_/g,' '))}</strong>
+                                <div class="ab-meta">${escHtml(label)} &nbsp;·&nbsp; ${s.total} recipient${s.total!==1?'s':''}</div>
+                                <div class="ab-badge">
+                                    ${_ratePill(s.delivered, s.total)} delivered &nbsp;
+                                    ${_ratePill(s.replied, responseBase)} replied
+                                    ${s.btnClicks ? `&nbsp; <span class="ab-stat-pill">🖱 ${s.btnClicks} clicks</span>` : ''}
+                                    ${s.failed ? `&nbsp; <span class="ab-stat-pill" style="color:#dc2626;">❌ ${s.failed} failed</span>` : ''}
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-down" style="color:#9ca3af;"></i>
                         </div>
-                        <i class="fa-solid fa-chevron-down" style="color:#9ca3af;"></i>
-                    </div>
-                    <div class="analytics-broadcast-stats">
-                        <div class="analytics-mini-stat">
-                            <div class="analytics-mini-num">${g.total}</div>
-                            <div class="analytics-mini-lbl">Total</div>
-                        </div>
-                        <div class="analytics-mini-stat green">
-                            <div class="analytics-mini-num">${g.sent}</div>
-                            <div class="analytics-mini-lbl">✅ Sent</div>
-                        </div>
-                        <div class="analytics-mini-stat red">
-                            <div class="analytics-mini-num">${g.failed}</div>
-                            <div class="analytics-mini-lbl">❌ Failed</div>
-                        </div>
-                        <div class="analytics-mini-stat blue">
-                            <div class="analytics-mini-num">${g.replied}</div>
-                            <div class="analytics-mini-lbl">💬 Replied</div>
-                        </div>
-                        <div class="analytics-mini-stat amber">
-                            <div class="analytics-mini-num">${g.readNoReply !== undefined ? g.readNoReply : '—'}</div>
-                            <div class="analytics-mini-lbl">👁 Read/No Reply</div>
-                        </div>
-                    </div>
-                `;
-                list.appendChild(card);
-            });
+                        <div class="analytics-broadcast-stats" style="display:none;grid-template-columns:repeat(6,1fr);">
+                            <div class="analytics-mini-stat">
+                                <div class="analytics-mini-num">${s.total}</div>
+                                <div class="analytics-mini-lbl">Total</div>
+                            </div>
+                            <div class="analytics-mini-stat green">
+                                <div class="analytics-mini-num">${s.delivered}</div>
+                                <div class="analytics-mini-lbl">✅ Delivered<br><small>${_pct(s.delivered,s.total)}</small></div>
+                            </div>
+                            <div class="analytics-mini-stat blue">
+                                <div class="analytics-mini-num">${s.read}</div>
+                                <div class="analytics-mini-lbl">👁 Read<br><small>${_pct(s.read,s.delivered)}</small></div>
+                            </div>
+                            <div class="analytics-mini-stat" style="color:#7c3aed;">
+                                <div class="analytics-mini-num" style="color:#7c3aed;">${s.replied}</div>
+                                <div class="analytics-mini-lbl">💬 Replied<br><small>${_pct(s.replied,responseBase)}</small></div>
+                            </div>
+                            <div class="analytics-mini-stat amber">
+                                <div class="analytics-mini-num">${s.btnClicks}</div>
+                                <div class="analytics-mini-lbl">🖱 Btn Clicks<br><small>${_pct(s.btnClicks,responseBase)}</small></div>
+                            </div>
+                            <div class="analytics-mini-stat red">
+                                <div class="analytics-mini-num">${s.failed}</div>
+                                <div class="analytics-mini-lbl">❌ Failed<br><small>${_pct(s.failed,s.total)}</small></div>
+                            </div>
+                        </div>`;
+                    list.appendChild(card);
+                });
         }
 
         function openTemplateManager() {

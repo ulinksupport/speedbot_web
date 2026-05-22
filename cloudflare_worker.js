@@ -92,7 +92,7 @@ async function handleStatus(status, env) {
   switch (state) {
     case 'sent':
       patch.status  = 'sent';
-      patch.sent_at = now;
+      // Don't overwrite sent_at — it was set by the frontend at send time
       break;
 
     case 'delivered':
@@ -116,22 +116,29 @@ async function handleStatus(status, env) {
       return; // 'warning' and other events — ignore
   }
 
-  // Match on wamid stored when the template was sent
-  const url = `${env.SUPABASE_URL}/rest/v1/template_sends`
-            + `?wamid=eq.${encodeURIComponent(id)}`;
+  // Trim trailing slash from SUPABASE_URL in case it's misconfigured
+  const baseUrl = (env.SUPABASE_URL || '').replace(/\/$/, '');
+  const url = `${baseUrl}/rest/v1/template_sends?wamid=eq.${encodeURIComponent(id)}`;
 
-  const res = await fetch(url, {
-    method:  'PATCH',
-    headers: {
-      'apikey':        env.SUPABASE_KEY,
-      'Authorization': `Bearer ${env.SUPABASE_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        'return=minimal',
-    },
-    body: JSON.stringify(patch),
-  });
+  try {
+    const res = await fetch(url, {
+      method:  'PATCH',
+      headers: {
+        'apikey':        env.SUPABASE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'return=minimal',
+      },
+      body: JSON.stringify(patch),
+    });
 
-  if (!res.ok) {
-    console.error(`[Speedbot Worker] Supabase PATCH failed for wamid ${id}: ${res.status} — ${await res.text()}`);
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[Speedbot Worker] Supabase PATCH failed wamid=${id} status=${state} http=${res.status} body=${body}`);
+    } else {
+      console.log(`[Speedbot Worker] Status updated wamid=${id} → ${state}`);
+    }
+  } catch (e) {
+    console.error(`[Speedbot Worker] fetch error for wamid=${id}: ${e.message}`);
   }
 }
