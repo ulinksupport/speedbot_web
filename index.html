@@ -5100,14 +5100,20 @@
         let currentPlatform = "all";
 
         function filterPlatform(platform, element) {
-            currentPlatform = platform;
-            document.querySelectorAll(".social-item").forEach(item => item.classList.remove("active"));
-            element.classList.add("active");
-
-            if (["analytics", "settings", "calls"].includes(platform)) {
+            if (platform === 'analytics') {
+                // Open Template Manager modal on analytics tab — don't change the active filter
+                openTemplateManager();
+                const analyticsTab = document.querySelector('.tmgr-tab[onclick*="analytics"]');
+                if (analyticsTab) switchTmgrTab('analytics', analyticsTab);
+                return;
+            }
+            if (["settings", "calls"].includes(platform)) {
                 alert(platform.charAt(0).toUpperCase() + platform.slice(1) + " page coming soon");
                 return;
             }
+            currentPlatform = platform;
+            document.querySelectorAll(".social-item").forEach(item => item.classList.remove("active"));
+            element.classList.add("active");
             renderChats(activeFilter);
         }
 
