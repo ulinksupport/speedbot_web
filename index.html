@@ -4375,13 +4375,17 @@
             // n8n only writes incoming messages to conversations.last_message — bot replies are messages-table-only
             const { data: recentMsgs } = await supabaseClient
                 .from('messages')
-                .select('phone, message, created_at, created_at_sgt')
+                .select('phone, message, created_at, created_at_sgt, sender')
                 .order('created_at', { ascending: false, nullsFirst: false })
                 .limit(500);
             if (recentMsgs && recentMsgs.length > 0) {
                 const latestByPhone = {};
+                const latestIncomingByPhone = {};
                 for (const m of recentMsgs) {
                     if (!latestByPhone[m.phone]) latestByPhone[m.phone] = m;
+                    if (m.sender === 'incoming' && !latestIncomingByPhone[m.phone]) {
+                        latestIncomingByPhone[m.phone] = m;
+                    }
                 }
                 chats.forEach(c => {
                     const latest = latestByPhone[c.phone];
@@ -4389,6 +4393,13 @@
                         c.preview = latest.message;
                         c.lastPreviewAt = latest.created_at || c.lastPreviewAt;
                         c.time = latest.created_at_sgt || (latest.created_at ? formatSGT(latest.created_at) : c.time);
+                    }
+                    // Derive last_incoming_at from messages table — conversations.last_incoming_at is unreliable
+                    // because n8n doesn't write it; messages table is the authoritative source
+                    const latestIncoming = latestIncomingByPhone[c.phone];
+                    if (latestIncoming) {
+                        c.last_incoming_at = latestIncoming.created_at;
+                        c.windowExpired = (Date.now() - new Date(latestIncoming.created_at).getTime() > 86400000);
                     }
                 });
                 // Sort by actual last activity
@@ -4498,7 +4509,7 @@
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px;">
                     <div class="chat-preview" style="flex:1;min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
-                        ${chat.preview}
+                        ${formatPreview(chat.preview)}
                     </div>
                     ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
                 </div>
@@ -4529,7 +4540,7 @@
             }
 
             existing.querySelector(".chat-preview").innerText =
-                chat.preview;
+                formatPreview(chat.preview);
 
             existing.querySelector(".chat-time").innerText =
                 chat.time;
@@ -4789,8 +4800,10 @@
                             existingChat.lastPreviewAt = msg.created_at;
 
                             // Keep conversations table in sync so 30s reload shows correct preview
+                            const _convUpdate = { last_message: msg.message, last_message_time: msg.created_at };
+                            if (msg.sender === 'incoming') _convUpdate.last_incoming_at = msg.created_at;
                             supabaseClient.from('conversations')
-                                .update({ last_message: msg.message, last_message_time: msg.created_at })
+                                .update(_convUpdate)
                                 .eq('phone', msg.phone)
                                 .then(() => {});
 
@@ -5038,6 +5051,8 @@
 
             // Render template messages as a card
             const tmplMatch = (msg.message || '').match(/^\[Template:\s*(.+?)\]$/);
+            // Render button reply clicks as a tappable-button indicator
+            const btnMatch = (msg.message || '').match(/^\[Button:\s*(.+?)\]$/);
             let bodyHtml;
             if (tmplMatch) {
                 const tName = tmplMatch[1];
@@ -5053,6 +5068,10 @@
     <span>⚡</span><span>Template: ${escHtml(tName)}</span>
   </div>
   ${bodyText ? `<div style="padding:8px 10px;white-space:pre-wrap;">${escHtml(bodyText)}</div>` : ''}
+</div>`;
+            } else if (btnMatch) {
+                bodyHtml = `<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.25);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:600;color:#1d4ed8;">
+  <i class="fa-regular fa-hand-pointer" style="font-size:11px;"></i><span>${escHtml(btnMatch[1])}</span>
 </div>`;
             } else {
                 bodyHtml = escHtml(msg.message || '').replace(/\n/g, '<br>');
@@ -6455,6 +6474,15 @@ CREATE INDEX ON template_sends(sent_at DESC);</pre>
             }[m]));
         }
 
+        function formatPreview(text) {
+            if (!text) return '';
+            const btn = text.match(/^\[Button:\s*(.+?)\]$/);
+            if (btn) return `👆 ${btn[1]}`;
+            const tmpl = text.match(/^\[Template:\s*(.+?)\]$/);
+            if (tmpl) return `⚡ ${tmpl[1]}`;
+            return text;
+        }
+
 
         /* =========================================================
         24-HOUR WINDOW + NOTIFICATION PERMISSION
@@ -6620,7 +6648,7 @@ CREATE INDEX ON template_sends(sent_at DESC);</pre>
                     if (el) {
                         const previewEl = el.querySelector('.chat-preview');
                         const timeEl = el.querySelector('.chat-time');
-                        if (previewEl) previewEl.innerText = chat.preview;
+                        if (previewEl) previewEl.innerText = formatPreview(chat.preview);
                         if (timeEl) timeEl.innerText = chat.time;
                     }
                 }
