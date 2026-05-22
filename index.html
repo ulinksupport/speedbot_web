@@ -2835,6 +2835,14 @@
                     <div id="count-bot">0</div>
                 </div>
 
+                <div class="menu-item" onclick="filterChats('optedout', this)">
+                    <div class="menu-left">
+                        <i class="fa-solid fa-ban" style="color:#dc2626;"></i>
+                        <span>Opted Out</span>
+                    </div>
+                    <div id="count-optedout">0</div>
+                </div>
+
             </div>
 
         </div>
@@ -4717,7 +4725,9 @@
                     messages: [],
                     unread_count: conv.unread_count || 0,
                     last_incoming_at: conv.last_incoming_at || null,
-                    windowExpired: isWindowExpired(conv.last_incoming_at)
+                    windowExpired: isWindowExpired(conv.last_incoming_at),
+                    opted_out: conv.opted_out || false,
+                    opted_out_at: conv.opted_out_at || null
                 };
             });
 
@@ -4791,8 +4801,9 @@
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
             document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
-            document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false).length;
-            document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false).length;
+            document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
+            document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
+            document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out).length;
 
             const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             document.getElementById('allMessageBadge').innerText = totalUnread;
@@ -4910,6 +4921,9 @@
 
             chats.forEach(chat => {
 
+                // Opted-out contacts are hidden from all filters except 'optedout'
+                if (filter !== 'optedout' && chat.opted_out) return;
+
                 if (filter === "unread") {
                     if (!chat.unread_count || chat.unread_count <= 0) return;
                 } else if (filter === "active") {
@@ -4920,6 +4934,8 @@
                     if (chat.bot_enabled !== false) return;
                 } else if (filter === "bot") {
                     if (chat.bot_enabled === false) return;
+                } else if (filter === "optedout") {
+                    if (!chat.opted_out) return;
                 } else if (filter !== "all" && chat.type !== filter) return;
 
                 if (
@@ -4957,7 +4973,7 @@
             </div>
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;justify-content:space-between;">
-                    <div class="chat-name">${chat.name}</div>
+                    <div class="chat-name">${chat.name}${chat.opted_out ? ' <span style="color:#dc2626;font-size:10px;font-weight:700;">🚫</span>' : ''}</div>
                     <div class="chat-time">${chat.time}</div>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px;">
@@ -5418,6 +5434,11 @@
                         if (existing) {
 
                             existing.bot_enabled = conv.bot_enabled;
+                            if (conv.opted_out !== undefined) {
+                                existing.opted_out = conv.opted_out;
+                                existing.opted_out_at = conv.opted_out_at || null;
+                                if (conv.opted_out) updateSidebarCounts();
+                            }
                             // Only update preview from conversations table if it's newer
                             // than what we already set from the messages channel
                             const convTime = conv.last_message_time ? new Date(conv.last_message_time).getTime() : 0;
@@ -6240,14 +6261,34 @@ ${bodyHtml}
             if (result.ok) {
                 closeTemplatePicker();
                 // Optimistic local display — realtime will deduplicate if n8n logs it too
+                const sentNow = new Date().toISOString();
                 appendMessage({
                     message: `[Template: ${selectedTemplate.name}]`,
                     sender: 'outgoing',
                     sender_type: 'human',
+                    created_at: sentNow,
                     created_at_sgt: new Intl.DateTimeFormat('en-SG', {
                         timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
                     }).format(new Date())
                 });
+                // Update sidebar preview so chat moves to top
+                const previewText = `[Template: ${selectedTemplate.name}]`;
+                supabaseClient.from('conversations').update({
+                    last_message: previewText,
+                    last_message_time: sentNow
+                }).eq('phone', currentChat.phone).then();
+                const chatObj = chats.find(c => c.phone === currentChat.phone);
+                if (chatObj) {
+                    chatObj.preview = previewText;
+                    chatObj.lastPreviewAt = sentNow;
+                    chatObj.time = new Intl.DateTimeFormat('en-SG', {
+                        timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
+                    }).format(new Date());
+                    // Move to top of sidebar
+                    chats.splice(chats.indexOf(chatObj), 1);
+                    chats.unshift(chatObj);
+                    renderChats(activeFilter);
+                }
                 showToast('Template sent successfully!', 'success');
             } else {
                 showToast('Failed to send template: ' + (result.error || 'Unknown error'), 'error', 6000);
@@ -6361,15 +6402,23 @@ ${bodyHtml}
         function renderBroadcastContacts() {
             const container = document.getElementById('broadcastContactList');
             container.innerHTML = '';
-            if (chats.length === 0) {
-                container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">No contacts found</div>';
+            const eligible = chats.filter(c => !c.opted_out);
+            const excluded = chats.length - eligible.length;
+            if (eligible.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">No eligible contacts found</div>';
                 return;
             }
-            chats.forEach(chat => {
+            if (excluded > 0) {
+                const notice = document.createElement('div');
+                notice.style.cssText = 'padding:7px 10px;margin-bottom:6px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#dc2626;';
+                notice.innerHTML = `🚫 ${excluded} opted-out contact${excluded > 1 ? 's' : ''} automatically excluded`;
+                container.appendChild(notice);
+            }
+            eligible.forEach(chat => {
                 const item = document.createElement('div');
                 item.className = 'broadcast-contact-item';
                 item.innerHTML = `
-                    <input type="checkbox" class="broadcast-check" data-phone="${chat.phone}" data-name="${chat.name}">
+                    <input type="checkbox" class="broadcast-check" data-phone="${chat.phone}" data-name="${chat.name || ''}">
                     <img src="${chat.avatar}" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${chat.name}</div>
@@ -6435,7 +6484,22 @@ ${bodyHtml}
                 const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
                 const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars);
                 const status = result.ok ? 'sent' : 'failed';
-                if (result.ok) success++; else failed++;
+                if (result.ok) {
+                    success++;
+                    // Update sidebar preview for this contact
+                    const previewText = `[Template: ${selectedTemplate.name}]`;
+                    supabaseClient.from('conversations').update({
+                        last_message: previewText,
+                        last_message_time: sentAt
+                    }).eq('phone', phone).then();
+                    const chatObj = chats.find(c => c.phone === phone);
+                    if (chatObj) {
+                        chatObj.preview = previewText;
+                        chatObj.lastPreviewAt = sentAt;
+                    }
+                } else {
+                    failed++;
+                }
                 supabaseClient.from('template_sends').insert({
                     phone,
                     template_name: selectedTemplate.name,
