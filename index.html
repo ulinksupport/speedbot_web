@@ -2843,6 +2843,14 @@
                     <div id="count-optedout">0</div>
                 </div>
 
+                <div class="menu-item" onclick="filterChats('followup', this)">
+                    <div class="menu-left">
+                        <i class="fa-solid fa-bell" style="color:#d97706;"></i>
+                        <span>Awaiting Follow-up</span>
+                    </div>
+                    <div id="count-followup">0</div>
+                </div>
+
             </div>
 
         </div>
@@ -4727,7 +4735,8 @@
                     last_incoming_at: conv.last_incoming_at || null,
                     windowExpired: isWindowExpired(conv.last_incoming_at),
                     opted_out: conv.opted_out || false,
-                    opted_out_at: conv.opted_out_at || null
+                    opted_out_at: conv.opted_out_at || null,
+                    follow_up_stage: conv.follow_up_stage || 0
                 };
             });
 
@@ -4804,6 +4813,7 @@
             document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
             document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
             document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out).length;
+            document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
 
             const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             document.getElementById('allMessageBadge').innerText = totalUnread;
@@ -4936,6 +4946,8 @@
                     if (chat.bot_enabled === false) return;
                 } else if (filter === "optedout") {
                     if (!chat.opted_out) return;
+                } else if (filter === "followup") {
+                    if (chat.follow_up_stage <= 0 || chat.follow_up_stage >= 4) return;
                 } else if (filter !== "all" && chat.type !== filter) return;
 
                 if (
@@ -4973,7 +4985,7 @@
             </div>
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;justify-content:space-between;">
-                    <div class="chat-name">${chat.name}${chat.opted_out ? ' <span style="color:#dc2626;font-size:10px;font-weight:700;">🚫</span>' : ''}</div>
+                    <div class="chat-name">${chat.name}${chat.opted_out ? ' <span style="color:#dc2626;font-size:10px;font-weight:700;">🚫</span>' : ''}${chat.follow_up_stage > 0 && chat.follow_up_stage < 4 ? ` <span style="color:#d97706;font-size:10px;font-weight:700;background:#fef3c7;padding:1px 4px;border-radius:3px;">F/U${chat.follow_up_stage}</span>` : ''}</div>
                     <div class="chat-time">${chat.time}</div>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px;">
@@ -5438,6 +5450,10 @@
                                 existing.opted_out = conv.opted_out;
                                 existing.opted_out_at = conv.opted_out_at || null;
                                 if (conv.opted_out) updateSidebarCounts();
+                            }
+                            if (conv.follow_up_stage !== undefined) {
+                                existing.follow_up_stage = conv.follow_up_stage;
+                                updateSidebarCounts();
                             }
                             // Only update preview from conversations table if it's newer
                             // than what we already set from the messages channel
