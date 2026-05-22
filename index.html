@@ -806,11 +806,116 @@
             background: #eef2f6;
         }
 
+        .chat-item.sel-selected {
+            background: #eff6ff;
+        }
+
+        .chat-item.sel-mode {
+            cursor: default;
+        }
+
+        .chat-avatar-wrap {
+            position: relative;
+            flex-shrink: 0;
+            width: 54px;
+            height: 54px;
+        }
+
         .chat-avatar {
             width: 54px;
             height: 54px;
             border-radius: 50%;
         }
+
+        .chat-check {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2.5px solid #d1d5db;
+            background: rgba(255,255,255,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            transition: 0.15s;
+        }
+
+        .chat-check.checked {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        #bulkActionBar {
+            flex-shrink: 0;
+            background: #1a1a2e;
+            color: white;
+            padding: 10px 12px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 2px solid #2563eb;
+        }
+
+        #bulkActionBar .bulk-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        #bulkActionBar .bulk-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .bulk-btn {
+            flex: 1;
+            min-width: 0;
+            padding: 7px 8px;
+            border: none;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: 0.15s;
+        }
+
+        .bulk-btn.primary { background: #2563eb; color: white; }
+        .bulk-btn.primary:hover { background: #1d4ed8; }
+        .bulk-btn.secondary { background: rgba(255,255,255,0.12); color: white; }
+        .bulk-btn.secondary:hover { background: rgba(255,255,255,0.2); }
+        .bulk-btn.danger { background: rgba(220,38,38,0.15); color: #fca5a5; }
+        .bulk-btn.danger:hover { background: rgba(220,38,38,0.25); }
+
+        .sel-mode-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: #f3f4f6;
+            color: #374151;
+            transition: 0.15s;
+        }
+
+        .sel-mode-btn.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .sel-mode-btn:hover { opacity: 0.85; }
 
         .chat-name {
             font-weight: 600;
@@ -2748,6 +2853,11 @@
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                     </div>
 
+                    <!-- SELECT MODE -->
+                    <button class="sel-mode-btn" id="selModeBtn" onclick="toggleSelectionMode()" title="Select chats">
+                        <i class="fa-solid fa-check-square"></i>
+                    </button>
+
                 </div>
 
                 <!-- NEW CHAT + BROADCAST ACTIONS -->
@@ -2782,6 +2892,27 @@
 
             <div class="chat-items" id="chatItems">
 
+            </div>
+
+            <!-- BULK ACTION BAR (visible in selection mode) -->
+            <div id="bulkActionBar">
+                <div class="bulk-top">
+                    <span id="bulkCount">0 selected</span>
+                    <button class="bulk-btn secondary" style="flex:0;padding:4px 10px;font-size:11px;" onclick="selectAllVisible()">
+                        <i class="fa-solid fa-check-double"></i> <span id="selectAllLabel">Select All</span>
+                    </button>
+                </div>
+                <div class="bulk-btns">
+                    <button class="bulk-btn primary" onclick="bulkSendTemplate()">
+                        <i class="fa-solid fa-bolt"></i> Send Template
+                    </button>
+                    <button class="bulk-btn secondary" onclick="bulkToggleFollowUp(true)">
+                        <i class="fa-solid fa-star"></i> Follow Up
+                    </button>
+                    <button class="bulk-btn danger" onclick="bulkToggleFollowUp(false)">
+                        <i class="fa-regular fa-star"></i> Unfollow
+                    </button>
+                </div>
             </div>
 
         </div>
@@ -4338,6 +4469,12 @@
 
             element.classList.add("active");
 
+            // Clear selection when switching filters
+            if (selectionMode) {
+                selectedChatIds.clear();
+                updateBulkBar();
+            }
+
             renderChats(type);
 
         }
@@ -4465,6 +4602,8 @@
         let activeFilter = 'all';
         let searchQuery = '';
         let _pendingScrollMsgId = null;
+        let selectionMode = false;
+        let selectedChatIds = new Set();
 
         async function loadConversations() {
             const { data, error } = await supabaseClient
@@ -4593,6 +4732,102 @@
         RENDER CHAT LIST
         ========================================================= */
 
+        /* =========================================================
+        SELECTION MODE
+        ========================================================= */
+
+        function toggleSelectionMode() {
+            selectionMode = !selectionMode;
+            selectedChatIds.clear();
+            const btn = document.getElementById('selModeBtn');
+            btn.classList.toggle('active', selectionMode);
+            btn.title = selectionMode ? 'Exit selection' : 'Select chats';
+            document.getElementById('bulkActionBar').style.display = selectionMode ? 'flex' : 'none';
+            updateBulkBar();
+            renderChats(activeFilter);
+        }
+
+        function toggleChatSelection(id, el) {
+            if (selectedChatIds.has(id)) {
+                selectedChatIds.delete(id);
+                el.classList.remove('sel-selected');
+                const check = el.querySelector('.chat-check');
+                if (check) { check.classList.remove('checked'); check.innerHTML = ''; }
+            } else {
+                selectedChatIds.add(id);
+                el.classList.add('sel-selected');
+                const check = el.querySelector('.chat-check');
+                if (check) { check.classList.add('checked'); check.innerHTML = '<i class="fa-solid fa-check"></i>'; }
+            }
+            updateBulkBar();
+        }
+
+        function selectAllVisible() {
+            const items = [...document.querySelectorAll('#chatItems .chat-item')];
+            const allSelected = items.length > 0 && items.every(el => selectedChatIds.has(el.dataset.chatId));
+            if (allSelected) {
+                items.forEach(el => {
+                    selectedChatIds.delete(el.dataset.chatId);
+                    el.classList.remove('sel-selected');
+                    const check = el.querySelector('.chat-check');
+                    if (check) { check.classList.remove('checked'); check.innerHTML = ''; }
+                });
+            } else {
+                items.forEach(el => {
+                    selectedChatIds.add(el.dataset.chatId);
+                    el.classList.add('sel-selected');
+                    const check = el.querySelector('.chat-check');
+                    if (check) { check.classList.add('checked'); check.innerHTML = '<i class="fa-solid fa-check"></i>'; }
+                });
+            }
+            updateBulkBar();
+        }
+
+        function updateBulkBar() {
+            const n = selectedChatIds.size;
+            document.getElementById('bulkCount').innerText = `${n} selected`;
+            const items = [...document.querySelectorAll('#chatItems .chat-item')];
+            const allSel = items.length > 0 && items.every(el => selectedChatIds.has(el.dataset.chatId));
+            document.getElementById('selectAllLabel').innerText = allSel ? 'Deselect All' : 'Select All';
+        }
+
+        function bulkSendTemplate() {
+            if (selectedChatIds.size === 0) { showToast('Select at least one chat first', 'error'); return; }
+            const selectedPhones = new Set(
+                chats.filter(c => selectedChatIds.has(c.id)).map(c => c.phone)
+            );
+            // Open broadcast modal then pre-select only selected phones
+            openBroadcastModal();
+            setTimeout(() => {
+                document.querySelectorAll('.broadcast-check').forEach(cb => {
+                    cb.checked = selectedPhones.has(cb.dataset.phone);
+                });
+                updateBroadcastCount();
+            }, 80);
+        }
+
+        async function bulkToggleFollowUp(value) {
+            if (selectedChatIds.size === 0) { showToast('Select at least one chat first', 'error'); return; }
+            const ids = [...selectedChatIds];
+            const label = value ? 'follow up' : 'unfollow';
+            showToast(`Marking ${ids.length} chat(s) as ${label}…`, 'info');
+            try {
+                await supabaseClient.from('conversations')
+                    .update({ follow_up: value })
+                    .in('id', ids);
+                // Update local state
+                ids.forEach(id => {
+                    const c = chats.find(x => x.id === id);
+                    if (c) c.follow_up = value;
+                });
+                showToast(`${ids.length} chat(s) marked as ${label}`, 'success');
+                updateSidebarCounts();
+                renderChats(activeFilter);
+            } catch (e) {
+                showToast('Error updating follow up', 'error');
+            }
+        }
+
         function renderChats(filter = "all") {
 
             const container =
@@ -4633,26 +4868,23 @@
                 const div =
                     document.createElement("div");
 
-                div.className =
-                    `chat-item ${currentChat &&
-                        currentChat.id === chat.id
-                        ? "active"
-                        : ""
-                    }`;
+                const isSelected = selectedChatIds.has(chat.id);
+                div.className = [
+                    'chat-item',
+                    currentChat && currentChat.id === chat.id ? 'active' : '',
+                    selectionMode ? 'sel-mode' : '',
+                    selectionMode && isSelected ? 'sel-selected' : ''
+                ].filter(Boolean).join(' ');
 
-                div.setAttribute(
-                    "data-chat-id",
-                    chat.id
-                );
-
-                div.setAttribute(
-                    "data-phone",
-                    chat.phone
-                );
+                div.setAttribute("data-chat-id", chat.id);
+                div.setAttribute("data-phone", chat.phone);
 
                 div.innerHTML = `
-            <img class="chat-avatar" src="${chat.avatar}">
-            <div style="flex:1;">
+            <div class="chat-avatar-wrap">
+                <img class="chat-avatar" src="${chat.avatar}">
+                ${selectionMode ? `<div class="chat-check${isSelected ? ' checked' : ''}">${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}</div>` : ''}
+            </div>
+            <div style="flex:1;min-width:0;">
                 <div style="display:flex;justify-content:space-between;">
                     <div class="chat-name">${chat.name}</div>
                     <div class="chat-time">${chat.time}</div>
@@ -4661,13 +4893,18 @@
                     <div class="chat-preview" style="flex:1;min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
                         ${formatPreview(chat.preview)}
                     </div>
-                    ${chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
+                    ${!selectionMode && chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
                 </div>
             </div>
 `;
 
-                div.onclick = () =>
-                    openChat(chat.id, div);
+                div.onclick = (e) => {
+                    if (selectionMode) {
+                        toggleChatSelection(chat.id, div);
+                    } else {
+                        openChat(chat.id, div);
+                    }
+                };
 
                 container.appendChild(div);
 
