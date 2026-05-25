@@ -955,18 +955,34 @@
         }
 
         .unread-badge {
-            min-width: 20px;
-            height: 20px;
-            border-radius: 10px;
+
+            min-width: 22px;
+            height: 22px;
+
+            padding: 0 6px;
+
+            border-radius: 999px;
+
             background: #25D366;
+
             color: white;
-            display: flex;
+
+            display: inline-flex;
+
             align-items: center;
             justify-content: center;
+
             font-size: 11px;
-            font-weight: 600;
-            padding: 0 6px;
+            font-weight: 700;
+
+            line-height: 1;
+
             flex-shrink: 0;
+
+            box-shadow:
+                0 0 0 2px white,
+                0 2px 6px rgba(0, 0, 0, 0.15);
+
         }
 
         /* =========================================================
@@ -5109,6 +5125,23 @@
                     if (!matchName && !matchPhone && !matchPreview) return;
                 }
 
+                const chatTime =
+                    chat.last_message_time_sgt ||
+                    chat.time ||
+                    '';
+
+                const unreadCount =
+                    Number(chat.unread_count || 0);
+
+                const unreadBadge =
+                    unreadCount > 0
+                        ? `
+                        <div class="unread-badge">
+                            ${unreadCount > 99 ? '99+' : unreadCount}
+                        </div>
+                        `
+                        : '';
+
                 const div =
                     document.createElement("div");
 
@@ -5124,22 +5157,65 @@
                 div.setAttribute("data-phone", chat.phone);
 
                 div.innerHTML = `
-            <div class="chat-avatar-wrap">
-                <img class="chat-avatar" src="${chat.avatar}">
-                ${selectionMode ? `<div class="chat-check${isSelected ? ' checked' : ''}">${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}</div>` : ''}
+
+    <div class="chat-avatar-wrap">
+
+        <img class="chat-avatar" src="${chat.avatar}">
+
+        ${selectionMode ? `
+            <div class="chat-check${isSelected ? ' checked' : ''}">
+                ${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}
             </div>
-            <div style="flex:1;min-width:0;">
-                <div style="display:flex;justify-content:space-between;">
-                    <div class="chat-name">${chat.name}${chat.opted_out ? ' <span style="color:#dc2626;font-size:10px;font-weight:700;">🚫</span>' : ''}${chat.follow_up_stage > 0 && chat.follow_up_stage < 4 ? ` <span style="color:#d97706;font-size:10px;font-weight:700;background:#fef3c7;padding:1px 4px;border-radius:3px;">F/U${chat.follow_up_stage}</span>` : ''}</div>
-                    <div class="chat-time">${chat.time}</div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px;">
-                    <div class="chat-preview" style="flex:1;min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">
-                        ${formatPreview(chat.preview)}
-                    </div>
-                    ${!selectionMode && chat.unread_count > 0 ? `<div class="unread-badge">${chat.unread_count}</div>` : ""}
-                </div>
-            </div>
+        ` : ''}
+
+    </div>
+
+    <div style="flex:1;min-width:0;">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:10px;
+    ">
+
+        <div class="chat-name">
+            ${chat.name}
+        </div>
+
+        <div class="chat-time">
+            ${chatTime}
+        </div>
+
+    </div>
+
+    <div style="
+        margin-top:6px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+    ">
+
+        <div
+            class="chat-preview"
+            style="
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+                flex:1;
+                min-width:0;
+            "
+        >
+            ${formatPreview(chat.preview)}
+        </div>
+
+        ${unreadBadge}
+
+    </div>
+
+</div>
+
 `;
 
                 div.onclick = (e) => {
@@ -5157,57 +5233,66 @@
         }
 
         function updateSingleConversationUI(chat) {
-
-            const existing =
-                document.querySelector(
-                    `[data-chat-id="${chat.id}"]`
-                );
+            const existing = document.querySelector(`[data-chat-id="${chat.id}"]`);
 
             if (!existing) {
-
                 renderChats(activeFilter);
                 return;
-
             }
 
-            existing.querySelector(".chat-preview").innerText =
+            existing.querySelector(".chat-preview").innerHTML =
                 formatPreview(chat.preview);
 
             existing.querySelector(".chat-time").innerText =
-                chat.time;
+                chat.last_message_time_sgt || chat.time || '';
 
-            let badge = existing.querySelector('.unread-badge');
-            if (chat.unread_count > 0) {
+            const timeColumn = existing.querySelector(".chat-time").parentElement;
+
+            let badge = existing.querySelector(".unread-badge");
+            const unreadCount = Number(chat.unread_count || 0);
+
+            if (unreadCount > 0) {
                 if (!badge) {
-                    badge = document.createElement('div');
-                    badge.className = 'unread-badge';
-                    const containerRow = existing.querySelector(".chat-preview").parentElement;
-                    containerRow.appendChild(badge);
+                    badge = document.createElement("div");
+                    badge.className = "unread-badge";
+                    timeColumn.appendChild(badge);
                 }
-                badge.innerText = chat.unread_count;
+
+                badge.innerText = unreadCount > 99 ? "99+" : unreadCount;
             } else {
                 if (badge) badge.remove();
             }
 
-            const container =
-                document.getElementById("chatItems");
-
+            const container = document.getElementById("chatItems");
             container.prepend(existing);
-
         }
 
         /* =========================================================
         OPEN CHAT
         ========================================================= */
 
-        function openChat(id, element) {
+        async function openChat(id, element) {
             document.querySelectorAll(".chat-item").forEach(item => item.classList.remove("active"));
             if (element) element.classList.add("active");
 
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
             currentChat = chat;
-            chat.unread_count = 0;
+            await supabaseClient
+                .from('conversations')
+                .update({
+                    unread_count: 0
+                })
+                .eq('id', chat.id);
+            currentChat.unread_count = 0;
+
+            await supabaseClient
+                .from('conversations')
+                .update({ unread_count: 0 })
+                .eq('phone', currentChat.phone);
+
+            renderChats(activeFilter);
+            updateUnreadBadges();
             _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
 
             // Reset in database so it persists across reloads
@@ -5433,7 +5518,7 @@
 
                                     messages: [],
 
-                                    unread_count: 1,
+                                    unread_count: 0,
 
                                     country: "Unknown",
 
@@ -5447,6 +5532,8 @@
 
                                 renderChats(activeFilter);
 
+                                updateUnreadBadges();
+
                             }
 
                             existingChat.preview = msg.message || '';
@@ -5455,22 +5542,48 @@
                             let updatePayload = { last_message: msg.message, last_message_time: msg.created_at };
 
                             if (msg.sender === "incoming") {
-                                // Update 24hr window tracking
                                 existingChat.last_incoming_at = msg.created_at;
                                 existingChat.windowExpired = false;
                                 updatePayload.last_incoming_at = msg.created_at;
 
                                 if (!currentChat || currentChat.phone !== msg.phone) {
-                                    existingChat.unread_count = (existingChat.unread_count || 0) + 1;
-                                    updatePayload.unread_count = existingChat.unread_count;
+                                    existingChat.unread_count = Number(existingChat.unread_count || 0) + 1;
+                                    updateSingleConversationUI(existingChat);
+                                    renderChats(activeFilter);
+                                    updatePayload.unread_count =
+                                        existingChat.unread_count;
+                                } else {
+                                    existingChat.unread_count = 0;
+                                    updatePayload.unread_count = 0;
                                 }
                             }
 
                             // Keep conversations table in sync so 30s reload shows correct preview
-                            supabaseClient.from('conversations')
+                            supabaseClient
+                                .from('conversations')
                                 .update(updatePayload)
                                 .eq('phone', msg.phone)
-                                .then(() => { });
+                                .then(({ error }) => {
+
+                                    if (error) {
+
+                                        console.error(
+                                            'Unread update failed:',
+                                            error,
+                                            updatePayload,
+                                            msg.phone
+                                        );
+
+                                    } else {
+
+                                        console.log(
+                                            'Unread updated:',
+                                            updatePayload
+                                        );
+
+                                    }
+
+                                });
 
                             if (msg.sender === "incoming") {
                                 if (!currentChat || currentChat.phone !== msg.phone) {
@@ -7449,7 +7562,18 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 await fetchMessagesForChat();
                 if (!wasAtBottom) container.scrollTop = savedScroll;
                 // Update sidebar preview text only — no prepend/move to avoid glitch
-                const chat = chats.find(c => c.phone === currentChat.phone);
+                const chat = chats.find(c => c.phone === data[0].phone);
+                if (chat && data[0].sender === 'incoming' && (!currentChat || data[0].phone !== currentChat.phone)) {
+                    chat.unread_count = Number(chat.unread_count || 0) + 1;
+
+                    await supabaseClient
+                        .from('conversations')
+                        .update({
+                            unread_count: chat.unread_count
+                        })
+                        .eq('id', chat.id);
+
+                }
                 if (chat && data[0] && data[0].message) {
                     chat.preview = data[0].message;
                     if (data[0].created_at) {
@@ -7462,6 +7586,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         const timeEl = el.querySelector('.chat-time');
                         if (previewEl) previewEl.innerText = formatPreview(chat.preview);
                         if (timeEl) timeEl.innerText = chat.time;
+                        renderChats(activeFilter);
+
+                        updateUnreadBadges();
                     }
                 }
             } catch (_) { }
@@ -7596,7 +7723,43 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             }, 100);
         }
 
+        //updateUnreadBadges:
+
+        function updateUnreadBadges() {
+
+            const totalUnread =
+                chats.reduce(
+                    (sum, c) =>
+                        sum + Number(c.unread_count || 0),
+                    0
+                );
+
+            const badge =
+                document.getElementById(
+                    "allMessageBadge"
+                );
+
+            if (!badge) return;
+
+            if (totalUnread > 0) {
+
+                badge.style.display = "flex";
+
+                badge.innerText =
+                    totalUnread > 99
+                        ? "99+"
+                        : totalUnread;
+
+            } else {
+
+                badge.style.display = "none";
+
+            }
+
+        }
+
     </script>
+
 
     <div id="toastContainer"></div>
 
