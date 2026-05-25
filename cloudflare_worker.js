@@ -18,9 +18,9 @@ export default {
 
     // ── Webhook verification (GET from Meta during setup) ────────
     if (req.method === 'GET') {
-      const url       = new URL(req.url);
-      const mode      = url.searchParams.get('hub.mode');
-      const token     = url.searchParams.get('hub.verify_token');
+      const url = new URL(req.url);
+      const mode = url.searchParams.get('hub.mode');
+      const token = url.searchParams.get('hub.verify_token');
       const challenge = url.searchParams.get('hub.challenge');
       if (mode === 'subscribe' && token === env.VERIFY_TOKEN) {
         return new Response(challenge, { status: 200 });
@@ -72,9 +72,9 @@ async function processWebhook(value, env) {
     };
     tasks.push(
       fetch(env.N8N_INBOUND_WEBHOOK_URL, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(wrappedBody),
+        body: JSON.stringify(wrappedBody),
       }).catch(e => console.error('[Speedbot Worker] n8n forward failed:', e.message))
     );
   }
@@ -86,29 +86,29 @@ async function handleStatus(status, env) {
   const { id, status: state, timestamp, errors } = status;
   if (!id) return;
 
-  const now   = new Date(Number(timestamp) * 1000).toISOString();
+  const now = new Date(Number(timestamp) * 1000).toISOString();
   const patch = {};
 
   switch (state) {
     case 'sent':
-      patch.status  = 'sent';
+      patch.status = 'sent';
       // Don't overwrite sent_at — it was set by the frontend at send time
       break;
 
     case 'delivered':
-      patch.status       = 'delivered';
+      patch.status = 'delivered';
       patch.delivered_at = now;
       break;
 
     case 'read':
-      patch.status  = 'read';
+      patch.status = 'read';
       patch.read_at = now;
       break;
 
     case 'failed':
-      patch.status          = 'failed';
-      patch.failed_at       = now;
-      patch.failure_code    = errors?.[0]?.code != null ? String(errors[0].code) : null;
+      patch.status = 'failed';
+      patch.failed_at = now;
+      patch.failure_code = errors?.[0]?.code != null ? String(errors[0].code) : null;
       patch.failure_message = errors?.[0]?.title ?? null;
       break;
 
@@ -122,12 +122,12 @@ async function handleStatus(status, env) {
 
   try {
     const res = await fetch(url, {
-      method:  'PATCH',
+      method: 'PATCH',
       headers: {
-        'apikey':        env.SUPABASE_KEY,
+        'apikey': env.SUPABASE_KEY,
         'Authorization': `Bearer ${env.SUPABASE_KEY}`,
-        'Content-Type':  'application/json',
-        'Prefer':        'return=minimal',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
       },
       body: JSON.stringify(patch),
     });
