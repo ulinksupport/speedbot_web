@@ -2932,14 +2932,14 @@
 
                 </div>
 
-                <div class="menu-item" onclick="filterChats('followup', this)">
+                <div class="menu-item" onclick="filterChats('awaitingfollowup', this)">
 
                     <div class="menu-left">
                         <i class="fa-regular fa-star"></i>
                         <span>Follow Up</span>
                     </div>
 
-                    <div id="count-followup">0</div>
+                    <div id="count-awaitingfollowup">0</div>
 
                 </div>
 
@@ -2976,6 +2976,22 @@
 
                 </div>
 
+                <div class="menu-item" onclick="filterChats('completed', this)">
+                    <div class="menu-left">
+                        <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
+                        <span>Completed</span>
+                    </div>
+                    <div id="count-completed">0</div>
+                </div>
+
+                <div class="menu-item" onclick="filterChats('inactive7', this)">
+                    <div class="menu-left">
+                        <i class="fa-regular fa-calendar-xmark" style="color:#dc2626;"></i>
+                        <span>Inactive &gt; 1 week</span>
+                    </div>
+                    <div id="count-inactive7">0</div>
+                </div>
+
                 <div class="menu-item" onclick="filterChats('human', this)">
                     <div class="menu-left">
                         <i class="fa-solid fa-user-check" style="color:#000000;"></i>
@@ -3000,12 +3016,12 @@
                     <div id="count-optedout">0</div>
                 </div>
 
-                <div class="menu-item" onclick="filterChats('followup', this)">
+                <div class="menu-item" onclick="filterChats('awaitingfollowup', this)">
                     <div class="menu-left">
                         <i class="fa-solid fa-bell" style="color:#d97706;"></i>
                         <span>Awaiting Follow-up</span>
                     </div>
-                    <div id="count-followup">0</div>
+                    <div id="count-awaitingfollowup">0</div>
                 </div>
 
             </div>
@@ -5005,14 +5021,25 @@
             document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up === true).length;
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
             document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
             document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
             document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out).length;
-            document.getElementById('count-followup').innerText = chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
+            document.getElementById('count-awaitingfollowup').innerText =
+                chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
+
+            document.getElementById('count-completed').innerText =
+                chats.filter(c => c.status === "completed").length;
+
+            document.getElementById('count-inactive7').innerText =
+                chats.filter(c => {
+                    const last = c.last_incoming_at || c.last_message_time || c.created_at;
+                    return last &&
+                        ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000) &&
+                        c.status !== "completed";
+                }).length;
 
             const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             document.getElementById('allMessageBadge').innerText = totalUnread;
@@ -5147,7 +5174,19 @@
                     if (!chat.opted_out) return;
                 } else if (filter === "followup") {
                     if (chat.follow_up_stage <= 0 || chat.follow_up_stage >= 4) return;
+                } else if (filter === "completed") {
+                    if (chat.status !== "completed") return;
+
+                } else if (filter === "inactive7") {
+                    const last = chat.last_incoming_at || chat.last_message_time || chat.created_at;
+                    const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000);
+
+                    if (!olderThan7Days || chat.status === "completed") return;
+
+                } else if (filter === "awaitingfollowup") {
+                    if (!chat.follow_up_stage || chat.follow_up_stage <= 0) return;
                 } else if (filter !== "all" && chat.type !== filter) return;
+
 
                 if (
                     currentPlatform !== "all" &&
@@ -5512,6 +5551,7 @@
             if (realtimeConvChannel) supabaseClient.removeChannel(realtimeConvChannel);
 
             realtimeChannel =
+
                 supabaseClient
                     .channel('realtime-messages')
 
