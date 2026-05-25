@@ -4461,31 +4461,69 @@
         ========================================================= */
 
         async function exportCurrentChat() {
-            if (!currentChat) {
-                alert("Please open a conversation first.");
-                return;
-            }
+
+            if (!currentChat) return;
+
             try {
-                const response = await fetch("https://ulink.app.n8n.cloud/webhook/export-chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        conversation_id: currentChat.id,
-                        phone: currentChat.phone,
-                        name: currentChat.name
-                    })
-                });
-                const data = await response.json();
-                if (data.download_url) {
-                    alert("Exported successfully!");
-                    window.open(data.download_url, "_blank");
-                } else {
-                    alert("Export completed successfully!");
+
+                const response = await fetch(
+                    'https://ulink.app.n8n.cloud/webhook/export-chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            conversation_id: currentChat.id,
+                            phone: currentChat.phone,
+                            name: currentChat.name
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Export failed');
                 }
+
+                const blob = await response.blob();
+
+                const url =
+                    window.URL.createObjectURL(blob);
+
+                const a =
+                    document.createElement('a');
+
+                console.log(blob.type);
+
+                a.href = url;
+
+                a.download =
+                    `Social_Media_Individual_Chat_Export_${currentChat.name}_${currentChat.phone}.xlsx`;
+
+                document.body.appendChild(a);
+
+                a.click();
+
+                a.remove();
+
+                window.URL.revokeObjectURL(url);
+
+                showToast(
+                    'Chat exported successfully',
+                    'success'
+                );
+
             } catch (err) {
+
                 console.error(err);
-                alert("Already exists.");
+
+                showToast(
+                    'Export failed',
+                    'error'
+                );
+
             }
+
         }
 
         /* =========================================================
