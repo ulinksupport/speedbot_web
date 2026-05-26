@@ -1176,6 +1176,24 @@
         CHAT INPUT
         ========================================================= */
 
+        .drop-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(37,99,235,0.12);
+            border: 2.5px dashed #3b82f6;
+            border-radius: 10px;
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #2563eb;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .drop-overlay.active { display: flex; }
+
         .chat-input {
             display: none;
             background: white;
@@ -3223,7 +3241,11 @@
 
             <!-- MESSAGES -->
 
-            <div class="messages" id="messages">
+            <div class="messages" id="messages" style="position:relative;">
+
+                <div class="drop-overlay" id="dropOverlay">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Drop image or file to send
+                </div>
 
                 <div id="welcomeScreen">
 
@@ -4284,38 +4306,117 @@
         });
 
         /* =========================================================
-        FILE UPLOAD
+        FILE UPLOAD / PASTE / DRAG-DROP
         ========================================================= */
 
         function handleFileUpload(event) {
-
-            const file =
-                event.target.files[0];
-
-            if (!file) return;
-
-            const messages =
-                document.getElementById(
-                    "messages"
-                );
-
-            const msg =
-                document.createElement("div");
-
-            msg.className =
-                "message outgoing-human";
-
-            msg.innerHTML = `
-📎 ${file.name}
-<div class="message-time">Uploaded ✓✓</div>
-`;
-
-            messages.appendChild(msg);
-
-            messages.scrollTop =
-                messages.scrollHeight;
-
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (file) sendMediaFile(file);
         }
+
+        async function sendMediaFile(file) {
+            if (!currentChat) return alert('Open a conversation first.');
+            if (!META_TOKEN) return alert('WhatsApp token not set. Go to Settings and enter your META token.');
+
+            const sgtNow = new Date().toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true });
+            const isImage = file.type.startsWith('image/');
+            const mediaType = isImage ? 'image' : 'document';
+
+            // Optimistic UI
+            const tempUrl = URL.createObjectURL(file);
+            appendMessage({ sender: 'outgoing', sender_type: 'human', message: '', media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone });
+
+            try {
+                // 1. Upload to WhatsApp Media API
+                const formData = new FormData();
+                formData.append('messaging_product', 'whatsapp');
+                formData.append('file', file, file.name);
+                formData.append('type', file.type);
+                const waUpload = await fetch(`${META_GRAPH_URL}/${META_PHONE_ID}/media`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${META_TOKEN}` },
+                    body: formData
+                });
+                const waUploadJson = await waUpload.json();
+                if (!waUploadJson.id) throw new Error('WhatsApp media upload failed: ' + JSON.stringify(waUploadJson));
+                const mediaId = waUploadJson.id;
+
+                // 2. Send via WhatsApp
+                const waBody = {
+                    messaging_product: 'whatsapp',
+                    to: currentChat.phone.replace('+', ''),
+                    type: mediaType,
+                    [mediaType]: isImage ? { id: mediaId } : { id: mediaId, filename: file.name }
+                };
+                await fetch(`${META_GRAPH_URL}/${META_PHONE_ID}/messages`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${META_TOKEN}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(waBody)
+                });
+
+                // 3. Upload to Supabase storage for permanent URL
+                const storageKey = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/whatsapp-media/${storageKey}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type },
+                    body: file
+                });
+                const storageJson = await storageRes.json();
+                const permanentUrl = `${SUPABASE_URL}/storage/v1/object/public/${storageJson.Key || ('whatsapp-media/' + storageKey)}`;
+
+                // 4. Save to messages table
+                await supabaseClient.from('messages').insert({
+                    phone: currentChat.phone,
+                    message: '',
+                    sender: 'outgoing',
+                    sender_type: 'human',
+                    conversation_id: currentChat.id,
+                    media_url: permanentUrl,
+                    media_type: mediaType,
+                    created_at_sgt: sgtNow
+                });
+
+            } catch (err) {
+                console.error('sendMediaFile error:', err);
+                alert('Failed to send media: ' + err.message);
+            }
+        }
+
+        // Paste screenshot (Ctrl+V)
+        document.addEventListener('paste', function (e) {
+            if (!currentChat) return;
+            const items = e.clipboardData?.items || [];
+            for (const item of items) {
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    if (file) { e.preventDefault(); sendMediaFile(file); break; }
+                }
+            }
+        });
+
+        // Drag-and-drop onto the messages area
+        const _messagesEl = document.getElementById('messages');
+        let _dragCounter = 0;
+        _messagesEl.addEventListener('dragenter', function (e) {
+            if (!currentChat) return;
+            e.preventDefault();
+            _dragCounter++;
+            document.getElementById('dropOverlay').classList.add('active');
+        });
+        _messagesEl.addEventListener('dragleave', function () {
+            _dragCounter--;
+            if (_dragCounter <= 0) { _dragCounter = 0; document.getElementById('dropOverlay').classList.remove('active'); }
+        });
+        _messagesEl.addEventListener('dragover', function (e) { e.preventDefault(); });
+        _messagesEl.addEventListener('drop', function (e) {
+            e.preventDefault();
+            _dragCounter = 0;
+            document.getElementById('dropOverlay').classList.remove('active');
+            if (!currentChat) return;
+            const file = e.dataTransfer?.files?.[0];
+            if (file) sendMediaFile(file);
+        });
 
         /* =========================================================
         MEDIA SECTION
