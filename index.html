@@ -5840,7 +5840,7 @@
 
         function appendMessage(msg, suppressScroll = false) {
 
-            if (!msg.message) return;
+            if (!msg.message && !msg.media_url) return;
 
             const messagesContainer =
                 document.getElementById("messages");
@@ -5934,7 +5934,31 @@
   <i class="fa-regular fa-hand-pointer" style="font-size:11px;"></i><span>${escHtml(btnMatch[1])}</span>
 </div>`;
             } else {
-                bodyHtml = escHtml(msg.message || '').replace(/\n/g, '<br>');
+                let mediaHtml = '';
+                if (msg.media_url) {
+                    const lUrl = msg.media_url.toLowerCase();
+                    const isImage = msg.media_type === 'image' ||
+                        lUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/);
+                    if (isImage) {
+                        mediaHtml = `<div style="margin-bottom:6px;border-radius:6px;overflow:hidden;max-width:280px;">
+  <a href="${msg.media_url}" target="_blank">
+    <img src="${msg.media_url}" style="width:100%;height:auto;display:block;border-radius:6px;" />
+  </a>
+  <div style="margin-top:4px;font-size:12px;">
+    <a href="${msg.media_url}" download target="_blank" style="color:#60a5fa;text-decoration:none;font-weight:600;">⬇ Download Image</a>
+  </div>
+</div>`;
+                    } else {
+                        mediaHtml = `<div style="margin-bottom:6px;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;display:flex;align-items:center;gap:10px;max-width:280px;">
+  <div style="font-size:26px;">📄</div>
+  <div>
+    <a href="${msg.media_url}" download target="_blank" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;">⬇ Download Document</a>
+  </div>
+</div>`;
+                    }
+                }
+                const textHtml = msg.message ? escHtml(msg.message).replace(/\n/g, '<br>') : '';
+                bodyHtml = mediaHtml + textHtml;
             }
 
             div.innerHTML = `
