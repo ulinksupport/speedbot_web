@@ -3284,21 +3284,21 @@
                     </button>
                 </div>
 
-                <!-- Media staging panel -->
-                <div id="mediaStagingArea" style="display:none;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <div id="mediaStagingPreview" style="flex-shrink:0;"></div>
-                        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-                            <div id="mediaStagingName" style="font-size:12px;color:#9ca3af;word-break:break-all;"></div>
-                            <input type="text" id="mediaCaptionInput" placeholder="Add a caption (optional)..."
-                                style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:7px 10px;color:#e5e7eb;font-size:13px;outline:none;width:100%;box-sizing:border-box;"
-                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendStagedMedia();}">
-                        </div>
-                        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-                            <button onclick="clearMediaStaging()" title="Cancel" style="background:rgba(255,255,255,0.08);border:none;color:#9ca3af;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px;">✕</button>
-                            <button onclick="sendStagedMedia()" title="Send" style="background:#3b82f6;border:none;color:#fff;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;">&#8593;</button>
-                        </div>
+                <!-- Media staging row (replaces normal input row when a file is staged) -->
+                <div id="mediaStagingArea" style="display:none;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                    <div id="mediaStagingPreview" style="flex-shrink:0;"></div>
+                    <div class="input-box" style="flex:1;display:flex;align-items:center;gap:8px;padding:4px 10px;">
+                        <div id="mediaStagingName" style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:0;"></div>
+                        <input type="text" id="mediaCaptionInput" placeholder="Add a caption (optional)..."
+                            style="flex:1;background:transparent;border:none;color:#e5e7eb;font-size:13px;outline:none;min-width:0;"
+                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendStagedMedia();}">
                     </div>
+                    <button onclick="clearMediaStaging()" title="Cancel" class="input-action-btn" style="color:#9ca3af;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <button onclick="sendStagedMedia()" class="send-btn">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
                 </div>
 
                 <!-- Normal input row -->
@@ -4341,13 +4341,14 @@
             const preview = document.getElementById('mediaStagingPreview');
             if (isImage) {
                 const url = URL.createObjectURL(file);
-                preview.innerHTML = `<img src="${url}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;display:block;">`;
+                preview.innerHTML = `<img src="${url}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;display:block;">`;
             } else {
-                preview.innerHTML = `<div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;">📄</div>`;
+                preview.innerHTML = `<span style="font-size:22px;">📄</span>`;
             }
             document.getElementById('mediaStagingName').textContent = file.name;
             document.getElementById('mediaCaptionInput').value = '';
-            document.getElementById('mediaStagingArea').style.display = 'block';
+            document.getElementById('normalInputArea').style.display = 'none';
+            document.getElementById('mediaStagingArea').style.display = 'flex';
             document.getElementById('mediaCaptionInput').focus();
         }
 
@@ -4356,6 +4357,7 @@
             document.getElementById('mediaStagingArea').style.display = 'none';
             document.getElementById('mediaStagingPreview').innerHTML = '';
             document.getElementById('mediaCaptionInput').value = '';
+            document.getElementById('normalInputArea').style.display = 'flex';
         }
 
         function sendStagedMedia() {
