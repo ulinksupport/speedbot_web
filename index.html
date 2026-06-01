@@ -827,6 +827,53 @@
             border-radius: 50%;
         }
 
+        /* Small platform logo at the bottom-right corner of each avatar */
+        .avatar-platform-icon {
+            position: absolute;
+            right: -3px;
+            bottom: -3px;
+
+            width: 21px;
+            height: 21px;
+
+            border-radius: 50%;
+            border: 2px solid white;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: white;
+            font-size: 12px;
+            line-height: 1;
+
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+            z-index: 2;
+        }
+
+        .avatar-platform-whatsapp {
+            background: #25D366;
+        }
+
+        .avatar-platform-messenger {
+            background: #0084FF;
+        }
+
+        .avatar-platform-instagram {
+            background: linear-gradient(135deg,
+                    #833AB4,
+                    #E1306C,
+                    #FCAF45);
+        }
+
+        .avatar-platform-call {
+            background: #6b7280;
+        }
+
+        .avatar-platform-other {
+            background: #111827;
+        }
+
         .chat-check {
             position: absolute;
             inset: 0;
@@ -1180,7 +1227,7 @@
             display: none;
             position: absolute;
             inset: 0;
-            background: rgba(37,99,235,0.12);
+            background: rgba(37, 99, 235, 0.12);
             border: 2.5px dashed #3b82f6;
             border-radius: 10px;
             z-index: 50;
@@ -1192,7 +1239,10 @@
             gap: 10px;
             pointer-events: none;
         }
-        .drop-overlay.active { display: flex; }
+
+        .drop-overlay.active {
+            display: flex;
+        }
 
         .chat-input {
             display: none;
@@ -3285,15 +3335,19 @@
                 </div>
 
                 <!-- Media staging row (replaces normal input row when a file is staged) -->
-                <div id="mediaStagingArea" style="display:none;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                <div id="mediaStagingArea"
+                    style="display:none;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
                     <div id="mediaStagingPreview" style="flex-shrink:0;"></div>
                     <div class="input-box" style="flex:1;display:flex;align-items:center;gap:8px;padding:4px 10px;">
-                        <div id="mediaStagingName" style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:0;"></div>
+                        <div id="mediaStagingName"
+                            style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:0;">
+                        </div>
                         <input type="text" id="mediaCaptionInput" placeholder="Add a caption (optional)..."
                             style="flex:1;background:transparent;border:none;color:#e5e7eb;font-size:13px;outline:none;min-width:0;"
                             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendStagedMedia();}">
                     </div>
-                    <button onclick="clearMediaStaging()" title="Cancel" class="input-action-btn" style="color:#9ca3af;">
+                    <button onclick="clearMediaStaging()" title="Cancel" class="input-action-btn"
+                        style="color:#9ca3af;">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                     <button onclick="sendStagedMedia()" class="send-btn">
@@ -4433,6 +4487,53 @@
                     created_at_sgt: sgtNow
                 });
 
+                // 5. Backup human-agent outgoing file to OneDrive through n8n
+                try {
+                    const backupForm = new FormData();
+
+                    // The n8n workflow expects the binary file under binary.data
+                    backupForm.append('data', file, file.name);
+
+                    backupForm.append(
+                        'username',
+                        currentChat.name ||
+                        currentChat.customer_name ||
+                        currentChat.whatsapp_name ||
+                        'Unknown User'
+                    );
+
+                    backupForm.append('phone', currentChat.phone);
+                    backupForm.append('direction', 'outgoing');
+                    backupForm.append('platform', 'whatsapp');
+                    backupForm.append('original_filename', file.name);
+
+                    backupForm.append(
+                        'mime_type',
+                        file.type || 'application/octet-stream'
+                    );
+
+                    const backupResponse = await fetch(
+                        `${N8N_BASE}/dashboard-outgoing-media-backup`,
+                        {
+                            method: 'POST',
+                            body: backupForm
+                        }
+                    );
+
+                    if (!backupResponse.ok) {
+                        console.error(
+                            'OneDrive outgoing backup webhook failed:',
+                            backupResponse.status,
+                            await backupResponse.text()
+                        );
+                    }
+                } catch (backupErr) {
+                    console.error(
+                        'OneDrive outgoing backup error:',
+                        backupErr
+                    );
+                }
+
             } catch (err) {
                 console.error('sendMediaFile error:', err);
                 alert('Failed to send media: ' + err.message);
@@ -5013,7 +5114,10 @@
                 const div = document.createElement('div');
                 div.className = 'search-result-item';
                 div.innerHTML = `
-                    <img class="chat-avatar" src="${avatar}" style="width:44px;height:44px;flex-shrink:0;">
+                    <div style="position:relative;width:44px;height:44px;flex-shrink:0;">
+                        <img class="chat-avatar" src="${avatar}" style="width:44px;height:44px;">
+                        ${getPlatformAvatarIcon(chat?.platform)}
+                    </div>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                             <div class="chat-name" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(name)}</div>
@@ -5097,7 +5201,7 @@
                             conv.last_message_time || conv.created_at
                         ),
                     platform: conv.platform || "WhatsApp",
-                    platformType: (conv.platform || "").toLowerCase() === "whatsapp" ? "whatsapp" : "all",
+                    platformType: normalisePlatform(conv.platform),
                     phone: conv.phone,
                     email: "N/A",
                     country: conv.country || "Unknown",
@@ -5395,6 +5499,7 @@
     <div class="chat-avatar-wrap">
 
         <img class="chat-avatar" src="${chat.avatar}">
+        ${getPlatformAvatarIcon(chat.platform)}
 
         ${selectionMode ? `
             <div class="chat-check${isSelected ? ' checked' : ''}">
@@ -5464,6 +5569,80 @@
 
             });
 
+        }
+
+        function normalisePlatform(platform) {
+            const value = String(platform || 'whatsapp')
+                .trim()
+                .toLowerCase();
+
+            if (
+                value === 'whatsapp' ||
+                value === 'wa'
+            ) return 'whatsapp';
+
+            if (
+                value === 'messenger' ||
+                value === 'facebook' ||
+                value === 'facebook messenger' ||
+                value === 'fb'
+            ) return 'messenger';
+
+            if (
+                value === 'instagram' ||
+                value === 'insta' ||
+                value === 'ig'
+            ) return 'instagram';
+
+            if (
+                value === 'call' ||
+                value === 'calls' ||
+                value === 'phone'
+            ) return 'call';
+
+            return 'other';
+        }
+
+        function getPlatformAvatarIcon(platform) {
+            const type = normalisePlatform(platform);
+
+            if (type === 'whatsapp') {
+                return `
+            <span class="avatar-platform-icon avatar-platform-whatsapp" title="WhatsApp">
+                <i class="fa-brands fa-whatsapp"></i>
+            </span>
+        `;
+            }
+
+            if (type === 'messenger') {
+                return `
+            <span class="avatar-platform-icon avatar-platform-messenger" title="Facebook Messenger">
+                <i class="fa-brands fa-facebook-messenger"></i>
+            </span>
+        `;
+            }
+
+            if (type === 'instagram') {
+                return `
+            <span class="avatar-platform-icon avatar-platform-instagram" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+            </span>
+        `;
+            }
+
+            if (type === 'call') {
+                return `
+            <span class="avatar-platform-icon avatar-platform-call" title="Phone Call">
+                <i class="fa-solid fa-phone"></i>
+            </span>
+        `;
+            }
+
+            return `
+        <span class="avatar-platform-icon avatar-platform-other" title="Other Platform">
+            <i class="fa-solid fa-comment"></i>
+        </span>
+    `;
         }
 
         function updateSingleConversationUI(chat) {
@@ -5745,9 +5924,9 @@
                                     time:
                                         formatSGT(msg.created_at),
 
-                                    platform: 'WhatsApp',
+                                    platform: msg.platform || 'WhatsApp',
 
-                                    platformType: 'whatsapp',
+                                    platformType: normalisePlatform(msg.platform),
 
                                     type: 'myinbox',
 
