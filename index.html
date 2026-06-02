@@ -143,6 +143,27 @@
             font-size: 18px;
         }
 
+        .change-dashboard-btn {
+            height: 36px;
+            padding: 0 14px;
+            border: none;
+            border-radius: 12px;
+            background: #eaeaea;
+            color: rgb(0, 0, 0);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 8px;
+            transition: 0.2s;
+        }
+
+        .change-dashboard-btn:hover {
+            background: #c8c8c8;
+        }
+
         .top-right {
             display: flex;
             align-items: center;
@@ -2833,6 +2854,15 @@
 
         </div>
 
+        <!-- Change Dashboard -->
+        <div class="social-item"
+            onclick="window.location.assign('https://wahtsappdashboard-p2xddsbm0-ulinks-projects.vercel.app/')"
+            title="Open WhatsApp Dashboard">
+
+            <i class="fa-solid fa-refresh"></i>
+
+        </div>
+
         <div class="social-item" onclick="filterPlatform('settings', this)" title="Settings">
 
             <i class="fa-solid fa-gear"></i>
@@ -2886,6 +2916,12 @@
             <h2>Ulink Assist</h2>
 
         </div>
+
+        <button class="change-dashboard-btn"
+            onclick="window.location.assign('https://wahtsappdashboard-p2xddsbm0-ulinks-projects.vercel.app/')">
+            <i class="fa-solid fa-repeat"></i>
+            Change Dashboard
+        </button>
 
         <div class="top-right">
 
