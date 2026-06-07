@@ -3036,14 +3036,14 @@
 
                 </div>
 
-                <div class="menu-item" onclick="filterChats('awaitingfollowup', this)">
+                <div class="menu-item" onclick="filterChats('followup', this)">
 
                     <div class="menu-left">
                         <i class="fa-regular fa-star"></i>
                         <span>Follow Up</span>
                     </div>
 
-                    <div id="count-awaitingfollowup">0</div>
+                    <div id="count-followup">0</div>
 
                 </div>
 
@@ -4728,42 +4728,36 @@
 
             if (!currentChat) return;
 
-            currentChat.follow_up =
+            const newValue =
                 !currentChat.follow_up;
 
-            const btn =
-                document.getElementById(
-                    "followUpBtn"
-                );
+            const { error } =
+                await supabaseClient
+                    .from('conversations')
+                    .update({
+                        follow_up: newValue
+                    })
+                    .eq('id', currentChat.id);
 
-            if (currentChat.follow_up) {
-
-                btn.classList.add("active");
-
-                currentChat.type = "followup";
-
+            if (error) {
+                console.error('Unable to update follow up:', error);
+                showToast('Unable to update follow up', 'error');
+                return;
             }
 
-            else {
+            currentChat.follow_up =
+                newValue;
 
-                btn.classList.remove("active");
-
-                currentChat.type = "myinbox";
-
-            }
-
-            await supabaseClient
-                .from('conversations')
-                .update({
-
-                    follow_up:
-                        currentChat.follow_up
-
-                })
-                .eq('id', currentChat.id);
-
+            updateFollowUpButton();
+            updateSidebarCounts();
             renderChats(activeFilter);
 
+            showToast(
+                newValue
+                    ? 'Chat added to Follow Up'
+                    : 'Chat removed from Follow Up',
+                'success'
+            );
         }
 
         /* =========================================================
@@ -4805,11 +4799,20 @@
 
                 console.log(blob.type);
 
+                const contentDisposition =
+                    response.headers.get('Content-Disposition') || '';
+
+                const filenameMatch =
+                    contentDisposition.match(/filename="?([^"]+)"?/i);
+
+                const filename =
+                    filenameMatch && filenameMatch[1]
+                        ? filenameMatch[1]
+                        : `Social_Media_Individual_Chat_Export_${currentChat.name}_${currentChat.phone}.txt`;
+
                 a.href = url;
 
-                a.download =
-                    `Social_Media_Individual_Chat_Export_${currentChat.name}_${currentChat.phone}.xlsx`;
-
+                a.download = filename;
                 document.body.appendChild(a);
 
                 a.click();
@@ -5224,6 +5227,7 @@
 
                 return {
                     id: conv.id,
+                    status: conv.status || 'open',
                     bot_enabled: conv.bot_enabled,
                     follow_up: conv.follow_up || false,
                     type: type,
@@ -5324,6 +5328,12 @@
             document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
             document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
             document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out).length;
+            document.getElementById('count-followup').innerText =
+                chats.filter(c =>
+                    c.follow_up === true &&
+                    c.status !== 'completed'
+                ).length;
+
             document.getElementById('count-awaitingfollowup').innerText =
                 chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
 
@@ -5470,7 +5480,7 @@
                 } else if (filter === "optedout") {
                     if (!chat.opted_out) return;
                 } else if (filter === "followup") {
-                    if (chat.follow_up_stage <= 0 || chat.follow_up_stage >= 4) return;
+                    if (!chat.follow_up || chat.status === 'completed') return;
                 } else if (filter === "completed") {
                     if (chat.status !== "completed") return;
 
@@ -6153,7 +6163,13 @@
 
                         if (existing) {
 
-                            existing.bot_enabled = conv.bot_enabled;
+                            existing.status =
+                                conv.status ||
+                                existing.status ||
+                                'open';
+
+                            existing.bot_enabled =
+                                conv.bot_enabled;
                             if (conv.opted_out !== undefined) {
                                 existing.opted_out = conv.opted_out;
                                 existing.opted_out_at = conv.opted_out_at || null;
@@ -6506,6 +6522,8 @@ ${bodyHtml}
             const updatedChat = {
 
                 id: data.id,
+
+                status: data.status || 'open',
 
                 bot_enabled: data.bot_enabled,
 
