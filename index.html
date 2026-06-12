@@ -5465,9 +5465,6 @@
                     c.status !== 'completed'
                 ).length;
 
-            document.getElementById('count-awaitingfollowup').innerText =
-                chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
-
             document.getElementById('count-completed').innerText =
                 chats.filter(c => c.status === "completed").length;
 
