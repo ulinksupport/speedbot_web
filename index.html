@@ -1544,6 +1544,22 @@
         }
 
         /* =========================================================
+        COMPLETED CHECK
+        ========================================================= */
+
+        #completedBtn {
+            transition: 0.2s;
+        }
+
+        #completedBtn.active {
+            background: #dcfce7;
+        }
+
+        #completedBtn.active i {
+            color: #16a34a;
+        }
+
+        /* =========================================================
         EDIT MODAL
         ========================================================= */
 
@@ -3034,14 +3050,6 @@
                     <div id="count-optedout">0</div>
                 </div>
 
-                <div class="menu-item" onclick="filterChats('awaitingfollowup', this)">
-                    <div class="menu-left">
-                        <i class="fa-solid fa-bell" style="color:#d97706;"></i>
-                        <span>Awaiting Follow-up</span>
-                    </div>
-                    <div id="count-awaitingfollowup">0</div>
-                </div>
-
             </div>
 
         </div>
@@ -3221,6 +3229,12 @@
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
 
                         <i class="fa-solid fa-star"></i>
+
+                    </div>
+
+                    <div class="icon-btn" id="completedBtn" onclick="toggleCompleted()" title="Mark Completed">
+
+                        <i class="fa-solid fa-circle-check"></i>
 
                     </div>
 
@@ -3447,16 +3461,10 @@
 
                 <div class="media-content" id="mediaContent">
 
-                    <div class="media-grid">
+                    <div class="media-grid" id="mediaGrid"></div>
 
-                        <div class="media-item">
-                            <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800">
-                        </div>
-
-                        <div class="media-item">
-                            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800">
-                        </div>
-
+                    <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No media yet
                     </div>
 
                 </div>
@@ -3475,44 +3483,10 @@
 
                 <div class="files-content" id="filesContent">
 
-                    <div class="file-card">
+                    <div id="filesList"></div>
 
-                        <div class="file-icon pdf">
-                            <i class="fa-solid fa-file-pdf"></i>
-                        </div>
-
-                        <div class="file-info">
-
-                            <div class="file-name">
-                                Medical_Report.pdf
-                            </div>
-
-                            <div class="file-size">
-                                2.4 MB
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="file-card">
-
-                        <div class="file-icon doc">
-                            <i class="fa-solid fa-file-lines"></i>
-                        </div>
-
-                        <div class="file-info">
-
-                            <div class="file-name">
-                                Quotation.docx
-                            </div>
-
-                            <div class="file-size">
-                                860 KB
-                            </div>
-
-                        </div>
-
+                    <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No files yet
                     </div>
 
                 </div>
@@ -3875,6 +3849,14 @@
                 <button onclick="saveMetaToken()">Save</button>
             </div>
 
+            <!-- Agent name strip -->
+            <div class="tmgr-token-strip" id="tmgrAgentStrip" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;color:#1e3a8a;">
+                <i class="fa-solid fa-user"></i>
+                <span>Your Name:</span>
+                <input type="text" id="agentNameInput" placeholder="e.g. Sarah" style="border-color:#93c5fd;">
+                <button onclick="saveAgentName()">Save</button>
+            </div>
+
             <div class="tmgr-tabs">
                 <button class="tmgr-tab active" onclick="switchTmgrTab('list', this)">My Templates</button>
                 <button class="tmgr-tab" onclick="switchTmgrTab('create', this)">+ Create Template</button>
@@ -4027,6 +4009,20 @@
                     </div>
                 </div>
 
+                <!-- Response time row -->
+                <div class="analytics-overview" id="responseTimeOverview" style="grid-template-columns:repeat(2,1fr);">
+                    <div class="analytics-stat-card blue">
+                        <div class="analytics-stat-num" id="aresolutiontime">—</div>
+                        <div class="analytics-stat-label">⏱ Avg Time to Complete</div>
+                        <div class="analytics-stat-sub" id="aresolutionSub"></div>
+                    </div>
+                    <div class="analytics-stat-card" style="--c:#7c3aed;">
+                        <div class="analytics-stat-num" style="color:#7c3aed;" id="ahumanreply">—</div>
+                        <div class="analytics-stat-label">💬 Avg Human Reply Time</div>
+                        <div class="analytics-stat-sub" id="ahumanreplySub"></div>
+                    </div>
+                </div>
+
                 <!-- Per-template performance table -->
                 <div id="analyticsTemplateTable" style="margin-bottom:18px;display:none;">
                     <div
@@ -4059,6 +4055,7 @@
         const META_PHONE_ID = "1112140058650260";
         const META_GRAPH_URL = "https://graph.facebook.com/v19.0";
         let META_TOKEN = localStorage.getItem("meta_token") || "";
+        let agentName = localStorage.getItem("cfg_agent_name") || "";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -4278,7 +4275,9 @@
                         }
                     ).format(new Date()),
 
-                phone: currentChat.phone
+                phone: currentChat.phone,
+
+                agent_name: agentName || null
 
             });
 
@@ -4297,7 +4296,9 @@
 
                         message: text,
 
-                        conversation_id: currentChat.id
+                        conversation_id: currentChat.id,
+
+                        agent_name: agentName || null
 
                     })
 
@@ -4378,7 +4379,7 @@
 
             // Optimistic UI
             const tempUrl = URL.createObjectURL(file);
-            appendMessage({ sender: 'outgoing', sender_type: 'human', message: caption, media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone });
+            appendMessage({ sender: 'outgoing', sender_type: 'human', message: caption, media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone, agent_name: agentName || null });
 
             try {
                 // 1. Upload to WhatsApp Media API
@@ -4430,7 +4431,8 @@
                     conversation_id: currentChat.id,
                     media_url: permanentUrl,
                     media_type: mediaType,
-                    created_at_sgt: sgtNow
+                    created_at_sgt: sgtNow,
+                    agent_name: agentName || null
                 });
 
             } catch (err) {
@@ -4515,6 +4517,90 @@
             content.classList.toggle("show");
 
             arrow.classList.toggle("rotate");
+
+        }
+
+        /* =========================================================
+        MEDIA & FILES POPULATION
+        ========================================================= */
+
+        function populateMediaFiles(messages) {
+
+            const mediaGrid = document.getElementById("mediaGrid");
+            const mediaEmpty = document.getElementById("mediaEmpty");
+            const filesList = document.getElementById("filesList");
+            const filesEmpty = document.getElementById("filesEmpty");
+
+            mediaGrid.innerHTML = "";
+            filesList.innerHTML = "";
+
+            const mediaMsgs = (messages || []).filter(m => m.media_url);
+
+            let mediaCount = 0;
+            let fileCount = 0;
+
+            mediaMsgs.forEach(m => {
+
+                const url = m.media_url;
+                const lUrl = url.toLowerCase();
+                const isImage = m.media_type === 'image' ||
+                    lUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/);
+
+                if (isImage) {
+
+                    mediaCount++;
+
+                    const item = document.createElement("div");
+                    item.className = "media-item";
+                    item.style.cursor = "pointer";
+                    item.innerHTML = `<img src="${url}">`;
+                    item.onclick = () => window.open(url, '_blank');
+                    mediaGrid.appendChild(item);
+
+                } else {
+
+                    fileCount++;
+
+                    let fileName = "Document";
+                    try {
+                        fileName = decodeURIComponent(url.split('/').pop().split('?')[0]);
+                    } catch (e) {
+                        fileName = url.split('/').pop().split('?')[0] || "Document";
+                    }
+
+                    const ext = (fileName.split('.').pop() || '').toLowerCase();
+                    let iconClass = "doc";
+                    let iconTag = "fa-file-lines";
+                    if (ext === 'pdf') {
+                        iconClass = "pdf";
+                        iconTag = "fa-file-pdf";
+                    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                        iconClass = "xls";
+                        iconTag = "fa-file-excel";
+                    }
+
+                    const card = document.createElement("a");
+                    card.className = "file-card";
+                    card.href = url;
+                    card.target = "_blank";
+                    card.style.textDecoration = "none";
+                    card.style.color = "inherit";
+                    card.innerHTML = `
+    <div class="file-icon ${iconClass}">
+        <i class="fa-solid ${iconTag}"></i>
+    </div>
+    <div class="file-info">
+        <div class="file-name">${escHtml(fileName)}</div>
+    </div>
+`;
+                    filesList.appendChild(card);
+
+                }
+
+            });
+
+            mediaEmpty.style.display = mediaCount > 0 ? "none" : "block";
+            filesEmpty.style.display = fileCount > 0 ? "none" : "block";
 
         }
 
@@ -4626,6 +4712,48 @@
                 .eq('id', currentChat.id);
 
             renderChats(activeFilter);
+
+        }
+
+        /* =========================================================
+        COMPLETED TOGGLE
+        ========================================================= */
+
+        async function toggleCompleted() {
+
+            if (!currentChat) return;
+
+            const nowCompleted = currentChat.status !== "completed";
+
+            currentChat.status = nowCompleted ? "completed" : "open";
+            currentChat.completed_at = nowCompleted ? new Date().toISOString() : null;
+
+            updateCompletedButton();
+
+            await supabaseClient
+                .from('conversations')
+                .update({
+                    status: currentChat.status,
+                    completed_at: currentChat.completed_at
+                })
+                .eq('id', currentChat.id);
+
+            updateSidebarCounts();
+            renderChats(activeFilter);
+
+        }
+
+        function updateCompletedButton() {
+
+            const btn = document.getElementById("completedBtn");
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.status === "completed") {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
 
         }
 
@@ -5108,7 +5236,10 @@
                     windowExpired: isWindowExpired(conv.last_incoming_at),
                     opted_out: conv.opted_out || false,
                     opted_out_at: conv.opted_out_at || null,
-                    follow_up_stage: conv.follow_up_stage || 0
+                    follow_up_stage: conv.follow_up_stage || 0,
+                    status: conv.status || 'open',
+                    completed_at: conv.completed_at || null,
+                    agent_name: conv.agent_name || null
                 };
             });
 
@@ -5415,6 +5546,7 @@
 
         <div class="chat-name">
             ${chat.name}
+            ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
         </div>
 
         <div class="chat-time">
@@ -5607,6 +5739,7 @@
             autoDetectChatMeta(chat);
             updateBotButton();
             updateFollowUpButton();
+            updateCompletedButton();
 
             document.querySelector(".chat-user h3").innerText = chat.name;
             document.querySelector(".chat-user p").innerText = chat.platform;
@@ -5685,6 +5818,8 @@
             _lastRenderedMsgDate = null;
 
             data.forEach(msg => appendMessage(msg, true));
+
+            populateMediaFiles(data);
 
             if (_pendingScrollMsgId) {
                 const target = _pendingScrollMsgId;
@@ -6062,7 +6197,9 @@
 
             else if (msg.sender_type === "human") {
 
-                label = "Human";
+                label = msg.agent_name
+                    ? `Human (${msg.agent_name})`
+                    : "Human";
 
             }
 
@@ -6167,9 +6304,12 @@ ${bodyHtml}
             const { error } = await supabaseClient
                 .from('conversations')
                 .update({
-                    bot_enabled: botEnabled
+                    bot_enabled: botEnabled,
+                    agent_name: botEnabled ? null : agentName
                 })
                 .eq('id', currentChat.id);
+
+            currentChat.agent_name = botEnabled ? null : agentName;
 
             if (error) {
 
@@ -6331,7 +6471,14 @@ ${bodyHtml}
                 unread_count:
                     chats.find(
                         c => c.phone === data.phone
-                    )?.unread_count || 0
+                    )?.unread_count || 0,
+
+                status: data.status || 'open',
+                completed_at: data.completed_at || null,
+                agent_name: data.agent_name || null,
+                follow_up: data.follow_up || false,
+                follow_up_stage: data.follow_up_stage || 0,
+                opted_out: data.opted_out || false
 
             };
 
@@ -7070,6 +7217,13 @@ ${bodyHtml}
             fetchTemplatesFromMeta();
         }
 
+        function saveAgentName() {
+            const val = document.getElementById('agentNameInput').value.trim();
+            agentName = val;
+            localStorage.setItem('cfg_agent_name', val);
+            showToast(val ? `Your name set to "${val}"` : 'Your name cleared', 'success');
+        }
+
         /* =========================================================
         BROADCAST ANALYTICS
         ========================================================= */
@@ -7085,11 +7239,114 @@ ${bodyHtml}
             return Math.round(n / d * 100) + '%';
         }
 
+        function formatDuration(ms) {
+            if (!ms || ms < 0) return '—';
+            const minutes = Math.round(ms / 60000);
+            const days = Math.floor(minutes / 1440);
+            const hours = Math.floor((minutes % 1440) / 60);
+            const mins = minutes % 60;
+            const parts = [];
+            if (days) parts.push(`${days}d`);
+            if (hours) parts.push(`${hours}h`);
+            if (mins || parts.length === 0) parts.push(`${mins}m`);
+            return parts.join(' ');
+        }
+
+        /* =========================================================
+        RESPONSE TIME ANALYTICS
+        ========================================================= */
+
+        async function loadResponseTimeAnalytics() {
+
+            const resolutionEl = document.getElementById('aresolutiontime');
+            const resolutionSubEl = document.getElementById('aresolutionSub');
+            const replyEl = document.getElementById('ahumanreply');
+            const replySubEl = document.getElementById('ahumanreplySub');
+
+            resolutionEl.textContent = '—';
+            replyEl.textContent = '—';
+            resolutionSubEl.textContent = 'Loading…';
+            replySubEl.textContent = 'Loading…';
+
+            const { data: completedConvs, error: convError } = await supabaseClient
+                .from('conversations')
+                .select('phone, completed_at')
+                .eq('status', 'completed')
+                .not('completed_at', 'is', null);
+
+            const { data: msgs, error: msgError } = await supabaseClient
+                .from('messages')
+                .select('phone, sender, sender_type, created_at')
+                .order('created_at', { ascending: true })
+                .limit(5000);
+
+            if (convError || msgError || !msgs) {
+                resolutionSubEl.textContent = 'No data yet';
+                replySubEl.textContent = 'No data yet';
+                return;
+            }
+
+            // Group messages by phone, preserving chronological order
+            const byPhone = {};
+            for (const m of msgs) {
+                if (!byPhone[m.phone]) byPhone[m.phone] = [];
+                byPhone[m.phone].push(m);
+            }
+
+            // Resolution time: completed_at - first message's created_at, per completed conversation
+            const resolutionDurations = [];
+            for (const conv of (completedConvs || [])) {
+                const phoneMsgs = byPhone[conv.phone];
+                if (!phoneMsgs || !phoneMsgs.length || !conv.completed_at) continue;
+                const firstMsgAt = new Date(phoneMsgs[0].created_at).getTime();
+                const completedAt = new Date(conv.completed_at).getTime();
+                const diff = completedAt - firstMsgAt;
+                if (diff >= 0) resolutionDurations.push(diff);
+            }
+
+            // Human reply time: for every incoming message, the next outgoing/human message for that phone
+            const replyDurations = [];
+            for (const phoneMsgs of Object.values(byPhone)) {
+                for (let i = 0; i < phoneMsgs.length; i++) {
+                    const m = phoneMsgs[i];
+                    if (m.sender !== 'incoming') continue;
+                    for (let j = i + 1; j < phoneMsgs.length; j++) {
+                        const next = phoneMsgs[j];
+                        if (next.sender === 'incoming') break;
+                        if (next.sender === 'outgoing' && next.sender_type === 'human') {
+                            const diff = new Date(next.created_at).getTime() - new Date(m.created_at).getTime();
+                            if (diff >= 0) replyDurations.push(diff);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (resolutionDurations.length) {
+                const avg = resolutionDurations.reduce((a, b) => a + b, 0) / resolutionDurations.length;
+                resolutionEl.textContent = formatDuration(avg);
+                resolutionSubEl.textContent = `based on ${resolutionDurations.length} conversation${resolutionDurations.length === 1 ? '' : 's'}`;
+            } else {
+                resolutionSubEl.textContent = 'No completed conversations yet';
+            }
+
+            if (replyDurations.length) {
+                const avg = replyDurations.reduce((a, b) => a + b, 0) / replyDurations.length;
+                replyEl.textContent = formatDuration(avg);
+                replySubEl.textContent = `based on ${replyDurations.length} repl${replyDurations.length === 1 ? 'y' : 'ies'}`;
+            } else {
+                replySubEl.textContent = 'No data yet';
+            }
+
+        }
+
         async function loadBroadcastAnalytics() {
             document.getElementById('analyticsStatus').textContent = 'Loading…';
             document.getElementById('analyticsList').innerHTML =
                 '<div class="analytics-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Loading…</div>';
             document.getElementById('analyticsTemplateTable').style.display = 'none';
+
+            loadResponseTimeAnalytics();
 
             const { data: sends, error } = await supabaseClient
                 .from('template_sends')
@@ -7395,6 +7652,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             } else {
                 strip.style.display = 'flex';
             }
+            document.getElementById('agentNameInput').value = agentName;
         }
 
         function showMetaTokenInput() {
