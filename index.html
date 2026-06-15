@@ -3922,6 +3922,10 @@
 
                 <span class="modal-label" style="margin-top:16px;display:block;">2. Select Recipients</span>
 
+                <input type="text" id="broadcastSearchInput" placeholder="Search by name or number..."
+                       oninput="filterBroadcastContacts()"
+                       style="width:100%;padding:8px 10px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;">
+
                 <div class="broadcast-select-all-row">
 
                     <span style="font-size:13px;color:#6b7280;" id="broadcastSelectedCount">0 selected</span>
@@ -7083,6 +7087,10 @@ ${bodyHtml}
 
         function detectCountryFromPhone(phone) {
 
+            if (typeof phone === 'string' && /^(fb|ig)_/.test(phone)) {
+                return "Unknown";
+            }
+
             const digits = phone.replace(/\D/g, '');
 
             const sorted = [...PHONE_COUNTRY_MAP].sort(
@@ -7568,6 +7576,7 @@ ${bodyHtml}
             selectedTemplate = null;
             document.getElementById('broadcastVariables').style.display = 'none';
             document.getElementById('broadcastSelectAll').checked = false;
+            document.getElementById('broadcastSearchInput').value = '';
             renderTemplateCards('broadcastTemplateList', 'broadcast');
             renderBroadcastContacts();
             document.getElementById('broadcastOverlay').classList.add('show');
@@ -7596,6 +7605,8 @@ ${bodyHtml}
             eligible.forEach(chat => {
                 const item = document.createElement('div');
                 item.className = 'broadcast-contact-item';
+                item.dataset.name = (chat.name || '').toLowerCase();
+                item.dataset.phone = (chat.phone || '').toLowerCase();
                 item.innerHTML = `
                     <input type="checkbox" class="broadcast-check" data-phone="${chat.phone}" data-name="${chat.name || ''}">
                     <img src="${chat.avatar}" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;">
@@ -7608,6 +7619,14 @@ ${bodyHtml}
                 container.appendChild(item);
             });
             updateBroadcastCount();
+        }
+
+        function filterBroadcastContacts() {
+            const query = document.getElementById('broadcastSearchInput').value.trim().toLowerCase();
+            document.querySelectorAll('#broadcastContactList .broadcast-contact-item').forEach(item => {
+                const match = !query || item.dataset.name.includes(query) || item.dataset.phone.includes(query);
+                item.style.display = match ? '' : 'none';
+            });
         }
 
         function toggleSelectAllContacts() {
