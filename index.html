@@ -1631,6 +1631,22 @@
         }
 
         /* =========================================================
+        SPAM
+        ========================================================= */
+
+        #spamBtn {
+            transition: 0.2s;
+        }
+
+        #spamBtn.active {
+            background: #fee2e2;
+        }
+
+        #spamBtn.active i {
+            color: #dc2626;
+        }
+
+        /* =========================================================
         EDIT MODAL
         ========================================================= */
 
@@ -2879,7 +2895,7 @@
 
         </div>
 
-        <div class="social-item" onclick="filterPlatform('settings', this)" title="Settings">
+        <div class="social-item" onclick="openSettings()" title="Settings">
 
             <i class="fa-solid fa-gear"></i>
 
@@ -2974,7 +2990,7 @@
                         My Profile
                     </div>
 
-                    <div class="profile-item">
+                    <div class="profile-item" onclick="openSettings()">
                         <i class="fa-solid fa-gear"></i>
                         Settings
                     </div>
@@ -3204,6 +3220,11 @@
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                     </div>
 
+                    <!-- CONTACT LIST -->
+                    <div class="icon-btn" onclick="openContactList()" title="Contact List">
+                        <i class="fa-solid fa-address-book"></i>
+                    </div>
+
                     <!-- SELECT MODE -->
                     <button class="sel-mode-btn" id="selModeBtn" onclick="toggleSelectionMode()" title="Select chats">
                         <i class="fa-solid fa-check-square"></i>
@@ -3321,6 +3342,12 @@
                     <div class="icon-btn" id="completedBtn" onclick="toggleCompleted()" title="Mark Completed">
 
                         <i class="fa-solid fa-circle-check"></i>
+
+                    </div>
+
+                    <div class="icon-btn" id="spamBtn" onclick="toggleSpam()" title="Mark as Spam">
+
+                        <i class="fa-solid fa-ban"></i>
 
                     </div>
 
@@ -3931,22 +3958,6 @@
                 <button onclick="closeTemplateManager()"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- Meta token strip -->
-            <div class="tmgr-token-strip" id="tmgrTokenStrip">
-                <i class="fa-solid fa-key"></i>
-                <span>Meta Token:</span>
-                <input type="password" id="tmgrTokenInput" placeholder="Paste your permanent Meta access token">
-                <button onclick="saveMetaToken()">Save</button>
-            </div>
-
-            <!-- Agent name strip -->
-            <div class="tmgr-token-strip" id="tmgrAgentStrip" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;color:#1e3a8a;">
-                <i class="fa-solid fa-user"></i>
-                <span>Your Name:</span>
-                <input type="text" id="agentNameInput" placeholder="e.g. Sarah" style="border-color:#93c5fd;">
-                <button onclick="saveAgentName()">Save</button>
-            </div>
-
             <div class="tmgr-tabs">
                 <button class="tmgr-tab active" onclick="switchTmgrTab('list', this)">My Templates</button>
                 <button class="tmgr-tab" onclick="switchTmgrTab('create', this)">+ Create Template</button>
@@ -4126,6 +4137,83 @@
                 <!-- Per-broadcast list -->
                 <div id="analyticsList">
                     <div class="analytics-empty">No broadcast data yet.</div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    SETTINGS OVERLAY
+    ========================================================= -->
+
+    <div class="tmgr-overlay" id="settingsOverlay">
+
+        <div class="tmgr-box" style="width:480px;">
+
+            <div class="tmgr-header">
+                <h3><i class="fa-solid fa-gear" style="color:#2563eb;"></i> Settings</h3>
+                <button onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="tmgr-panel active" style="padding:24px;">
+
+                <!-- Meta token -->
+                <div class="tmgr-token-strip" style="border-radius:12px;border:1.5px solid #fde68a;margin-bottom:14px;">
+                    <i class="fa-solid fa-key"></i>
+                    <span>Meta Token:</span>
+                    <input type="password" id="settingsTokenInput" placeholder="Paste your permanent Meta access token">
+                    <button onclick="saveMetaToken()">Save</button>
+                </div>
+
+                <!-- Agent name -->
+                <div class="tmgr-token-strip" style="background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e3a8a;border-radius:12px;">
+                    <i class="fa-solid fa-user"></i>
+                    <span>Your Name:</span>
+                    <input type="text" id="settingsAgentNameInput" placeholder="e.g. Sarah" style="border-color:#93c5fd;">
+                    <button onclick="saveAgentName()">Save</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    CONTACTS OVERLAY
+    ========================================================= -->
+
+    <div class="tmgr-overlay" id="contactsOverlay">
+
+        <div class="tmgr-box">
+
+            <div class="tmgr-header">
+                <h3><i class="fa-solid fa-address-book" style="color:#2563eb;"></i> Contacts</h3>
+                <button onclick="closeContactList()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="tmgr-tabs">
+                <button class="tmgr-tab active" onclick="switchContactsFilter('all', this)">All</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('subscribed', this)">Subscribed</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('unsubscribed', this)">Unsubscribed</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('spam', this)">Spam</button>
+            </div>
+
+            <div class="tmgr-panel active">
+
+                <div class="tmgr-toolbar">
+                    <span id="contactsCountLabel">—</span>
+                    <button class="tmgr-refresh-btn" onclick="exportContactList()"
+                        style="background:#16a34a;color:#fff;border-color:#16a34a;">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+
+                <div id="contactsTableWrap">
+                    <div class="tmgr-empty">No contacts loaded yet.</div>
                 </div>
 
             </div>
@@ -4889,6 +4977,71 @@
         }
 
         /* =========================================================
+        SPAM TOGGLE
+        ========================================================= */
+
+        async function toggleSpam() {
+
+            if (!currentChat) return;
+
+            const nowSpam = !currentChat.is_spam;
+
+            if (nowSpam && !confirm(`Mark "${currentChat.name}" as spam? This will opt them out of all automation and broadcast/template messages.`)) {
+                return;
+            }
+
+            const update = {
+                is_spam: nowSpam,
+                spam_at: nowSpam ? new Date().toISOString() : null
+            };
+
+            // Spam contacts are also opted out of automation; restore opt-out state when un-marking.
+            if (nowSpam) {
+                update.opted_out = true;
+                update.opted_out_at = new Date().toISOString();
+            } else {
+                update.opted_out = false;
+                update.opted_out_at = null;
+            }
+
+            const { error } = await supabaseClient
+                .from('conversations')
+                .update(update)
+                .eq('id', currentChat.id);
+
+            if (error) {
+                console.error('Unable to update spam status:', error);
+                showToast('Unable to update spam status', 'error');
+                return;
+            }
+
+            Object.assign(currentChat, update);
+
+            updateSpamButton();
+            updateSidebarCounts();
+            renderChats(activeFilter);
+
+            showToast(
+                nowSpam ? 'Marked as spam — opted out of automation' : 'Spam flag removed',
+                'success'
+            );
+        }
+
+        function updateSpamButton() {
+
+            const btn = document.getElementById("spamBtn");
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.is_spam) {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+
+        }
+
+        /* =========================================================
         EXPORT CURRENT CHAT
         ========================================================= */
 
@@ -5380,6 +5533,8 @@
                     windowExpired: isWindowExpired(conv.last_incoming_at),
                     opted_out: conv.opted_out || false,
                     opted_out_at: conv.opted_out_at || null,
+                    is_spam: conv.is_spam || false,
+                    spam_at: conv.spam_at || null,
                     follow_up_stage: conv.follow_up_stage || 0,
                     status: conv.status || 'open',
                     completed_at: conv.completed_at || null,
@@ -5962,6 +6117,7 @@
             updateBotButton();
             updateFollowUpButton();
             updateCompletedButton();
+            updateSpamButton();
 
             document.querySelector(".chat-user h3").innerText = chat.name;
             document.querySelector(".chat-user p").innerText = chat.platform;
@@ -5992,7 +6148,7 @@
                 if (analyticsTab) switchTmgrTab('analytics', analyticsTab);
                 return;
             }
-            if (["settings", "calls"].includes(platform)) {
+            if (["calls"].includes(platform)) {
                 alert(platform.charAt(0).toUpperCase() + platform.slice(1) + " page coming soon");
                 return;
             }
@@ -6306,6 +6462,10 @@
                                 existing.opted_out = conv.opted_out;
                                 existing.opted_out_at = conv.opted_out_at || null;
                                 if (conv.opted_out) updateSidebarCounts();
+                            }
+                            if (conv.is_spam !== undefined) {
+                                existing.is_spam = conv.is_spam;
+                                existing.spam_at = conv.spam_at || null;
                             }
                             if (conv.follow_up_stage !== undefined) {
                                 existing.follow_up_stage = conv.follow_up_stage;
@@ -7292,6 +7452,99 @@ ${bodyHtml}
         });
 
         /* =========================================================
+        CONTACT LIST MODAL
+        ========================================================= */
+
+        let contactsFilter = 'all';
+
+        function contactStatus(chat) {
+            if (chat.is_spam) return { label: 'Spam', cls: 'tmgr-status-rejected' };
+            if (chat.opted_out) return { label: 'Unsubscribed', cls: 'tmgr-status-paused' };
+            return { label: 'Subscribed', cls: 'tmgr-status-approved' };
+        }
+
+        function contactsForFilter(filter) {
+            switch (filter) {
+                case 'subscribed': return chats.filter(c => !c.opted_out && !c.is_spam);
+                case 'unsubscribed': return chats.filter(c => c.opted_out && !c.is_spam);
+                case 'spam': return chats.filter(c => c.is_spam);
+                default: return chats;
+            }
+        }
+
+        function openContactList() {
+            document.getElementById('contactsOverlay').classList.add('show');
+            renderContactsTable();
+        }
+
+        function closeContactList() {
+            document.getElementById('contactsOverlay').classList.remove('show');
+        }
+
+        document.getElementById('contactsOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'contactsOverlay') closeContactList();
+        });
+
+        function switchContactsFilter(filter, el) {
+            contactsFilter = filter;
+            document.querySelectorAll('#contactsOverlay .tmgr-tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            renderContactsTable();
+        }
+
+        function renderContactsTable() {
+            const wrap = document.getElementById('contactsTableWrap');
+            const list = contactsForFilter(contactsFilter);
+
+            document.getElementById('contactsCountLabel').textContent =
+                `${list.length} contact${list.length === 1 ? '' : 's'}`;
+
+            if (list.length === 0) {
+                wrap.innerHTML = '<div class="tmgr-empty">No contacts found.</div>';
+                return;
+            }
+
+            const rows = list.map(chat => {
+                const status = contactStatus(chat);
+                return `<tr>
+                    <td>${escHtml(chat.name || '')}</td>
+                    <td>${escHtml(chat.phone || '')}</td>
+                    <td><span class="tmgr-status ${status.cls}">${status.label}</span></td>
+                </tr>`;
+            }).join('');
+
+            wrap.innerHTML = `<table class="tmgr-table">
+                <thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
+        function exportContactList() {
+            const list = contactsForFilter(contactsFilter);
+            const headers = ['Name', 'Phone', 'Status'];
+
+            const csvRows = list.map(chat => {
+                const status = contactStatus(chat);
+                return [chat.name || '', chat.phone || '', status.label].map(v => {
+                    const s = String(v ?? '');
+                    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+                        ? `"${s.replace(/"/g, '""')}"` : s;
+                }).join(',');
+            });
+
+            const csv = '﻿' + [headers.join(','), ...csvRows].join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /* =========================================================
         BROADCAST MODAL
         ========================================================= */
 
@@ -7439,20 +7692,40 @@ ${bodyHtml}
         let tmgrCachedAll = []; // all templates from Meta (all statuses)
 
         function saveMetaToken() {
-            const val = document.getElementById('tmgrTokenInput').value.trim();
+            const val = document.getElementById('settingsTokenInput').value.trim();
             if (!val) return;
             META_TOKEN = val;
             localStorage.setItem('meta_token', val);
-            document.getElementById('tmgrTokenStrip').style.display = 'none';
-            fetchTemplatesFromMeta();
+            showToast('Meta token saved', 'success');
+            if (document.getElementById('tmgrOverlay').classList.contains('show')) {
+                fetchTemplatesFromMeta();
+            }
         }
 
         function saveAgentName() {
-            const val = document.getElementById('agentNameInput').value.trim();
+            const val = document.getElementById('settingsAgentNameInput').value.trim();
             agentName = val;
             localStorage.setItem('cfg_agent_name', val);
             showToast(val ? `Your name set to "${val}"` : 'Your name cleared', 'success');
         }
+
+        /* =========================================================
+        SETTINGS MODAL
+        ========================================================= */
+
+        function openSettings() {
+            document.getElementById('settingsTokenInput').value = META_TOKEN;
+            document.getElementById('settingsAgentNameInput').value = agentName;
+            document.getElementById('settingsOverlay').classList.add('show');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsOverlay').classList.remove('show');
+        }
+
+        document.getElementById('settingsOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'settingsOverlay') closeSettings();
+        });
 
         /* =========================================================
         BROADCAST ANALYTICS
@@ -7874,21 +8147,13 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         function openTemplateManager() {
             document.getElementById('tmgrOverlay').classList.add('show');
-            const strip = document.getElementById('tmgrTokenStrip');
             if (META_TOKEN) {
-                document.getElementById('tmgrTokenInput').value = META_TOKEN;
-                strip.style.display = 'none';
                 fetchTemplatesFromMeta();
             } else {
-                strip.style.display = 'flex';
+                document.getElementById('tmgrTableWrap').innerHTML =
+                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
+                document.getElementById('tmgrCountLabel').textContent = '—';
             }
-            document.getElementById('agentNameInput').value = agentName;
-        }
-
-        function showMetaTokenInput() {
-            const strip = document.getElementById('tmgrTokenStrip');
-            strip.style.display = 'flex';
-            document.getElementById('tmgrTokenInput').focus();
         }
 
         function closeTemplateManager() {
@@ -7912,7 +8177,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         async function fetchTemplatesFromMeta() {
             if (!META_TOKEN) {
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
+                document.getElementById('tmgrTableWrap').innerHTML =
+                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
+                document.getElementById('tmgrCountLabel').textContent = '—';
                 return;
             }
             document.getElementById('tmgrCountLabel').textContent = 'Loading…';
@@ -7945,9 +8212,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 renderTmgrTable();
             } catch (e) {
                 document.getElementById('tmgrTableWrap').innerHTML =
-                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${escHtml(e.message)} — <a href="#" onclick="showMetaTokenInput();return false;" style="color:#dc2626;">Update token</a></div>`;
+                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${escHtml(e.message)} — <a href="#" onclick="openSettings();return false;" style="color:#dc2626;">Update token</a></div>`;
                 document.getElementById('tmgrCountLabel').textContent = 'Error';
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
             }
         }
 
@@ -8100,8 +8366,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         async function submitCreateTemplate() {
             if (!META_TOKEN) {
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
-                showTmgrMsg('Please save your Meta token first (yellow bar above).', 'error');
+                openSettings();
+                showTmgrMsg('Please save your Meta token first in Settings.', 'error');
                 return;
             }
 
