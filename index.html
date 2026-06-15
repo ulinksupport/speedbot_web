@@ -1615,6 +1615,38 @@
         }
 
         /* =========================================================
+        COMPLETED CHECK
+        ========================================================= */
+
+        #completedBtn {
+            transition: 0.2s;
+        }
+
+        #completedBtn.active {
+            background: #dcfce7;
+        }
+
+        #completedBtn.active i {
+            color: #16a34a;
+        }
+
+        /* =========================================================
+        SPAM
+        ========================================================= */
+
+        #spamBtn {
+            transition: 0.2s;
+        }
+
+        #spamBtn.active {
+            background: #fee2e2;
+        }
+
+        #spamBtn.active i {
+            color: #dc2626;
+        }
+
+        /* =========================================================
         EDIT MODAL
         ========================================================= */
 
@@ -2863,7 +2895,7 @@
 
         </div>
 
-        <div class="social-item" onclick="filterPlatform('settings', this)" title="Settings">
+        <div class="social-item" onclick="openSettings()" title="Settings">
 
             <i class="fa-solid fa-gear"></i>
 
@@ -2958,7 +2990,7 @@
                         My Profile
                     </div>
 
-                    <div class="profile-item">
+                    <div class="profile-item" onclick="openSettings()">
                         <i class="fa-solid fa-gear"></i>
                         Settings
                     </div>
@@ -3120,12 +3152,12 @@
                     <div id="count-optedout">0</div>
                 </div>
 
-                <div class="menu-item" onclick="filterChats('awaitingfollowup', this)">
+                <div class="menu-item" onclick="filterChats('spam', this)">
                     <div class="menu-left">
-                        <i class="fa-solid fa-bell" style="color:#d97706;"></i>
-                        <span>Awaiting Follow-up</span>
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>
+                        <span>Spam</span>
                     </div>
-                    <div id="count-awaitingfollowup">0</div>
+                    <div id="count-spam">0</div>
                 </div>
 
             </div>
@@ -3194,6 +3226,11 @@
                     <!-- BACKUP -->
                     <div class="icon-btn" onclick="backupChats()" title="Backup Chats">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+
+                    <!-- CONTACT LIST -->
+                    <div class="icon-btn" onclick="openContactList()" title="Contact List">
+                        <i class="fa-solid fa-address-book"></i>
                     </div>
 
                     <!-- SELECT MODE -->
@@ -3307,6 +3344,18 @@
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
 
                         <i class="fa-solid fa-star"></i>
+
+                    </div>
+
+                    <div class="icon-btn" id="completedBtn" onclick="toggleCompleted()" title="Mark Completed">
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                    </div>
+
+                    <div class="icon-btn" id="spamBtn" onclick="toggleSpam()" title="Mark as Spam">
+
+                        <i class="fa-solid fa-ban"></i>
 
                     </div>
 
@@ -3537,16 +3586,10 @@
 
                 <div class="media-content" id="mediaContent">
 
-                    <div class="media-grid">
+                    <div class="media-grid" id="mediaGrid"></div>
 
-                        <div class="media-item">
-                            <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800">
-                        </div>
-
-                        <div class="media-item">
-                            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800">
-                        </div>
-
+                    <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No media yet
                     </div>
 
                 </div>
@@ -3565,44 +3608,10 @@
 
                 <div class="files-content" id="filesContent">
 
-                    <div class="file-card">
+                    <div id="filesList"></div>
 
-                        <div class="file-icon pdf">
-                            <i class="fa-solid fa-file-pdf"></i>
-                        </div>
-
-                        <div class="file-info">
-
-                            <div class="file-name">
-                                Medical_Report.pdf
-                            </div>
-
-                            <div class="file-size">
-                                2.4 MB
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="file-card">
-
-                        <div class="file-icon doc">
-                            <i class="fa-solid fa-file-lines"></i>
-                        </div>
-
-                        <div class="file-info">
-
-                            <div class="file-name">
-                                Quotation.docx
-                            </div>
-
-                            <div class="file-size">
-                                860 KB
-                            </div>
-
-                        </div>
-
+                    <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No files yet
                     </div>
 
                 </div>
@@ -3957,14 +3966,6 @@
                 <button onclick="closeTemplateManager()"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- Meta token strip -->
-            <div class="tmgr-token-strip" id="tmgrTokenStrip">
-                <i class="fa-solid fa-key"></i>
-                <span>Meta Token:</span>
-                <input type="password" id="tmgrTokenInput" placeholder="Paste your permanent Meta access token">
-                <button onclick="saveMetaToken()">Save</button>
-            </div>
-
             <div class="tmgr-tabs">
                 <button class="tmgr-tab active" onclick="switchTmgrTab('list', this)">My Templates</button>
                 <button class="tmgr-tab" onclick="switchTmgrTab('create', this)">+ Create Template</button>
@@ -4117,6 +4118,20 @@
                     </div>
                 </div>
 
+                <!-- Response time row -->
+                <div class="analytics-overview" id="responseTimeOverview" style="grid-template-columns:repeat(2,1fr);">
+                    <div class="analytics-stat-card blue">
+                        <div class="analytics-stat-num" id="aresolutiontime">—</div>
+                        <div class="analytics-stat-label">⏱ Avg Time to Complete</div>
+                        <div class="analytics-stat-sub" id="aresolutionSub"></div>
+                    </div>
+                    <div class="analytics-stat-card" style="--c:#7c3aed;">
+                        <div class="analytics-stat-num" style="color:#7c3aed;" id="ahumanreply">—</div>
+                        <div class="analytics-stat-label">💬 Avg Human Reply Time</div>
+                        <div class="analytics-stat-sub" id="ahumanreplySub"></div>
+                    </div>
+                </div>
+
                 <!-- Per-template performance table -->
                 <div id="analyticsTemplateTable" style="margin-bottom:18px;display:none;">
                     <div
@@ -4138,6 +4153,83 @@
 
     </div>
 
+    <!-- =========================================================
+    SETTINGS OVERLAY
+    ========================================================= -->
+
+    <div class="tmgr-overlay" id="settingsOverlay">
+
+        <div class="tmgr-box" style="width:480px;">
+
+            <div class="tmgr-header">
+                <h3><i class="fa-solid fa-gear" style="color:#2563eb;"></i> Settings</h3>
+                <button onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="tmgr-panel active" style="padding:24px;">
+
+                <!-- Meta token -->
+                <div class="tmgr-token-strip" style="border-radius:12px;border:1.5px solid #fde68a;margin-bottom:14px;">
+                    <i class="fa-solid fa-key"></i>
+                    <span>Meta Token:</span>
+                    <input type="password" id="settingsTokenInput" placeholder="Paste your permanent Meta access token">
+                    <button onclick="saveMetaToken()">Save</button>
+                </div>
+
+                <!-- Agent name -->
+                <div class="tmgr-token-strip" style="background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e3a8a;border-radius:12px;">
+                    <i class="fa-solid fa-user"></i>
+                    <span>Your Name:</span>
+                    <input type="text" id="settingsAgentNameInput" placeholder="e.g. Sarah" style="border-color:#93c5fd;">
+                    <button onclick="saveAgentName()">Save</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    CONTACTS OVERLAY
+    ========================================================= -->
+
+    <div class="tmgr-overlay" id="contactsOverlay">
+
+        <div class="tmgr-box">
+
+            <div class="tmgr-header">
+                <h3><i class="fa-solid fa-address-book" style="color:#2563eb;"></i> Contacts</h3>
+                <button onclick="closeContactList()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="tmgr-tabs">
+                <button class="tmgr-tab active" onclick="switchContactsFilter('all', this)">All</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('subscribed', this)">Subscribed</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('unsubscribed', this)">Unsubscribed</button>
+                <button class="tmgr-tab" onclick="switchContactsFilter('spam', this)">Spam</button>
+            </div>
+
+            <div class="tmgr-panel active">
+
+                <div class="tmgr-toolbar">
+                    <span id="contactsCountLabel">—</span>
+                    <button class="tmgr-refresh-btn" onclick="exportContactList()"
+                        style="background:#16a34a;color:#fff;border-color:#16a34a;">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+
+                <div id="contactsTableWrap">
+                    <div class="tmgr-empty">No contacts loaded yet.</div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <script>
 
         const SUPABASE_URL = "https://ehhynoowqlsgmcfyqofh.supabase.co";
@@ -4149,6 +4241,7 @@
         const META_PHONE_ID = "1112140058650260";
         const META_GRAPH_URL = "https://graph.facebook.com/v19.0";
         let META_TOKEN = localStorage.getItem("meta_token") || "";
+        let agentName = localStorage.getItem("cfg_agent_name") || "";
 
         const supabaseClient = supabase.createClient(
             SUPABASE_URL,
@@ -4368,7 +4461,9 @@
                         }
                     ).format(new Date()),
 
-                phone: currentChat.phone
+                phone: currentChat.phone,
+
+                agent_name: agentName || null
 
             });
 
@@ -4387,7 +4482,9 @@
 
                         message: text,
 
-                        conversation_id: currentChat.id
+                        conversation_id: currentChat.id,
+
+                        agent_name: agentName || null
 
                     })
 
@@ -4468,7 +4565,7 @@
 
             // Optimistic UI
             const tempUrl = URL.createObjectURL(file);
-            appendMessage({ sender: 'outgoing', sender_type: 'human', message: caption, media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone });
+            appendMessage({ sender: 'outgoing', sender_type: 'human', message: caption, media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone, agent_name: agentName || null });
 
             try {
                 // 1. Upload to WhatsApp Media API
@@ -4520,7 +4617,8 @@
                     conversation_id: currentChat.id,
                     media_url: permanentUrl,
                     media_type: mediaType,
-                    created_at_sgt: sgtNow
+                    created_at_sgt: sgtNow,
+                    agent_name: agentName || null
                 });
 
                 // 5. Backup human-agent outgoing file to OneDrive through n8n
@@ -4656,6 +4754,90 @@
         }
 
         /* =========================================================
+        MEDIA & FILES POPULATION
+        ========================================================= */
+
+        function populateMediaFiles(messages) {
+
+            const mediaGrid = document.getElementById("mediaGrid");
+            const mediaEmpty = document.getElementById("mediaEmpty");
+            const filesList = document.getElementById("filesList");
+            const filesEmpty = document.getElementById("filesEmpty");
+
+            mediaGrid.innerHTML = "";
+            filesList.innerHTML = "";
+
+            const mediaMsgs = (messages || []).filter(m => m.media_url);
+
+            let mediaCount = 0;
+            let fileCount = 0;
+
+            mediaMsgs.forEach(m => {
+
+                const url = m.media_url;
+                const lUrl = url.toLowerCase();
+                const isImage = m.media_type === 'image' ||
+                    lUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/);
+
+                if (isImage) {
+
+                    mediaCount++;
+
+                    const item = document.createElement("div");
+                    item.className = "media-item";
+                    item.style.cursor = "pointer";
+                    item.innerHTML = `<img src="${url}">`;
+                    item.onclick = () => window.open(url, '_blank');
+                    mediaGrid.appendChild(item);
+
+                } else {
+
+                    fileCount++;
+
+                    let fileName = "Document";
+                    try {
+                        fileName = decodeURIComponent(url.split('/').pop().split('?')[0]);
+                    } catch (e) {
+                        fileName = url.split('/').pop().split('?')[0] || "Document";
+                    }
+
+                    const ext = (fileName.split('.').pop() || '').toLowerCase();
+                    let iconClass = "doc";
+                    let iconTag = "fa-file-lines";
+                    if (ext === 'pdf') {
+                        iconClass = "pdf";
+                        iconTag = "fa-file-pdf";
+                    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                        iconClass = "xls";
+                        iconTag = "fa-file-excel";
+                    }
+
+                    const card = document.createElement("a");
+                    card.className = "file-card";
+                    card.href = url;
+                    card.target = "_blank";
+                    card.style.textDecoration = "none";
+                    card.style.color = "inherit";
+                    card.innerHTML = `
+    <div class="file-icon ${iconClass}">
+        <i class="fa-solid ${iconTag}"></i>
+    </div>
+    <div class="file-info">
+        <div class="file-name">${escHtml(fileName)}</div>
+    </div>
+`;
+                    filesList.appendChild(card);
+
+                }
+
+            });
+
+            mediaEmpty.style.display = mediaCount > 0 ? "none" : "block";
+            filesEmpty.style.display = fileCount > 0 ? "none" : "block";
+
+        }
+
+        /* =========================================================
         ASSIGN MODAL
         ========================================================= */
 
@@ -4758,6 +4940,113 @@
                     : 'Chat removed from Follow Up',
                 'success'
             );
+        }
+
+        /* =========================================================
+        COMPLETED TOGGLE
+        ========================================================= */
+
+        async function toggleCompleted() {
+
+            if (!currentChat) return;
+
+            const nowCompleted = currentChat.status !== "completed";
+
+            currentChat.status = nowCompleted ? "completed" : "open";
+            currentChat.completed_at = nowCompleted ? new Date().toISOString() : null;
+
+            updateCompletedButton();
+
+            await supabaseClient
+                .from('conversations')
+                .update({
+                    status: currentChat.status,
+                    completed_at: currentChat.completed_at
+                })
+                .eq('id', currentChat.id);
+
+            updateSidebarCounts();
+            renderChats(activeFilter);
+
+        }
+
+        function updateCompletedButton() {
+
+            const btn = document.getElementById("completedBtn");
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.status === "completed") {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+
+        }
+
+        /* =========================================================
+        SPAM TOGGLE
+        ========================================================= */
+
+        async function toggleSpam() {
+
+            if (!currentChat) return;
+
+            const nowSpam = !currentChat.is_spam;
+
+            if (nowSpam && !confirm(`Mark "${currentChat.name}" as spam? This will opt them out of all automation and broadcast/template messages.`)) {
+                return;
+            }
+
+            const update = {
+                is_spam: nowSpam,
+                spam_at: nowSpam ? new Date().toISOString() : null
+            };
+
+            // Spam contacts are also opted out of automation; restore opt-out state when un-marking.
+            if (nowSpam) {
+                update.opted_out = true;
+                update.opted_out_at = new Date().toISOString();
+            } else {
+                update.opted_out = false;
+                update.opted_out_at = null;
+            }
+
+            const { error } = await supabaseClient
+                .from('conversations')
+                .update(update)
+                .eq('id', currentChat.id);
+
+            if (error) {
+                console.error('Unable to update spam status:', error);
+                showToast('Unable to update spam status', 'error');
+                return;
+            }
+
+            Object.assign(currentChat, update);
+
+            updateSpamButton();
+            updateSidebarCounts();
+            renderChats(activeFilter);
+
+            showToast(
+                nowSpam ? 'Marked as spam — opted out of automation' : 'Spam flag removed',
+                'success'
+            );
+        }
+
+        function updateSpamButton() {
+
+            const btn = document.getElementById("spamBtn");
+
+            if (!btn || !currentChat) return;
+
+            if (currentChat.is_spam) {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+
         }
 
         /* =========================================================
@@ -5252,7 +5541,12 @@
                     windowExpired: isWindowExpired(conv.last_incoming_at),
                     opted_out: conv.opted_out || false,
                     opted_out_at: conv.opted_out_at || null,
-                    follow_up_stage: conv.follow_up_stage || 0
+                    is_spam: conv.is_spam || false,
+                    spam_at: conv.spam_at || null,
+                    follow_up_stage: conv.follow_up_stage || 0,
+                    status: conv.status || 'open',
+                    completed_at: conv.completed_at || null,
+                    agent_name: conv.agent_name || null
                 };
             });
 
@@ -5327,15 +5621,13 @@
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
             document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
-            document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out).length;
+            document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out && !c.is_spam).length;
+            document.getElementById('count-spam').innerText = chats.filter(c => c.is_spam).length;
             document.getElementById('count-followup').innerText =
                 chats.filter(c =>
                     c.follow_up === true &&
                     c.status !== 'completed'
                 ).length;
-
-            document.getElementById('count-awaitingfollowup').innerText =
-                chats.filter(c => c.follow_up_stage > 0 && c.follow_up_stage < 4).length;
 
             document.getElementById('count-completed').innerText =
                 chats.filter(c => c.status === "completed").length;
@@ -5464,8 +5756,13 @@
 
             chats.forEach(chat => {
 
-                // Opted-out contacts are hidden from all filters except 'optedout'
-                if (filter !== 'optedout' && chat.opted_out) return;
+                // Spam contacts are hidden from all filters except 'spam';
+                // opted-out (non-spam) contacts are hidden from all filters except 'optedout'
+                if (chat.is_spam) {
+                    if (filter !== 'spam') return;
+                } else if (chat.opted_out) {
+                    if (filter !== 'optedout') return;
+                }
 
                 if (filter === "unread") {
                     if (!chat.unread_count || chat.unread_count <= 0) return;
@@ -5479,6 +5776,8 @@
                     if (chat.bot_enabled === false) return;
                 } else if (filter === "optedout") {
                     if (!chat.opted_out) return;
+                } else if (filter === "spam") {
+                    if (!chat.is_spam) return;
                 } else if (filter === "followup") {
                     if (!chat.follow_up || chat.status === 'completed') return;
                 } else if (filter === "completed") {
@@ -5566,6 +5865,7 @@
 
         <div class="chat-name">
             ${chat.name}
+            ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
         </div>
 
         <div class="chat-time">
@@ -5832,6 +6132,8 @@
             autoDetectChatMeta(chat);
             updateBotButton();
             updateFollowUpButton();
+            updateCompletedButton();
+            updateSpamButton();
 
             document.querySelector(".chat-user h3").innerText = chat.name;
             document.querySelector(".chat-user p").innerText = chat.platform;
@@ -5862,7 +6164,7 @@
                 if (analyticsTab) switchTmgrTab('analytics', analyticsTab);
                 return;
             }
-            if (["settings", "calls"].includes(platform)) {
+            if (["calls"].includes(platform)) {
                 alert(platform.charAt(0).toUpperCase() + platform.slice(1) + " page coming soon");
                 return;
             }
@@ -5910,6 +6212,8 @@
             _lastRenderedMsgDate = null;
 
             data.forEach(msg => appendMessage(msg, true));
+
+            populateMediaFiles(data);
 
             if (_pendingScrollMsgId) {
                 const target = _pendingScrollMsgId;
@@ -6175,6 +6479,10 @@
                                 existing.opted_out_at = conv.opted_out_at || null;
                                 if (conv.opted_out) updateSidebarCounts();
                             }
+                            if (conv.is_spam !== undefined) {
+                                existing.is_spam = conv.is_spam;
+                                existing.spam_at = conv.spam_at || null;
+                            }
                             if (conv.follow_up_stage !== undefined) {
                                 existing.follow_up_stage = conv.follow_up_stage;
                                 updateSidebarCounts();
@@ -6293,7 +6601,9 @@
 
             else if (msg.sender_type === "human") {
 
-                label = "Human";
+                label = msg.agent_name
+                    ? `Human (${msg.agent_name})`
+                    : "Human";
 
             }
 
@@ -6398,9 +6708,12 @@ ${bodyHtml}
             const { error } = await supabaseClient
                 .from('conversations')
                 .update({
-                    bot_enabled: botEnabled
+                    bot_enabled: botEnabled,
+                    agent_name: botEnabled ? null : agentName
                 })
                 .eq('id', currentChat.id);
+
+            currentChat.agent_name = botEnabled ? null : agentName;
 
             if (error) {
 
@@ -6564,7 +6877,14 @@ ${bodyHtml}
                 unread_count:
                     chats.find(
                         c => c.phone === data.phone
-                    )?.unread_count || 0
+                    )?.unread_count || 0,
+
+                status: data.status || 'open',
+                completed_at: data.completed_at || null,
+                agent_name: data.agent_name || null,
+                follow_up: data.follow_up || false,
+                follow_up_stage: data.follow_up_stage || 0,
+                opted_out: data.opted_out || false
 
             };
 
@@ -7148,6 +7468,99 @@ ${bodyHtml}
         });
 
         /* =========================================================
+        CONTACT LIST MODAL
+        ========================================================= */
+
+        let contactsFilter = 'all';
+
+        function contactStatus(chat) {
+            if (chat.is_spam) return { label: 'Spam', cls: 'tmgr-status-rejected' };
+            if (chat.opted_out) return { label: 'Unsubscribed', cls: 'tmgr-status-paused' };
+            return { label: 'Subscribed', cls: 'tmgr-status-approved' };
+        }
+
+        function contactsForFilter(filter) {
+            switch (filter) {
+                case 'subscribed': return chats.filter(c => !c.opted_out && !c.is_spam);
+                case 'unsubscribed': return chats.filter(c => c.opted_out && !c.is_spam);
+                case 'spam': return chats.filter(c => c.is_spam);
+                default: return chats;
+            }
+        }
+
+        function openContactList() {
+            document.getElementById('contactsOverlay').classList.add('show');
+            renderContactsTable();
+        }
+
+        function closeContactList() {
+            document.getElementById('contactsOverlay').classList.remove('show');
+        }
+
+        document.getElementById('contactsOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'contactsOverlay') closeContactList();
+        });
+
+        function switchContactsFilter(filter, el) {
+            contactsFilter = filter;
+            document.querySelectorAll('#contactsOverlay .tmgr-tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            renderContactsTable();
+        }
+
+        function renderContactsTable() {
+            const wrap = document.getElementById('contactsTableWrap');
+            const list = contactsForFilter(contactsFilter);
+
+            document.getElementById('contactsCountLabel').textContent =
+                `${list.length} contact${list.length === 1 ? '' : 's'}`;
+
+            if (list.length === 0) {
+                wrap.innerHTML = '<div class="tmgr-empty">No contacts found.</div>';
+                return;
+            }
+
+            const rows = list.map(chat => {
+                const status = contactStatus(chat);
+                return `<tr>
+                    <td>${escHtml(chat.name || '')}</td>
+                    <td>${escHtml(chat.phone || '')}</td>
+                    <td><span class="tmgr-status ${status.cls}">${status.label}</span></td>
+                </tr>`;
+            }).join('');
+
+            wrap.innerHTML = `<table class="tmgr-table">
+                <thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
+        function exportContactList() {
+            const list = contactsForFilter(contactsFilter);
+            const headers = ['Name', 'Phone', 'Status'];
+
+            const csvRows = list.map(chat => {
+                const status = contactStatus(chat);
+                return [chat.name || '', chat.phone || '', status.label].map(v => {
+                    const s = String(v ?? '');
+                    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+                        ? `"${s.replace(/"/g, '""')}"` : s;
+                }).join(',');
+            });
+
+            const csv = '﻿' + [headers.join(','), ...csvRows].join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /* =========================================================
         BROADCAST MODAL
         ========================================================= */
 
@@ -7295,13 +7708,40 @@ ${bodyHtml}
         let tmgrCachedAll = []; // all templates from Meta (all statuses)
 
         function saveMetaToken() {
-            const val = document.getElementById('tmgrTokenInput').value.trim();
+            const val = document.getElementById('settingsTokenInput').value.trim();
             if (!val) return;
             META_TOKEN = val;
             localStorage.setItem('meta_token', val);
-            document.getElementById('tmgrTokenStrip').style.display = 'none';
-            fetchTemplatesFromMeta();
+            showToast('Meta token saved', 'success');
+            if (document.getElementById('tmgrOverlay').classList.contains('show')) {
+                fetchTemplatesFromMeta();
+            }
         }
+
+        function saveAgentName() {
+            const val = document.getElementById('settingsAgentNameInput').value.trim();
+            agentName = val;
+            localStorage.setItem('cfg_agent_name', val);
+            showToast(val ? `Your name set to "${val}"` : 'Your name cleared', 'success');
+        }
+
+        /* =========================================================
+        SETTINGS MODAL
+        ========================================================= */
+
+        function openSettings() {
+            document.getElementById('settingsTokenInput').value = META_TOKEN;
+            document.getElementById('settingsAgentNameInput').value = agentName;
+            document.getElementById('settingsOverlay').classList.add('show');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsOverlay').classList.remove('show');
+        }
+
+        document.getElementById('settingsOverlay').addEventListener('click', function (e) {
+            if (e.target.id === 'settingsOverlay') closeSettings();
+        });
 
         /* =========================================================
         BROADCAST ANALYTICS
@@ -7318,11 +7758,114 @@ ${bodyHtml}
             return Math.round(n / d * 100) + '%';
         }
 
+        function formatDuration(ms) {
+            if (!ms || ms < 0) return '—';
+            const minutes = Math.round(ms / 60000);
+            const days = Math.floor(minutes / 1440);
+            const hours = Math.floor((minutes % 1440) / 60);
+            const mins = minutes % 60;
+            const parts = [];
+            if (days) parts.push(`${days}d`);
+            if (hours) parts.push(`${hours}h`);
+            if (mins || parts.length === 0) parts.push(`${mins}m`);
+            return parts.join(' ');
+        }
+
+        /* =========================================================
+        RESPONSE TIME ANALYTICS
+        ========================================================= */
+
+        async function loadResponseTimeAnalytics() {
+
+            const resolutionEl = document.getElementById('aresolutiontime');
+            const resolutionSubEl = document.getElementById('aresolutionSub');
+            const replyEl = document.getElementById('ahumanreply');
+            const replySubEl = document.getElementById('ahumanreplySub');
+
+            resolutionEl.textContent = '—';
+            replyEl.textContent = '—';
+            resolutionSubEl.textContent = 'Loading…';
+            replySubEl.textContent = 'Loading…';
+
+            const { data: completedConvs, error: convError } = await supabaseClient
+                .from('conversations')
+                .select('phone, completed_at')
+                .eq('status', 'completed')
+                .not('completed_at', 'is', null);
+
+            const { data: msgs, error: msgError } = await supabaseClient
+                .from('messages')
+                .select('phone, sender, sender_type, created_at')
+                .order('created_at', { ascending: true })
+                .limit(5000);
+
+            if (convError || msgError || !msgs) {
+                resolutionSubEl.textContent = 'No data yet';
+                replySubEl.textContent = 'No data yet';
+                return;
+            }
+
+            // Group messages by phone, preserving chronological order
+            const byPhone = {};
+            for (const m of msgs) {
+                if (!byPhone[m.phone]) byPhone[m.phone] = [];
+                byPhone[m.phone].push(m);
+            }
+
+            // Resolution time: completed_at - first message's created_at, per completed conversation
+            const resolutionDurations = [];
+            for (const conv of (completedConvs || [])) {
+                const phoneMsgs = byPhone[conv.phone];
+                if (!phoneMsgs || !phoneMsgs.length || !conv.completed_at) continue;
+                const firstMsgAt = new Date(phoneMsgs[0].created_at).getTime();
+                const completedAt = new Date(conv.completed_at).getTime();
+                const diff = completedAt - firstMsgAt;
+                if (diff >= 0) resolutionDurations.push(diff);
+            }
+
+            // Human reply time: for every incoming message, the next outgoing/human message for that phone
+            const replyDurations = [];
+            for (const phoneMsgs of Object.values(byPhone)) {
+                for (let i = 0; i < phoneMsgs.length; i++) {
+                    const m = phoneMsgs[i];
+                    if (m.sender !== 'incoming') continue;
+                    for (let j = i + 1; j < phoneMsgs.length; j++) {
+                        const next = phoneMsgs[j];
+                        if (next.sender === 'incoming') break;
+                        if (next.sender === 'outgoing' && next.sender_type === 'human') {
+                            const diff = new Date(next.created_at).getTime() - new Date(m.created_at).getTime();
+                            if (diff >= 0) replyDurations.push(diff);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (resolutionDurations.length) {
+                const avg = resolutionDurations.reduce((a, b) => a + b, 0) / resolutionDurations.length;
+                resolutionEl.textContent = formatDuration(avg);
+                resolutionSubEl.textContent = `based on ${resolutionDurations.length} conversation${resolutionDurations.length === 1 ? '' : 's'}`;
+            } else {
+                resolutionSubEl.textContent = 'No completed conversations yet';
+            }
+
+            if (replyDurations.length) {
+                const avg = replyDurations.reduce((a, b) => a + b, 0) / replyDurations.length;
+                replyEl.textContent = formatDuration(avg);
+                replySubEl.textContent = `based on ${replyDurations.length} repl${replyDurations.length === 1 ? 'y' : 'ies'}`;
+            } else {
+                replySubEl.textContent = 'No data yet';
+            }
+
+        }
+
         async function loadBroadcastAnalytics() {
             document.getElementById('analyticsStatus').textContent = 'Loading…';
             document.getElementById('analyticsList').innerHTML =
                 '<div class="analytics-empty"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Loading…</div>';
             document.getElementById('analyticsTemplateTable').style.display = 'none';
+
+            loadResponseTimeAnalytics();
 
             const { data: sends, error } = await supabaseClient
                 .from('template_sends')
@@ -7620,20 +8163,13 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         function openTemplateManager() {
             document.getElementById('tmgrOverlay').classList.add('show');
-            const strip = document.getElementById('tmgrTokenStrip');
             if (META_TOKEN) {
-                document.getElementById('tmgrTokenInput').value = META_TOKEN;
-                strip.style.display = 'none';
                 fetchTemplatesFromMeta();
             } else {
-                strip.style.display = 'flex';
+                document.getElementById('tmgrTableWrap').innerHTML =
+                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
+                document.getElementById('tmgrCountLabel').textContent = '—';
             }
-        }
-
-        function showMetaTokenInput() {
-            const strip = document.getElementById('tmgrTokenStrip');
-            strip.style.display = 'flex';
-            document.getElementById('tmgrTokenInput').focus();
         }
 
         function closeTemplateManager() {
@@ -7657,7 +8193,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         async function fetchTemplatesFromMeta() {
             if (!META_TOKEN) {
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
+                document.getElementById('tmgrTableWrap').innerHTML =
+                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
+                document.getElementById('tmgrCountLabel').textContent = '—';
                 return;
             }
             document.getElementById('tmgrCountLabel').textContent = 'Loading…';
@@ -7690,9 +8228,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 renderTmgrTable();
             } catch (e) {
                 document.getElementById('tmgrTableWrap').innerHTML =
-                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${escHtml(e.message)} — <a href="#" onclick="showMetaTokenInput();return false;" style="color:#dc2626;">Update token</a></div>`;
+                    `<div class="tmgr-empty" style="color:#dc2626;">Error: ${escHtml(e.message)} — <a href="#" onclick="openSettings();return false;" style="color:#dc2626;">Update token</a></div>`;
                 document.getElementById('tmgrCountLabel').textContent = 'Error';
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
             }
         }
 
@@ -7845,8 +8382,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         async function submitCreateTemplate() {
             if (!META_TOKEN) {
-                document.getElementById('tmgrTokenStrip').style.display = 'flex';
-                showTmgrMsg('Please save your Meta token first (yellow bar above).', 'error');
+                openSettings();
+                showTmgrMsg('Please save your Meta token first in Settings.', 'error');
                 return;
             }
 
