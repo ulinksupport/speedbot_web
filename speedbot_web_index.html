@@ -7436,12 +7436,13 @@ ${bodyHtml}
         }
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
-        async function callTemplateSendWebhook(phone, template, variables) {
+        async function callTemplateSendWebhook(phone, template, variables, conversationId) {
             const payload = {
                 phone: phone.replace(/\s/g, ''),
                 template_name: template.name,
                 language_code: template.language,
-                variables: variables
+                variables: variables,
+                conversation_id: conversationId || null
             };
             try {
                 const resp = await fetch(N8N_BASE + '/send-template-message', {
@@ -7491,7 +7492,7 @@ ${bodyHtml}
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
 
-            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
+            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars, currentChat?.id);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
@@ -7590,8 +7591,9 @@ ${bodyHtml}
                 .eq('phone', phone)
                 .limit(1);
 
+            let newChatConvId = existing?.[0]?.id || null;
             if (!existing || existing.length === 0) {
-                await supabaseClient
+                const { data: created } = await supabaseClient
                     .from('conversations')
                     .insert({
                         phone: phone,
@@ -7601,12 +7603,15 @@ ${bodyHtml}
                         bot_enabled: false,
                         last_message: `[Template: ${selectedTemplate.display_name}]`,
                         last_message_time: new Date().toISOString()
-                    });
+                    })
+                    .select('id')
+                    .single();
+                newChatConvId = created?.id || null;
             }
 
             // Send template via n8n
             const vars = getVariableValues('newChatVariableInputs', selectedTemplate.variables.length);
-            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-comment-dots"></i> Start Chat';
@@ -7733,7 +7738,7 @@ ${bodyHtml}
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -7919,7 +7924,7 @@ ${bodyHtml}
                 const phone = cb.dataset.phone;
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
                 const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
-                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars);
+                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars, contactMap[phone]?.id || null);
                 const status = result.ok ? 'sent' : 'failed';
                 if (result.ok) {
                     success++;
@@ -8433,10 +8438,19 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const convMap = {};
                 (convsFull || []).forEach(c => { convMap[c.phone] = c; });
 
+                const toSGT = (iso) => {
+                    if (!iso) return '';
+                    return new Date(iso).toLocaleString('en-SG', {
+                        timeZone: 'Asia/Singapore',
+                        day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                    });
+                };
+
                 const headers = [
                     'Template Name', 'Customer', 'Phone Number', 'Branch', 'Tag',
-                    'Params', 'Status', 'Meta Message ID', 'Date Triggered', 'Sent At',
-                    'Delivered At', 'Read At', 'Replied At', 'Reply Content',
+                    'Params', 'Status', 'Meta Message ID', 'Date Triggered (SGT)', 'Sent At (SGT)',
+                    'Delivered At (SGT)', 'Read At (SGT)', 'Replied At (SGT)', 'Reply Content',
                     'Button Clicked', 'All Buttons Clicked', 'Converted',
                     'Failure Code', 'Failure Message', 'Send Error'
                 ];
@@ -8459,11 +8473,11 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         r.params ? (typeof r.params === 'object' ? JSON.stringify(r.params) : String(r.params)) : '',
                         r.status || '',
                         r.wamid || '',
-                        r.triggered_at || r.sent_at || '',
-                        r.sent_at || '',
-                        r.delivered_at || '',
-                        r.read_at || '',
-                        firstReply ? firstReply.ts : '',
+                        toSGT(r.triggered_at || r.sent_at),
+                        toSGT(r.sent_at),
+                        toSGT(r.delivered_at),
+                        toSGT(r.read_at),
+                        firstReply ? toSGT(firstReply.ts) : '',
                         firstReply ? firstReply.message : '',
                         firstBtn,
                         allBtns,
@@ -8483,7 +8497,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `speedbot_analytics_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.download = `speedbot_analytics_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })}.csv`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

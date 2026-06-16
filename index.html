@@ -4290,29 +4290,14 @@
                 <button class="tmgr-tab" onclick="switchContactsFilter('spam', this)">Spam</button>
             </div>
 
-            <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid #f3f4f6;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:12px;color:#6b7280;font-weight:600;">Platform:</span>
-                <button id="cpfAll" class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;background:#111827;color:#fff;border-color:#111827;" onclick="switchContactsPlatform('all',this)">All</button>
-                <button id="cpfWA"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('wa',this)">WhatsApp</button>
-                <button id="cpfFB"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('fb',this)">Facebook</button>
-                <button id="cpfIG"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('ig',this)">Instagram</button>
-                <input id="contactSearchInput" type="text" placeholder="Search name / country code (+62...)" oninput="contactsSearch=this.value;renderContactsTable()"
-                    style="flex:1;min-width:160px;height:28px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:12px;outline:none;">
-            </div>
-
             <div class="tmgr-panel active">
 
                 <div class="tmgr-toolbar">
                     <span id="contactsCountLabel">—</span>
-                    <div style="display:flex;gap:8px;">
-                        <button id="contactsBulkDeleteBtn" class="tmgr-refresh-btn" style="display:none;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="bulkDeleteContacts()">
-                            <i class="fa-solid fa-trash"></i> Delete Selected
-                        </button>
-                        <button class="tmgr-refresh-btn" onclick="exportContactList()"
-                            style="background:#16a34a;color:#fff;border-color:#16a34a;">
-                            <i class="fa-solid fa-file-csv"></i> Export CSV
-                        </button>
-                    </div>
+                    <button class="tmgr-refresh-btn" onclick="exportContactList()"
+                        style="background:#16a34a;color:#fff;border-color:#16a34a;">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
                 </div>
 
                 <div id="contactsTableWrap">
@@ -5074,7 +5059,8 @@
 
             if (!currentChat) return;
 
-            const newValue = !currentChat.follow_up;
+            const newValue =
+                !currentChat.follow_up;
 
             const updateData = { follow_up: newValue };
             if (newValue) updateData.bot_enabled = false;
@@ -7450,12 +7436,13 @@ ${bodyHtml}
         }
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
-        async function callTemplateSendWebhook(phone, template, variables) {
+        async function callTemplateSendWebhook(phone, template, variables, conversationId) {
             const payload = {
                 phone: phone.replace(/\s/g, ''),
                 template_name: template.name,
                 language_code: template.language,
-                variables: variables
+                variables: variables,
+                conversation_id: conversationId || null
             };
             try {
                 const resp = await fetch(N8N_BASE + '/send-template-message', {
@@ -7505,7 +7492,7 @@ ${bodyHtml}
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
 
-            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars);
+            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars, currentChat?.id);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
@@ -7604,8 +7591,9 @@ ${bodyHtml}
                 .eq('phone', phone)
                 .limit(1);
 
+            let newChatConvId = existing?.[0]?.id || null;
             if (!existing || existing.length === 0) {
-                await supabaseClient
+                const { data: created } = await supabaseClient
                     .from('conversations')
                     .insert({
                         phone: phone,
@@ -7615,12 +7603,15 @@ ${bodyHtml}
                         bot_enabled: false,
                         last_message: `[Template: ${selectedTemplate.display_name}]`,
                         last_message_time: new Date().toISOString()
-                    });
+                    })
+                    .select('id')
+                    .single();
+                newChatConvId = created?.id || null;
             }
 
             // Send template via n8n
             const vars = getVariableValues('newChatVariableInputs', selectedTemplate.variables.length);
-            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars);
+            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-comment-dots"></i> Start Chat';
@@ -7648,9 +7639,6 @@ ${bodyHtml}
         ========================================================= */
 
         let contactsFilter = 'all';
-        let contactsPlatform = 'all';
-        let contactsSearch = '';
-        let selectedContactIds = new Set();
 
         function contactStatus(chat) {
             if (chat.is_spam) return { label: 'Spam', cls: 'tmgr-status-rejected' };
@@ -7687,109 +7675,32 @@ ${bodyHtml}
             renderContactsTable();
         }
 
-        function switchContactsPlatform(p, el) {
-            contactsPlatform = p;
-            ['cpfAll','cpfWA','cpfFB','cpfIG'].forEach(id => {
-                const b = document.getElementById(id);
-                if (b) { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; }
-            });
-            el.style.background = '#111827'; el.style.color = '#fff'; el.style.borderColor = '#111827';
-            selectedContactIds.clear();
-            renderContactsTable();
-        }
-
-        function contactsApplyFilters(list) {
-            let out = list;
-            if (contactsPlatform === 'wa') out = out.filter(c => !String(c.phone||'').startsWith('fb_') && !String(c.phone||'').startsWith('ig_'));
-            else if (contactsPlatform === 'fb') out = out.filter(c => String(c.phone||'').startsWith('fb_'));
-            else if (contactsPlatform === 'ig') out = out.filter(c => String(c.phone||'').startsWith('ig_'));
-            if (contactsSearch.trim()) {
-                const q = contactsSearch.trim().toLowerCase();
-                out = out.filter(c => String(c.name||'').toLowerCase().includes(q) || String(c.phone||'').toLowerCase().includes(q));
-            }
-            return out;
-        }
-
-        function formatPhoneDisplay(p) {
-            const s = String(p || '');
-            // Convert scientific notation stored as text (e.g. "6.28E+12") — warn but show as-is
-            return s;
-        }
-
         function renderContactsTable() {
             const wrap = document.getElementById('contactsTableWrap');
-            const base = contactsForFilter(contactsFilter);
-            const list = contactsApplyFilters(base);
+            const list = contactsForFilter(contactsFilter);
 
             document.getElementById('contactsCountLabel').textContent =
                 `${list.length} contact${list.length === 1 ? '' : 's'}`;
-
-            const bulkBtn = document.getElementById('contactsBulkDeleteBtn');
-            if (bulkBtn) bulkBtn.style.display = selectedContactIds.size > 0 ? '' : 'none';
 
             if (list.length === 0) {
                 wrap.innerHTML = '<div class="tmgr-empty">No contacts found.</div>';
                 return;
             }
 
-            const allChecked = list.length > 0 && list.every(c => selectedContactIds.has(c.id));
             const rows = list.map(chat => {
                 const status = contactStatus(chat);
-                const checked = selectedContactIds.has(chat.id) ? 'checked' : '';
-                const phoneDisplay = formatPhoneDisplay(chat.phone);
-                const phoneWarning = String(chat.phone||'').match(/^\d[\d.]+[eE][+\-]?\d+$/) ? ' title="⚠ Stored in scientific notation — may be invalid"' : '';
                 return `<tr>
-                    <td style="width:32px;text-align:center;"><input type="checkbox" ${checked} onchange="toggleContactSelect('${chat.id}',this.checked)"></td>
                     <td>${escHtml(chat.name || '')}</td>
-                    <td${phoneWarning}>${escHtml(phoneDisplay)}${phoneWarning ? ' ⚠' : ''}</td>
+                    <td>${escHtml(chat.phone || '')}</td>
                     <td><span class="tmgr-status ${status.cls}">${status.label}</span></td>
                     <td><button class="tmgr-send-btn" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="deleteContact('${chat.id}')">Delete</button></td>
                 </tr>`;
             }).join('');
 
             wrap.innerHTML = `<table class="tmgr-table">
-                <thead><tr>
-                    <th style="width:32px;"><input type="checkbox" ${allChecked ? 'checked' : ''} onchange="toggleSelectAllContacts(this.checked,${JSON.stringify(list.map(c=>c.id))})"></th>
-                    <th>Name</th><th>Phone</th><th>Status</th><th>Action</th>
-                </tr></thead>
+                <thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
-        }
-
-        function toggleContactSelect(id, checked) {
-            if (checked) selectedContactIds.add(id); else selectedContactIds.delete(id);
-            const bulkBtn = document.getElementById('contactsBulkDeleteBtn');
-            if (bulkBtn) bulkBtn.style.display = selectedContactIds.size > 0 ? '' : 'none';
-            // Update select-all checkbox state
-            const allCbs = document.querySelectorAll('#contactsTableWrap tbody input[type=checkbox]');
-            const headerCb = document.querySelector('#contactsTableWrap thead input[type=checkbox]');
-            if (headerCb) headerCb.checked = allCbs.length > 0 && [...allCbs].every(cb => cb.checked);
-        }
-
-        function toggleSelectAllContacts(checked, ids) {
-            ids.forEach(id => { if (checked) selectedContactIds.add(id); else selectedContactIds.delete(id); });
-            renderContactsTable();
-        }
-
-        async function bulkDeleteContacts() {
-            if (!selectedContactIds.size) return;
-            if (!confirm(`Delete ${selectedContactIds.size} contact(s) and all their messages? This cannot be undone.`)) return;
-            const ids = [...selectedContactIds];
-            for (const id of ids) {
-                await supabaseClient.from('messages').delete().eq('conversation_id', id);
-                await supabaseClient.from('conversations').delete().eq('id', id);
-            }
-            chats = chats.filter(c => !selectedContactIds.has(c.id));
-            if (currentChat && selectedContactIds.has(currentChat.id)) {
-                currentChat = null;
-                document.getElementById('chatWindow').style.display = 'none';
-                document.getElementById('welcomeScreen').style.display = 'flex';
-            }
-            selectedContactIds.clear();
-            renderContactsTable();
-            renderChats(activeFilter);
-            updateSidebarCounts();
-            showToast(`${ids.length} contact(s) deleted`, 'success');
         }
 
         async function deleteContact(id) {
@@ -7798,7 +7709,6 @@ ${bodyHtml}
             const { error } = await supabaseClient.from('conversations').delete().eq('id', id);
             if (error) { showToast('Failed to delete contact', 'error'); return; }
             chats = chats.filter(c => c.id !== id);
-            selectedContactIds.delete(id);
             if (currentChat && currentChat.id === id) {
                 currentChat = null;
                 document.getElementById('chatWindow').style.display = 'none';
@@ -7828,7 +7738,7 @@ ${bodyHtml}
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.download = `speedbot_contacts_${contactsFilter}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -8014,7 +7924,7 @@ ${bodyHtml}
                 const phone = cb.dataset.phone;
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
                 const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
-                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars);
+                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars, contactMap[phone]?.id || null);
                 const status = result.ok ? 'sent' : 'failed';
                 if (result.ok) {
                     success++;
@@ -8528,10 +8438,19 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const convMap = {};
                 (convsFull || []).forEach(c => { convMap[c.phone] = c; });
 
+                const toSGT = (iso) => {
+                    if (!iso) return '';
+                    return new Date(iso).toLocaleString('en-SG', {
+                        timeZone: 'Asia/Singapore',
+                        day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: true
+                    });
+                };
+
                 const headers = [
                     'Template Name', 'Customer', 'Phone Number', 'Branch', 'Tag',
-                    'Params', 'Status', 'Meta Message ID', 'Date Triggered', 'Sent At',
-                    'Delivered At', 'Read At', 'Replied At', 'Reply Content',
+                    'Params', 'Status', 'Meta Message ID', 'Date Triggered (SGT)', 'Sent At (SGT)',
+                    'Delivered At (SGT)', 'Read At (SGT)', 'Replied At (SGT)', 'Reply Content',
                     'Button Clicked', 'All Buttons Clicked', 'Converted',
                     'Failure Code', 'Failure Message', 'Send Error'
                 ];
@@ -8554,11 +8473,11 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         r.params ? (typeof r.params === 'object' ? JSON.stringify(r.params) : String(r.params)) : '',
                         r.status || '',
                         r.wamid || '',
-                        r.triggered_at || r.sent_at || '',
-                        r.sent_at || '',
-                        r.delivered_at || '',
-                        r.read_at || '',
-                        firstReply ? firstReply.ts : '',
+                        toSGT(r.triggered_at || r.sent_at),
+                        toSGT(r.sent_at),
+                        toSGT(r.delivered_at),
+                        toSGT(r.read_at),
+                        firstReply ? toSGT(firstReply.ts) : '',
                         firstReply ? firstReply.message : '',
                         firstBtn,
                         allBtns,
@@ -8578,7 +8497,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `speedbot_analytics_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.download = `speedbot_analytics_${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })}.csv`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -9130,11 +9049,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     const name = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
                     if (!phone) continue;
                     if (!phone.startsWith('+')) {
-                        // Also catch scientific notation (e.g. 6.28E+12 from Excel)
-                        const reason = /^\d[\d.]+[eE][+\-]?\d+$/.test(phone)
-                            ? 'scientific notation (Excel issue) — open CSV in text editor'
-                            : 'missing country code (+)';
-                        csvRejectedContacts.push({ name, phone, reason });
+                        csvRejectedContacts.push({ name, phone });
                     } else {
                         csvParsedContacts.push({ name, phone });
                     }
@@ -9154,14 +9069,16 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     csvParsedContacts.slice(0, 20).forEach(c => {
                         html += `<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.phone)}</td></tr>`;
                     });
-                    if (csvParsedContacts.length > 20) html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                    if (csvParsedContacts.length > 20) {
+                        html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                    }
                     html += '</tbody></table>';
                 }
                 if (csvRejectedContacts.length) {
                     html += `<div style="margin-top:10px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;">
-                        <strong style="color:#dc2626;">⚠️ ${csvRejectedContacts.length} contact(s) skipped — will NOT be imported:</strong>
+                        <strong style="color:#dc2626;">⚠️ ${csvRejectedContacts.length} contact(s) will NOT be imported (missing country code +):</strong>
                         <ul style="margin:6px 0 0 16px;color:#dc2626;">
-                            ${csvRejectedContacts.map(c => `<li>${escHtml(c.name)} — ${escHtml(c.phone)} (${c.reason})</li>`).join('')}
+                            ${csvRejectedContacts.map(c => `<li>${escHtml(c.name)} — ${escHtml(c.phone)}</li>`).join('')}
                         </ul>
                     </div>`;
                 }
@@ -9169,7 +9086,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const msgParts = [];
                 if (csvParsedContacts.length) msgParts.push(`<span style="color:#16a34a;">✓ ${csvParsedContacts.length} contact(s) ready to import</span>`);
                 if (csvRejectedContacts.length) msgParts.push(`<span style="color:#dc2626;">✗ ${csvRejectedContacts.length} skipped (no + country code)</span>`);
-                document.getElementById('csvImportMsg').innerHTML = msgParts.join('&nbsp; ');
+                document.getElementById('csvImportMsg').innerHTML = msgParts.join(' &nbsp;');
                 document.getElementById('csvImportBtn').disabled = csvParsedContacts.length === 0;
             };
             reader.readAsText(file);
