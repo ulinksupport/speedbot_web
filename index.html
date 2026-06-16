@@ -4488,7 +4488,11 @@
 
                         conversation_id: currentChat.id,
 
-                        agent_name: agentName || null
+                        agent_name: agentName || null,
+
+                        platform: currentChat.platformType || 'whatsapp',
+
+                        meta_psid: currentChat.meta_psid || null
 
                     })
 
@@ -5550,7 +5554,8 @@
                     follow_up_stage: conv.follow_up_stage || 0,
                     status: conv.status || 'open',
                     completed_at: conv.completed_at || null,
-                    agent_name: conv.agent_name || null
+                    agent_name: conv.agent_name || null,
+                    meta_psid: conv.meta_psid || null
                 };
             });
 
@@ -6888,7 +6893,8 @@ ${bodyHtml}
                 agent_name: data.agent_name || null,
                 follow_up: data.follow_up || false,
                 follow_up_stage: data.follow_up_stage || 0,
-                opted_out: data.opted_out || false
+                opted_out: data.opted_out || false,
+                meta_psid: data.meta_psid || null
 
             };
 
