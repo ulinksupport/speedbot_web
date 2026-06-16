@@ -4290,14 +4290,29 @@
                 <button class="tmgr-tab" onclick="switchContactsFilter('spam', this)">Spam</button>
             </div>
 
+            <div style="display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid #f3f4f6;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:12px;color:#6b7280;font-weight:600;">Platform:</span>
+                <button id="cpfAll" class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;background:#111827;color:#fff;border-color:#111827;" onclick="switchContactsPlatform('all',this)">All</button>
+                <button id="cpfWA"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('wa',this)">WhatsApp</button>
+                <button id="cpfFB"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('fb',this)">Facebook</button>
+                <button id="cpfIG"  class="tmgr-refresh-btn" style="padding:4px 10px;font-size:12px;" onclick="switchContactsPlatform('ig',this)">Instagram</button>
+                <input id="contactSearchInput" type="text" placeholder="Search name / country code (+62...)" oninput="contactsSearch=this.value;renderContactsTable()"
+                    style="flex:1;min-width:160px;height:28px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:12px;outline:none;">
+            </div>
+
             <div class="tmgr-panel active">
 
                 <div class="tmgr-toolbar">
                     <span id="contactsCountLabel">—</span>
-                    <button class="tmgr-refresh-btn" onclick="exportContactList()"
-                        style="background:#16a34a;color:#fff;border-color:#16a34a;">
-                        <i class="fa-solid fa-file-csv"></i> Export CSV
-                    </button>
+                    <div style="display:flex;gap:8px;">
+                        <button id="contactsBulkDeleteBtn" class="tmgr-refresh-btn" style="display:none;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="bulkDeleteContacts()">
+                            <i class="fa-solid fa-trash"></i> Delete Selected
+                        </button>
+                        <button class="tmgr-refresh-btn" onclick="exportContactList()"
+                            style="background:#16a34a;color:#fff;border-color:#16a34a;">
+                            <i class="fa-solid fa-file-csv"></i> Export CSV
+                        </button>
+                    </div>
                 </div>
 
                 <div id="contactsTableWrap">
@@ -5059,15 +5074,15 @@
 
             if (!currentChat) return;
 
-            const newValue =
-                !currentChat.follow_up;
+            const newValue = !currentChat.follow_up;
+
+            const updateData = { follow_up: newValue };
+            if (newValue) updateData.bot_enabled = false;
 
             const { error } =
                 await supabaseClient
                     .from('conversations')
-                    .update({
-                        follow_up: newValue
-                    })
+                    .update(updateData)
                     .eq('id', currentChat.id);
 
             if (error) {
@@ -5076,8 +5091,11 @@
                 return;
             }
 
-            currentChat.follow_up =
-                newValue;
+            currentChat.follow_up = newValue;
+            if (newValue) {
+                currentChat.bot_enabled = false;
+                updateBotButton();
+            }
 
             updateFollowUpButton();
             updateSidebarCounts();
@@ -5085,7 +5103,7 @@
 
             showToast(
                 newValue
-                    ? 'Chat added to Follow Up'
+                    ? 'Chat added to Follow Up (switched to Human mode)'
                     : 'Chat removed from Follow Up',
                 'success'
             );
@@ -7630,6 +7648,9 @@ ${bodyHtml}
         ========================================================= */
 
         let contactsFilter = 'all';
+        let contactsPlatform = 'all';
+        let contactsSearch = '';
+        let selectedContactIds = new Set();
 
         function contactStatus(chat) {
             if (chat.is_spam) return { label: 'Spam', cls: 'tmgr-status-rejected' };
@@ -7666,31 +7687,127 @@ ${bodyHtml}
             renderContactsTable();
         }
 
+        function switchContactsPlatform(p, el) {
+            contactsPlatform = p;
+            ['cpfAll','cpfWA','cpfFB','cpfIG'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; }
+            });
+            el.style.background = '#111827'; el.style.color = '#fff'; el.style.borderColor = '#111827';
+            selectedContactIds.clear();
+            renderContactsTable();
+        }
+
+        function contactsApplyFilters(list) {
+            let out = list;
+            if (contactsPlatform === 'wa') out = out.filter(c => !String(c.phone||'').startsWith('fb_') && !String(c.phone||'').startsWith('ig_'));
+            else if (contactsPlatform === 'fb') out = out.filter(c => String(c.phone||'').startsWith('fb_'));
+            else if (contactsPlatform === 'ig') out = out.filter(c => String(c.phone||'').startsWith('ig_'));
+            if (contactsSearch.trim()) {
+                const q = contactsSearch.trim().toLowerCase();
+                out = out.filter(c => String(c.name||'').toLowerCase().includes(q) || String(c.phone||'').toLowerCase().includes(q));
+            }
+            return out;
+        }
+
+        function formatPhoneDisplay(p) {
+            const s = String(p || '');
+            // Convert scientific notation stored as text (e.g. "6.28E+12") — warn but show as-is
+            return s;
+        }
+
         function renderContactsTable() {
             const wrap = document.getElementById('contactsTableWrap');
-            const list = contactsForFilter(contactsFilter);
+            const base = contactsForFilter(contactsFilter);
+            const list = contactsApplyFilters(base);
 
             document.getElementById('contactsCountLabel').textContent =
                 `${list.length} contact${list.length === 1 ? '' : 's'}`;
+
+            const bulkBtn = document.getElementById('contactsBulkDeleteBtn');
+            if (bulkBtn) bulkBtn.style.display = selectedContactIds.size > 0 ? '' : 'none';
 
             if (list.length === 0) {
                 wrap.innerHTML = '<div class="tmgr-empty">No contacts found.</div>';
                 return;
             }
 
+            const allChecked = list.length > 0 && list.every(c => selectedContactIds.has(c.id));
             const rows = list.map(chat => {
                 const status = contactStatus(chat);
+                const checked = selectedContactIds.has(chat.id) ? 'checked' : '';
+                const phoneDisplay = formatPhoneDisplay(chat.phone);
+                const phoneWarning = String(chat.phone||'').match(/^\d[\d.]+[eE][+\-]?\d+$/) ? ' title="⚠ Stored in scientific notation — may be invalid"' : '';
                 return `<tr>
+                    <td style="width:32px;text-align:center;"><input type="checkbox" ${checked} onchange="toggleContactSelect('${chat.id}',this.checked)"></td>
                     <td>${escHtml(chat.name || '')}</td>
-                    <td>${escHtml(chat.phone || '')}</td>
+                    <td${phoneWarning}>${escHtml(phoneDisplay)}${phoneWarning ? ' ⚠' : ''}</td>
                     <td><span class="tmgr-status ${status.cls}">${status.label}</span></td>
+                    <td><button class="tmgr-send-btn" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="deleteContact('${chat.id}')">Delete</button></td>
                 </tr>`;
             }).join('');
 
             wrap.innerHTML = `<table class="tmgr-table">
-                <thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>
+                <thead><tr>
+                    <th style="width:32px;"><input type="checkbox" ${allChecked ? 'checked' : ''} onchange="toggleSelectAllContacts(this.checked,${JSON.stringify(list.map(c=>c.id))})"></th>
+                    <th>Name</th><th>Phone</th><th>Status</th><th>Action</th>
+                </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
+        }
+
+        function toggleContactSelect(id, checked) {
+            if (checked) selectedContactIds.add(id); else selectedContactIds.delete(id);
+            const bulkBtn = document.getElementById('contactsBulkDeleteBtn');
+            if (bulkBtn) bulkBtn.style.display = selectedContactIds.size > 0 ? '' : 'none';
+            // Update select-all checkbox state
+            const allCbs = document.querySelectorAll('#contactsTableWrap tbody input[type=checkbox]');
+            const headerCb = document.querySelector('#contactsTableWrap thead input[type=checkbox]');
+            if (headerCb) headerCb.checked = allCbs.length > 0 && [...allCbs].every(cb => cb.checked);
+        }
+
+        function toggleSelectAllContacts(checked, ids) {
+            ids.forEach(id => { if (checked) selectedContactIds.add(id); else selectedContactIds.delete(id); });
+            renderContactsTable();
+        }
+
+        async function bulkDeleteContacts() {
+            if (!selectedContactIds.size) return;
+            if (!confirm(`Delete ${selectedContactIds.size} contact(s) and all their messages? This cannot be undone.`)) return;
+            const ids = [...selectedContactIds];
+            for (const id of ids) {
+                await supabaseClient.from('messages').delete().eq('conversation_id', id);
+                await supabaseClient.from('conversations').delete().eq('id', id);
+            }
+            chats = chats.filter(c => !selectedContactIds.has(c.id));
+            if (currentChat && selectedContactIds.has(currentChat.id)) {
+                currentChat = null;
+                document.getElementById('chatWindow').style.display = 'none';
+                document.getElementById('welcomeScreen').style.display = 'flex';
+            }
+            selectedContactIds.clear();
+            renderContactsTable();
+            renderChats(activeFilter);
+            updateSidebarCounts();
+            showToast(`${ids.length} contact(s) deleted`, 'success');
+        }
+
+        async function deleteContact(id) {
+            if (!confirm('Delete this contact and all their messages? This cannot be undone.')) return;
+            await supabaseClient.from('messages').delete().eq('conversation_id', id);
+            const { error } = await supabaseClient.from('conversations').delete().eq('id', id);
+            if (error) { showToast('Failed to delete contact', 'error'); return; }
+            chats = chats.filter(c => c.id !== id);
+            selectedContactIds.delete(id);
+            if (currentChat && currentChat.id === id) {
+                currentChat = null;
+                document.getElementById('chatWindow').style.display = 'none';
+                document.getElementById('welcomeScreen').style.display = 'flex';
+            }
+            renderContactsTable();
+            renderChats(activeFilter);
+            updateSidebarCounts();
+            showToast('Contact deleted', 'success');
         }
 
         function exportContactList() {
@@ -8567,9 +8684,14 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     <td><small>${escHtml(t.language || '')}</small></td>
                     <td><span class="tmgr-status tmgr-status-${status}">${escHtml(t.status || 'PENDING')}</span></td>
                     <td>
-                        <button class="tmgr-send-btn" onclick="tmgrQuickSend(${i})" ${t.status !== 'APPROVED' ? 'disabled title="Not yet approved"' : ''}>
-                            Send
-                        </button>
+                        <div style="display:flex;gap:6px;">
+                            <button class="tmgr-send-btn" onclick="tmgrQuickSend(${i})" ${t.status !== 'APPROVED' ? 'disabled title="Not yet approved"' : ''}>
+                                Send
+                            </button>
+                            <button class="tmgr-send-btn" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="deleteTmgrTemplate(${i})">
+                                Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
             }).join('');
@@ -8584,6 +8706,24 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
+        }
+
+        async function deleteTmgrTemplate(idx) {
+            const t = tmgrCachedAll[idx];
+            if (!t) return;
+            if (!confirm(`Delete template "${t.name}"? This cannot be undone.`)) return;
+            try {
+                const url = `${META_GRAPH_URL}/${META_WABA_ID}/message_templates?name=${encodeURIComponent(t.name)}&access_token=${META_TOKEN}`;
+                const res = await fetch(url, { method: 'DELETE' });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error?.message || 'Delete failed');
+                tmgrCachedAll.splice(idx, 1);
+                templates = templates.filter(tp => tp.name !== t.name);
+                renderTmgrTable();
+                showToast(`Template "${t.name}" deleted`, 'success');
+            } catch (e) {
+                showToast(`Failed to delete: ${e.message}`, 'error');
+            }
         }
 
         /* Send from Template Manager table row */
@@ -8941,9 +9081,11 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         ========================================================= */
 
         let csvParsedContacts = [];
+        let csvRejectedContacts = [];
 
         function openCsvImport() {
             csvParsedContacts = [];
+            csvRejectedContacts = [];
             document.getElementById('csvFileInput').value = '';
             document.getElementById('csvPreview').innerHTML = '';
             document.getElementById('csvImportMsg').innerHTML = '';
@@ -8981,32 +9123,54 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     return;
                 }
                 csvParsedContacts = [];
+                csvRejectedContacts = [];
                 for (let i = 1; i < lines.length; i++) {
                     const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
                     const phone = cols[phoneIdx] || '';
                     const name = nameIdx >= 0 ? (cols[nameIdx] || phone) : phone;
-                    if (phone) csvParsedContacts.push({ name, phone });
+                    if (!phone) continue;
+                    if (!phone.startsWith('+')) {
+                        // Also catch scientific notation (e.g. 6.28E+12 from Excel)
+                        const reason = /^\d[\d.]+[eE][+\-]?\d+$/.test(phone)
+                            ? 'scientific notation (Excel issue) — open CSV in text editor'
+                            : 'missing country code (+)';
+                        csvRejectedContacts.push({ name, phone, reason });
+                    } else {
+                        csvParsedContacts.push({ name, phone });
+                    }
                 }
                 const preview = document.getElementById('csvPreview');
-                if (!csvParsedContacts.length) {
+                if (!csvParsedContacts.length && !csvRejectedContacts.length) {
                     preview.innerHTML = '<p style="color:#dc2626;font-size:13px;">No valid rows found.</p>';
                     return;
                 }
-                let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    <thead><tr style="background:#f3f4f6;">
-                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Name</th>
-                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Phone</th>
-                    </tr></thead><tbody>`;
-                csvParsedContacts.slice(0, 20).forEach(c => {
-                    html += `<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.phone)}</td></tr>`;
-                });
-                if (csvParsedContacts.length > 20) {
-                    html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                let html = '';
+                if (csvParsedContacts.length) {
+                    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#f3f4f6;">
+                            <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Name</th>
+                            <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e5e7eb;">Phone</th>
+                        </tr></thead><tbody>`;
+                    csvParsedContacts.slice(0, 20).forEach(c => {
+                        html += `<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.name)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${escHtml(c.phone)}</td></tr>`;
+                    });
+                    if (csvParsedContacts.length > 20) html += `<tr><td colspan="2" style="padding:5px 10px;color:#6b7280;">...and ${csvParsedContacts.length - 20} more</td></tr>`;
+                    html += '</tbody></table>';
                 }
-                html += '</tbody></table>';
+                if (csvRejectedContacts.length) {
+                    html += `<div style="margin-top:10px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;">
+                        <strong style="color:#dc2626;">⚠️ ${csvRejectedContacts.length} contact(s) skipped — will NOT be imported:</strong>
+                        <ul style="margin:6px 0 0 16px;color:#dc2626;">
+                            ${csvRejectedContacts.map(c => `<li>${escHtml(c.name)} — ${escHtml(c.phone)} (${c.reason})</li>`).join('')}
+                        </ul>
+                    </div>`;
+                }
                 preview.innerHTML = html;
-                document.getElementById('csvImportMsg').innerHTML = `<span style="color:#16a34a;">✓ ${csvParsedContacts.length} contact(s) ready to import</span>`;
-                document.getElementById('csvImportBtn').disabled = false;
+                const msgParts = [];
+                if (csvParsedContacts.length) msgParts.push(`<span style="color:#16a34a;">✓ ${csvParsedContacts.length} contact(s) ready to import</span>`);
+                if (csvRejectedContacts.length) msgParts.push(`<span style="color:#dc2626;">✗ ${csvRejectedContacts.length} skipped (no + country code)</span>`);
+                document.getElementById('csvImportMsg').innerHTML = msgParts.join('&nbsp; ');
+                document.getElementById('csvImportBtn').disabled = csvParsedContacts.length === 0;
             };
             reader.readAsText(file);
         });
