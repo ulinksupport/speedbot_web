@@ -715,49 +715,98 @@
             color: #111827;
         }
 
-        .filter-btn:hover {
-            background: #e5e7eb;
-        }
+        .filter-btn:hover { background: #e5e7eb; }
+        .filter-btn.active { background: #dbeafe; color: #2563eb; }
 
         /* =========================================================
-        CHANNEL DROPDOWN
+        FILTER PANEL (in-flow, not absolute — avoids overflow:hidden clip)
         ========================================================= */
 
-        .channel-dropdown {
-            position: absolute;
-            top: 52px;
-            right: 0;
-            width: 220px;
-            background: white;
-            border-radius: 18px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
-            padding: 10px;
+        .filter-panel {
             display: none;
-            z-index: 9999;
+            margin-top: 10px;
+            padding: 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
         }
 
-        .channel-dropdown.show {
-            display: block;
+        .filter-panel.show { display: block; }
+
+        .filter-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 7px;
         }
 
-        .channel-option {
-            height: 48px;
-            border-radius: 12px;
+        .pf-btns { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+
+        .pf-btn {
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            color: #374151;
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 0 14px;
+            gap: 5px;
+        }
+
+        .pf-btn:hover { background: #f3f4f6; }
+        .pf-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+        .filter-date-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .filter-date-row input[type="date"] {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #111827;
+            background: white;
+            outline: none;
+        }
+
+        .filter-date-row span { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+
+        .filter-actions { display: flex; gap: 6px; }
+
+        .filter-apply-btn {
+            flex: 1;
+            padding: 7px;
+            border-radius: 10px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
         }
 
-        .channel-option:hover {
-            background: #f3f4f6;
+        .filter-apply-btn:hover { background: #1d4ed8; }
+
+        .filter-clear-btn {
+            padding: 7px 12px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            font-size: 12px;
+            cursor: pointer;
         }
 
-        .channel-option.active {
-            background: #eef2f6;
-        }
+        .filter-clear-btn:hover { background: #f3f4f6; }
 
         /* =========================================================
         CHAT LIST ACTION BUTTONS (New Chat + Broadcast)
@@ -3187,39 +3236,11 @@
 
                     <div class="filter-wrap">
 
-                        <button class="filter-btn" onclick="toggleChannelDropdown(event)">
+                        <button class="filter-btn" id="filterToggleBtn" onclick="toggleFilterPanel(event)">
 
                             <i class="fa-solid fa-filter"></i>
 
                         </button>
-
-                        <div class="channel-dropdown" id="channelDropdown">
-
-                            <div class="channel-option active">
-
-                                <i class="fa-brands fa-whatsapp"></i>
-
-                                WhatsApp
-
-                            </div>
-
-                            <div class="channel-option">
-
-                                <i class="fa-brands fa-instagram"></i>
-
-                                Instagram
-
-                            </div>
-
-                            <div class="channel-option">
-
-                                <i class="fa-brands fa-facebook-messenger"></i>
-
-                                Messenger
-
-                            </div>
-
-                        </div>
 
                     </div>
 
@@ -3237,6 +3258,33 @@
                     <button class="sel-mode-btn" id="selModeBtn" onclick="toggleSelectionMode()" title="Select chats">
                         <i class="fa-solid fa-check-square"></i>
                     </button>
+
+                </div>
+
+                <!-- FILTER PANEL (in-flow, no overflow clipping) -->
+                <div class="filter-panel" id="filterPanel">
+
+                    <div class="filter-section-label">Platform</div>
+                    <div class="pf-btns">
+                        <button id="pfAll" class="pf-btn active" onclick="setPlatformFilter('all',this)">All</button>
+                        <button id="pfWa" class="pf-btn" onclick="setPlatformFilter('whatsapp',this)"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
+                        <button id="pfMsng" class="pf-btn" onclick="setPlatformFilter('messenger',this)"><i class="fa-brands fa-facebook-messenger"></i> Messenger</button>
+                        <button id="pfIg" class="pf-btn" onclick="setPlatformFilter('instagram',this)"><i class="fa-brands fa-instagram"></i> Instagram</button>
+                    </div>
+
+                    <div class="filter-section-label">Date Range (SGT)</div>
+                    <div class="filter-date-row">
+                        <input type="date" id="filterDateFrom" title="From date">
+                        <span>to</span>
+                        <input type="date" id="filterDateTo" title="To date">
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="filter-apply-btn" onclick="applyDateFilter()">
+                            <i class="fa-solid fa-magnifying-glass"></i> Apply Filter
+                        </button>
+                        <button class="filter-clear-btn" onclick="clearDateFilter()">Clear</button>
+                    </div>
 
                 </div>
 
@@ -4389,14 +4437,70 @@
         CHANNEL FILTER
         ========================================================= */
 
-        function toggleChannelDropdown(event) {
-
+        function toggleFilterPanel(event) {
             event.stopPropagation();
+            const panel = document.getElementById('filterPanel');
+            const btn = document.getElementById('filterToggleBtn');
+            const showing = panel.classList.toggle('show');
+            btn.classList.toggle('active', showing);
+        }
 
-            document.getElementById(
-                "channelDropdown"
-            ).classList.toggle("show");
+        /* =========================================================
+        PLATFORM FILTER (from filter panel)
+        ========================================================= */
 
+        function setPlatformFilter(platform, el) {
+            currentPlatform = platform;
+            document.querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+            if (el) el.classList.add('active');
+            renderChats(activeFilter);
+        }
+
+        /* =========================================================
+        DATE RANGE FILTER
+        ========================================================= */
+
+        let activeDateFilterIds = null;
+
+        async function applyDateFilter() {
+            const from = document.getElementById('filterDateFrom').value;
+            const to   = document.getElementById('filterDateTo').value;
+            if (!from && !to) { clearDateFilter(); return; }
+
+            const fromBtn = document.querySelector('.filter-apply-btn');
+            fromBtn.textContent = 'Loading…';
+
+            try {
+                // Convert SGT date range to UTC ISO strings
+                const fromUtc = from ? new Date(from + 'T00:00:00+08:00').toISOString() : null;
+                const toUtc   = to   ? new Date(to   + 'T23:59:59+08:00').toISOString() : null;
+
+                let query = supabaseClient.from('messages').select('conversation_id');
+                if (fromUtc) query = query.gte('created_at', fromUtc);
+                if (toUtc)   query = query.lte('created_at', toUtc);
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                activeDateFilterIds = new Set(data.map(r => r.conversation_id).filter(Boolean));
+                document.getElementById('filterToggleBtn').classList.add('active');
+                renderChats(activeFilter);
+            } catch (e) {
+                alert('Date filter error: ' + e.message);
+            } finally {
+                fromBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Apply Filter';
+            }
+        }
+
+        function clearDateFilter() {
+            activeDateFilterIds = null;
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value   = '';
+            const panel = document.getElementById('filterPanel');
+            if (!panel.classList.contains('show')) {
+                document.getElementById('filterToggleBtn').classList.remove('active');
+            }
+            renderChats(activeFilter);
         }
 
         /* =========================================================
@@ -4404,17 +4508,6 @@
         ========================================================= */
 
         window.addEventListener("click", function () {
-
-            const dropdown =
-                document.getElementById(
-                    "channelDropdown"
-                );
-
-            if (dropdown) {
-
-                dropdown.classList.remove("show");
-
-            }
 
             document.getElementById(
                 "profileDropdown"
@@ -5844,6 +5937,9 @@
                     currentPlatform !== "all" &&
                     chat.platformType !== currentPlatform
                 ) return;
+
+                // Date range filter
+                if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
 
                 // Search filter
                 if (searchQuery) {
