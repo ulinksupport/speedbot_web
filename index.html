@@ -4341,7 +4341,13 @@
 
         function formatSGT(date) {
             if (!date) return '';
-            return new Date(date).toLocaleTimeString('en-SG', {
+            const s = String(date);
+            // Supabase returns timestamps without timezone suffix — force UTC so we don't
+            // misinterpret as local time (which would be 8 h behind in SGT)
+            const d = (s.includes('T') && !s.endsWith('Z') && !/[+-]\d\d:\d\d$/.test(s))
+                ? new Date(s + 'Z')
+                : new Date(s);
+            return d.toLocaleTimeString('en-SG', {
                 timeZone: 'Asia/Singapore',
                 hour: '2-digit',
                 minute: '2-digit',
