@@ -4161,7 +4161,7 @@
                 </div>
 
                 <!-- Totals overview row -->
-                <div class="analytics-overview" id="analyticsOverview" style="grid-template-columns:repeat(6,1fr);">
+                <div class="analytics-overview" id="analyticsOverview" style="grid-template-columns:repeat(7,1fr);">
                     <div class="analytics-stat-card">
                         <div class="analytics-stat-num" id="atotal">—</div>
                         <div class="analytics-stat-label">📤 Total Sent</div>
@@ -4185,6 +4185,11 @@
                         <div class="analytics-stat-num" id="abtnclicks">—</div>
                         <div class="analytics-stat-label">🖱 Btn Clicks</div>
                         <div class="analytics-stat-sub" id="abtnRate"></div>
+                    </div>
+                    <div class="analytics-stat-card" style="--c:#0891b2;">
+                        <div class="analytics-stat-num" style="color:#0891b2;" id="aconversions">—</div>
+                        <div class="analytics-stat-label">🏆 Conversions</div>
+                        <div class="analytics-stat-sub" id="aconvRate"></div>
                     </div>
                     <div class="analytics-stat-card red">
                         <div class="analytics-stat-num" id="afailed">—</div>
@@ -8159,18 +8164,25 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 .gte('created_at', oldestSent)
                 .in('phone', allPhones);
 
-            // phone → [{ts, message, isBtn}] sorted ascending so first reply is index 0
+            // phone → [{ts, message, isBtn, btnText}] sorted ascending
             const inboundMap = {};
             (inbound || []).forEach(r => {
                 if (!inboundMap[r.phone]) inboundMap[r.phone] = [];
-                inboundMap[r.phone].push({
-                    ts: r.created_at,
-                    message: r.message || '',
-                    isBtn: !!(r.message && r.message.startsWith('[Button:'))
-                });
+                const isBtn = !!(r.message && r.message.startsWith('[Button:'));
+                const btnText = isBtn ? (r.message.match(/^\[Button:\s*(.+?)\]$/)?.[1] || '') : '';
+                inboundMap[r.phone].push({ ts: r.created_at, message: r.message || '', isBtn, btnText });
             });
             Object.keys(inboundMap).forEach(p => inboundMap[p].sort((a, b) => a.ts.localeCompare(b.ts)));
-            _analyticsCache = { sends, inboundMap };
+
+            // Fetch conversations for name + conversion status
+            const { data: convs } = await supabaseClient
+                .from('conversations')
+                .select('id,phone,name,status')
+                .in('phone', allPhones);
+            const convMap = {};
+            (convs || []).forEach(c => { convMap[c.phone] = c; });
+
+            _analyticsCache = { sends, inboundMap, convMap };
 
             // ── Compute per-row stats ─────────────────────────────
             function rowStats(rows) {
@@ -8178,14 +8190,15 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const delivered = rows.filter(r => ['delivered', 'read'].includes(r.status) || r.delivered_at || r.read_at).length;
                 const read = rows.filter(r => r.status === 'read' || r.read_at).length;
                 const failed = rows.filter(r => r.status === 'failed' || r.failed_at).length;
-                let replied = 0, btnClicks = 0;
+                let replied = 0, btnClicks = 0, conversions = 0;
                 rows.forEach(r => {
                     const msgs = inboundMap[r.phone] || [];
                     const afterSend = msgs.filter(m => m.ts > r.sent_at);
                     if (afterSend.length) replied++;
                     if (afterSend.some(m => m.isBtn)) btnClicks++;
+                    if (convMap[r.phone]?.status === 'completed') conversions++;
                 });
-                return { total, delivered, read, failed, replied, btnClicks };
+                return { total, delivered, read, failed, replied, btnClicks, conversions };
             }
 
             // ── Totals overview ───────────────────────────────────
@@ -8195,12 +8208,14 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             document.getElementById('aread').textContent = t.read;
             document.getElementById('areplied').textContent = t.replied;
             document.getElementById('abtnclicks').textContent = t.btnClicks;
+            document.getElementById('aconversions').textContent = t.conversions;
             document.getElementById('afailed').textContent = t.failed;
             const base = t.total - t.failed;
             document.getElementById('asentRate').textContent = `${_pct(t.delivered, t.total)} of sent`;
             document.getElementById('areadRate').textContent = `${_pct(t.read, t.delivered)} of delivered`;
             document.getElementById('arepliedRate').textContent = `${_pct(t.replied, base)} response rate`;
             document.getElementById('abtnRate').textContent = `${_pct(t.btnClicks, base)} click rate`;
+            document.getElementById('aconvRate').textContent = `${_pct(t.conversions, t.replied)} of replied`;
             document.getElementById('afailedRate').textContent = `${_pct(t.failed, t.total)} failure rate`;
 
             document.getElementById('analyticsStatus').textContent =
@@ -8220,6 +8235,17 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
             const tblWrap = document.getElementById('analyticsTemplateTable');
             const tbl = document.getElementById('tmplPerfTableBody');
+            // Compute per-template button breakdown
+            const tmplBtnBreakdown = {};
+            sends.forEach(r => {
+                const k = r.template_name;
+                const msgs = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at && m.isBtn);
+                msgs.forEach(m => {
+                    if (!tmplBtnBreakdown[k]) tmplBtnBreakdown[k] = {};
+                    tmplBtnBreakdown[k][m.btnText] = (tmplBtnBreakdown[k][m.btnText] || 0) + 1;
+                });
+            });
+
             tbl.innerHTML = `
                 <thead>
                   <tr>
@@ -8228,23 +8254,32 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     <th>Delivered</th>
                     <th>Read</th>
                     <th>Replied</th>
-                    <th>Btn Clicks</th>
+                    <th>Buttons Clicked</th>
+                    <th>🏆 Converted</th>
                     <th>Failed</th>
                     <th>Response Rate</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${tmplStats.map(s => `
+                  ${tmplStats.map(s => {
+                    const btnBreak = tmplBtnBreakdown[s.name] || {};
+                    const btnHtml = Object.entries(btnBreak).length
+                        ? Object.entries(btnBreak).map(([txt, cnt]) =>
+                            `<span style="display:inline-block;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;font-size:11px;margin:1px;">${escHtml(txt)} ×${cnt}</span>`
+                          ).join(' ')
+                        : `<span style="color:#9ca3af;">${s.btnClicks || 0}</span>`;
+                    return `
                     <tr>
                       <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(s.name)}">${escHtml(s.name.replace(/_/g, ' '))}</td>
                       <td>${s.total}</td>
                       <td>${s.delivered} <small style="color:#9ca3af;">${_pct(s.delivered, s.total)}</small></td>
                       <td>${s.read} <small style="color:#9ca3af;">${_pct(s.read, s.delivered)}</small></td>
                       <td>${s.replied}</td>
-                      <td>${s.btnClicks}</td>
+                      <td>${btnHtml}</td>
+                      <td style="color:#0891b2;font-weight:600;">${s.conversions} <small style="color:#9ca3af;">${_pct(s.conversions, s.replied)}</small></td>
                       <td>${s.failed > 0 ? `<span style="color:#dc2626;">${s.failed}</span>` : '0'}</td>
                       <td>${_ratePill(s.replied, s.total - s.failed)}</td>
-                    </tr>`).join('')}
+                    </tr>`;}).join('')}
                 </tbody>`;
             tblWrap.style.display = 'block';
 
@@ -8310,6 +8345,44 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                                 <div class="analytics-mini-num">${s.failed}</div>
                                 <div class="analytics-mini-lbl">❌ Failed<br><small>${_pct(s.failed, s.total)}</small></div>
                             </div>
+                        </div>
+                        <!-- Per-contact detail table -->
+                        <div style="padding:0 14px 14px;">
+                          <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"
+                            style="font-size:11px;font-weight:600;color:#2563eb;background:none;border:none;cursor:pointer;padding:4px 0;">
+                            👥 View Contacts (${rows.length})
+                          </button>
+                          <div style="display:none;overflow-x:auto;margin-top:6px;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                              <thead>
+                                <tr style="background:#f3f4f6;text-align:left;">
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Name</th>
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Phone</th>
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Status</th>
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Button Clicked</th>
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Reply</th>
+                                  <th style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">Converted</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${rows.map(r => {
+                                  const conv = convMap[r.phone] || {};
+                                  const afterSend = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at);
+                                  const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
+                                  const btns = afterSend.filter(m => m.isBtn).map(m => m.btnText).filter(Boolean);
+                                  const converted = conv.status === 'completed';
+                                  return `<tr style="border-bottom:1px solid #f3f4f6;">
+                                    <td style="padding:4px 8px;">${escHtml(conv.name || '—')}</td>
+                                    <td style="padding:4px 8px;font-family:monospace;">${escHtml(r.phone || '')}</td>
+                                    <td style="padding:4px 8px;">${r.status || ''}</td>
+                                    <td style="padding:4px 8px;">${btns.length ? btns.map(b => `<span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px;">${escHtml(b)}</span>`).join(' ') : '—'}</td>
+                                    <td style="padding:4px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(firstReply?.message || '')}">${firstReply ? escHtml(firstReply.message) : '—'}</td>
+                                    <td style="padding:4px 8px;${converted ? 'color:#0891b2;font-weight:700;' : 'color:#9ca3af;'}">${converted ? '✅ Yes' : '—'}</td>
+                                  </tr>`;
+                                }).join('')}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>`;
                     list.appendChild(card);
                 });
@@ -8321,28 +8394,34 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting…';
 
             try {
-                let { sends, inboundMap } = _analyticsCache || {};
+                let { sends, inboundMap, convMap: cachedConvMap } = _analyticsCache || {};
 
-                // Fetch conversations for customer name + any extra fields
+                // Use cached convMap; fall back to full fetch for extra columns
                 const allPhones = [...new Set((sends || []).map(r => r.phone))];
-                const { data: convs } = await supabaseClient
+                const { data: convsFull } = await supabaseClient
                     .from('conversations')
                     .select('*')
                     .in('phone', allPhones);
                 const convMap = {};
-                (convs || []).forEach(c => { convMap[c.phone] = c; });
+                (convsFull || []).forEach(c => { convMap[c.phone] = c; });
 
                 const headers = [
                     'Template Name', 'Customer', 'Phone Number', 'Branch', 'Tag',
                     'Params', 'Status', 'Meta Message ID', 'Date Triggered', 'Sent At',
                     'Delivered At', 'Read At', 'Replied At', 'Reply Content',
+                    'Button Clicked', 'All Buttons Clicked', 'Converted',
                     'Failure Code', 'Failure Message', 'Send Error'
                 ];
 
                 const csvRows = (sends || []).map(r => {
                     const conv = convMap[r.phone] || {};
                     const msgs = (inboundMap && inboundMap[r.phone]) || [];
-                    const firstReply = msgs.find(m => m.ts > (r.sent_at || ''));
+                    const afterSend = msgs.filter(m => m.ts > (r.sent_at || ''));
+                    const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
+                    const btnMsgs = afterSend.filter(m => m.isBtn);
+                    const firstBtn = btnMsgs[0]?.btnText || '';
+                    const allBtns = btnMsgs.map(m => m.btnText).filter(Boolean).join('; ');
+                    const converted = conv.status === 'completed' ? 'Yes' : 'No';
                     return [
                         r.template_name || '',
                         conv.name || '',
@@ -8358,6 +8437,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         r.read_at || '',
                         firstReply ? firstReply.ts : '',
                         firstReply ? firstReply.message : '',
+                        firstBtn,
+                        allBtns,
+                        converted,
                         r.failure_code || '',
                         r.failure_message || '',
                         r.error || ''
