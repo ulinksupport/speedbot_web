@@ -715,8 +715,14 @@
             color: #111827;
         }
 
-        .filter-btn:hover { background: #e5e7eb; }
-        .filter-btn.active { background: #dbeafe; color: #2563eb; }
+        .filter-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .filter-btn.active {
+            background: #dbeafe;
+            color: #2563eb;
+        }
 
         /* =========================================================
         FILTER PANEL (in-flow, not absolute — avoids overflow:hidden clip)
@@ -731,7 +737,9 @@
             border-radius: 14px;
         }
 
-        .filter-panel.show { display: block; }
+        .filter-panel.show {
+            display: block;
+        }
 
         .filter-section-label {
             font-size: 10px;
@@ -742,7 +750,12 @@
             margin-bottom: 7px;
         }
 
-        .pf-btns { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+        .pf-btns {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
 
         .pf-btn {
             padding: 4px 10px;
@@ -757,8 +770,15 @@
             gap: 5px;
         }
 
-        .pf-btn:hover { background: #f3f4f6; }
-        .pf-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .pf-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .pf-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
 
         .filter-date-row {
             display: flex;
@@ -778,9 +798,16 @@
             outline: none;
         }
 
-        .filter-date-row span { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+        .filter-date-row span {
+            font-size: 11px;
+            color: #9ca3af;
+            flex-shrink: 0;
+        }
 
-        .filter-actions { display: flex; gap: 6px; }
+        .filter-actions {
+            display: flex;
+            gap: 6px;
+        }
 
         .filter-apply-btn {
             flex: 1;
@@ -794,7 +821,9 @@
             cursor: pointer;
         }
 
-        .filter-apply-btn:hover { background: #1d4ed8; }
+        .filter-apply-btn:hover {
+            background: #1d4ed8;
+        }
 
         .filter-clear-btn {
             padding: 7px 12px;
@@ -806,7 +835,9 @@
             cursor: pointer;
         }
 
-        .filter-clear-btn:hover { background: #f3f4f6; }
+        .filter-clear-btn:hover {
+            background: #f3f4f6;
+        }
 
         /* =========================================================
         CHAT LIST ACTION BUTTONS (New Chat + Broadcast)
@@ -3267,9 +3298,12 @@
                     <div class="filter-section-label">Platform</div>
                     <div class="pf-btns">
                         <button id="pfAll" class="pf-btn active" onclick="setPlatformFilter('all',this)">All</button>
-                        <button id="pfWa" class="pf-btn" onclick="setPlatformFilter('whatsapp',this)"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
-                        <button id="pfMsng" class="pf-btn" onclick="setPlatformFilter('messenger',this)"><i class="fa-brands fa-facebook-messenger"></i> Messenger</button>
-                        <button id="pfIg" class="pf-btn" onclick="setPlatformFilter('instagram',this)"><i class="fa-brands fa-instagram"></i> Instagram</button>
+                        <button id="pfWa" class="pf-btn" onclick="setPlatformFilter('whatsapp',this)"><i
+                                class="fa-brands fa-whatsapp"></i> WhatsApp</button>
+                        <button id="pfMsng" class="pf-btn" onclick="setPlatformFilter('messenger',this)"><i
+                                class="fa-brands fa-facebook-messenger"></i> Messenger</button>
+                        <button id="pfIg" class="pf-btn" onclick="setPlatformFilter('instagram',this)"><i
+                                class="fa-brands fa-instagram"></i> Instagram</button>
                     </div>
 
                     <div class="filter-section-label">Date Range (SGT)</div>
@@ -3553,120 +3587,81 @@
         <div class="profile-panel" id="profilePanel">
 
             <div class="profile-top">
-
-                <img src="https://i.pravatar.cc/100?img=12">
-
-                <h2 style="margin-top:14px;">
-                    Hambali
-                </h2>
-
+                <img id="profileAvatar" src="https://ui-avatars.com/api/?name=User&background=A7E8EF&color=000">
+                <h2 id="profileName" style="margin-top:14px;">-</h2>
             </div>
 
-            <div class="profile-row" onclick="openEditModal('Phone', '+6282174478888', 'phoneValue')">
+            <div class="profile-row" onclick="openEditModal('phone')">
+                <div>Phone</div>
+                <div class="profile-value" id="phoneValue">N/A</div>
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('email')">
+                <div>Email</div>
+                <div class="profile-value" id="emailValue">N/A</div>
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('country')">
+                <div>Country</div>
+                <div class="profile-value" id="countryValue">N/A</div>
+            </div>
+
+            <div class="profile-row" onclick="openEditModal('language')">
+                <div>Language</div>
+                <div class="profile-value" id="languageValue">N/A</div>
+            </div>
+
+        </div>
+
+        <!-- MEDIA -->
+
+        <div class="media-section">
+
+            <div class="media-header" onclick="toggleMediaSection()">
 
                 <div>
-                    Phone
+                    Media
                 </div>
 
-                <div class="profile-value" id="phoneValue">
+                <i class="fa-solid fa-chevron-right" id="mediaArrow"></i>
 
-                    +6282174478888
+            </div>
 
+            <div class="media-content" id="mediaContent">
+
+                <div class="media-grid" id="mediaGrid"></div>
+
+                <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                    No media yet
                 </div>
 
             </div>
 
-            <div class="profile-row" onclick="openEditModal('Email', 'member@email.com', 'emailValue')">
+            <!-- FILES -->
+
+            <div class="media-header files-header" onclick="toggleFilesSection()">
 
                 <div>
-                    Email
+                    Files
                 </div>
 
-                <div class="profile-value" id="emailValue">
-
-                    member@email.com
-
-                </div>
+                <i class="fa-solid fa-chevron-right" id="filesArrow"></i>
 
             </div>
 
-            <div class="profile-row" onclick="openEditModal('Country', 'Indonesia', 'countryValue')">
+            <div class="files-content" id="filesContent">
 
-                <div>
-                    Country
-                </div>
+                <div id="filesList"></div>
 
-                <div class="profile-value" id="countryValue">
-
-                    Indonesia
-
-                </div>
-
-            </div>
-
-            <div class="profile-row" onclick="openEditModal('Language', 'Bahasa Indonesia', 'languageValue')">
-
-                <div>
-                    Language
-                </div>
-
-                <div class="profile-value" id="languageValue">
-
-                    Bahasa Indonesia
-
-                </div>
-
-            </div>
-
-            <!-- MEDIA -->
-
-            <div class="media-section">
-
-                <div class="media-header" onclick="toggleMediaSection()">
-
-                    <div>
-                        Media
-                    </div>
-
-                    <i class="fa-solid fa-chevron-right" id="mediaArrow"></i>
-
-                </div>
-
-                <div class="media-content" id="mediaContent">
-
-                    <div class="media-grid" id="mediaGrid"></div>
-
-                    <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
-                        No media yet
-                    </div>
-
-                </div>
-
-                <!-- FILES -->
-
-                <div class="media-header files-header" onclick="toggleFilesSection()">
-
-                    <div>
-                        Files
-                    </div>
-
-                    <i class="fa-solid fa-chevron-right" id="filesArrow"></i>
-
-                </div>
-
-                <div class="files-content" id="filesContent">
-
-                    <div id="filesList"></div>
-
-                    <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
-                        No files yet
-                    </div>
-
+                <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                    No files yet
                 </div>
 
             </div>
 
         </div>
+
+    </div>
 
     </div>
 
@@ -3988,14 +3983,15 @@
                     <span class="modal-label">1. Your Message</span>
                     <textarea id="broadcastPlainText" placeholder="Type your message to all selected recipients..."
                         style="width:100%;min-height:90px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:4px;"></textarea>
-                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">Works for WhatsApp, Messenger, and Instagram contacts.</div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">Works for WhatsApp, Messenger, and
+                        Instagram contacts.</div>
                 </div>
 
                 <span class="modal-label" style="margin-top:16px;display:block;">2. Select Recipients</span>
 
                 <input type="text" id="broadcastSearchInput" placeholder="Search by name or number..."
-                       oninput="filterBroadcastContacts()"
-                       style="width:100%;padding:8px 10px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                    oninput="filterBroadcastContacts()"
+                    style="width:100%;padding:8px 10px;margin-bottom:8px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;">
 
                 <div class="broadcast-select-all-row">
 
@@ -4477,7 +4473,7 @@
 
         async function applyDateFilter() {
             const from = document.getElementById('filterDateFrom').value;
-            const to   = document.getElementById('filterDateTo').value;
+            const to = document.getElementById('filterDateTo').value;
             if (!from && !to) { clearDateFilter(); return; }
 
             const fromBtn = document.querySelector('.filter-apply-btn');
@@ -4486,11 +4482,11 @@
             try {
                 // Convert SGT date range to UTC ISO strings
                 const fromUtc = from ? new Date(from + 'T00:00:00+08:00').toISOString() : null;
-                const toUtc   = to   ? new Date(to   + 'T23:59:59+08:00').toISOString() : null;
+                const toUtc = to ? new Date(to + 'T23:59:59+08:00').toISOString() : null;
 
                 let query = supabaseClient.from('messages').select('conversation_id');
                 if (fromUtc) query = query.gte('created_at', fromUtc);
-                if (toUtc)   query = query.lte('created_at', toUtc);
+                if (toUtc) query = query.lte('created_at', toUtc);
 
                 const { data, error } = await query;
                 if (error) throw error;
@@ -4508,7 +4504,7 @@
         function clearDateFilter() {
             activeDateFilterIds = null;
             document.getElementById('filterDateFrom').value = '';
-            document.getElementById('filterDateTo').value   = '';
+            document.getElementById('filterDateTo').value = '';
             const panel = document.getElementById('filterPanel');
             if (!panel.classList.contains('show')) {
                 document.getElementById('filterToggleBtn').classList.remove('active');
@@ -5302,57 +5298,82 @@
         EDIT PROFILE
         ========================================================= */
 
-        let currentEditField = "";
+        let currentEditKey = "";
 
-        function openEditModal(title, value, fieldId) {
+        const profileFields = {
+            phone: { title: "Phone", column: "phone", valueId: "phoneValue" },
+            email: { title: "Email", column: "email", valueId: "emailValue" },
+            country: { title: "Country", column: "country", valueId: "countryValue" },
+            language: { title: "Language", column: "language", valueId: "languageValue" }
+        };
 
-            currentEditField = fieldId;
+        function updateProfilePanel(chat) {
+            if (!chat) return;
 
-            document.getElementById(
-                "editTitle"
-            ).innerText = title;
+            const name = chat.name || chat.phone || "Unknown";
 
-            document.getElementById(
-                "editInput"
-            ).value = value;
+            document.getElementById("profileName").innerText = name;
+            document.getElementById("profileAvatar").src =
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=A7E8EF&color=000`;
 
-            document.getElementById(
-                "editOverlay"
-            ).classList.add("show");
+            document.getElementById("phoneValue").innerText = chat.phone || "N/A";
+            document.getElementById("emailValue").innerText = chat.email || "N/A";
+            document.getElementById("countryValue").innerText = chat.country || "N/A";
+            document.getElementById("languageValue").innerText = chat.language || "N/A";
+        }
 
+        function openEditModal(key) {
+            if (!currentChat) return;
+
+            currentEditKey = key;
+
+            const field = profileFields[key];
+            const currentValue = currentChat[field.column] || "";
+
+            document.getElementById("editTitle").innerText = field.title;
+            document.getElementById("editInput").value = currentValue;
+
+            document.getElementById("editOverlay").classList.add("show");
         }
 
         function closeEditModal() {
-
-            document.getElementById(
-                "editOverlay"
-            ).classList.remove("show");
-
+            document.getElementById("editOverlay").classList.remove("show");
         }
 
-        function saveField() {
+        async function saveField() {
+            if (!currentChat || !currentEditKey) return;
 
-            const value =
-                document.getElementById(
-                    "editInput"
-                ).value;
+            const field = profileFields[currentEditKey];
+            const value = document.getElementById("editInput").value.trim();
 
-            document.getElementById(
-                currentEditField
-            ).innerText = value;
+            const { error } = await supabaseClient
+                .from("conversations")
+                .update({ [field.column]: value || null })
+                .eq("id", currentChat.id);
 
+            if (error) {
+                console.error("Profile update failed:", error);
+                showToast("Profile update failed", "error");
+                return;
+            }
+
+            currentChat[field.column] = value || null;
+
+            const chatIndex = chats.findIndex(c => c.id === currentChat.id);
+            if (chatIndex !== -1) {
+                chats[chatIndex][field.column] = value || null;
+            }
+
+            updateProfilePanel(currentChat);
+            renderChats(activeFilter);
             closeEditModal();
 
+            showToast("Profile updated", "success");
         }
 
-        function deleteField() {
-
-            document.getElementById(
-                currentEditField
-            ).innerText = "----";
-
-            closeEditModal();
-
+        async function deleteField() {
+            document.getElementById("editInput").value = "";
+            await saveField();
         }
 
         document.getElementById(
@@ -6196,6 +6217,7 @@
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
             currentChat = chat;
+            updateProfilePanel(currentChat);
             await supabaseClient
                 .from('conversations')
                 .update({
@@ -8297,13 +8319,13 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 </thead>
                 <tbody>
                   ${tmplStats.map(s => {
-                    const btnBreak = tmplBtnBreakdown[s.name] || {};
-                    const btnHtml = Object.entries(btnBreak).length
-                        ? Object.entries(btnBreak).map(([txt, cnt]) =>
-                            `<span style="display:inline-block;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;font-size:11px;margin:1px;">${escHtml(txt)} ×${cnt}</span>`
-                          ).join(' ')
-                        : `<span style="color:#9ca3af;">${s.btnClicks || 0}</span>`;
-                    return `
+                const btnBreak = tmplBtnBreakdown[s.name] || {};
+                const btnHtml = Object.entries(btnBreak).length
+                    ? Object.entries(btnBreak).map(([txt, cnt]) =>
+                        `<span style="display:inline-block;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;font-size:11px;margin:1px;">${escHtml(txt)} ×${cnt}</span>`
+                    ).join(' ')
+                    : `<span style="color:#9ca3af;">${s.btnClicks || 0}</span>`;
+                return `
                     <tr>
                       <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(s.name)}">${escHtml(s.name.replace(/_/g, ' '))}</td>
                       <td>${s.total}</td>
@@ -8314,7 +8336,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                       <td style="color:#0891b2;font-weight:600;">${s.conversions} <small style="color:#9ca3af;">${_pct(s.conversions, s.replied)}</small></td>
                       <td>${s.failed > 0 ? `<span style="color:#dc2626;">${s.failed}</span>` : '0'}</td>
                       <td>${_ratePill(s.replied, s.total - s.failed)}</td>
-                    </tr>`;}).join('')}
+                    </tr>`;
+            }).join('')}
                 </tbody>`;
             tblWrap.style.display = 'block';
 
@@ -8401,12 +8424,12 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                               </thead>
                               <tbody>
                                 ${rows.map(r => {
-                                  const conv = convMap[r.phone] || {};
-                                  const afterSend = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at);
-                                  const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
-                                  const btns = afterSend.filter(m => m.isBtn).map(m => m.btnText).filter(Boolean);
-                                  const converted = conv.status === 'completed';
-                                  return `<tr style="border-bottom:1px solid #f3f4f6;">
+                        const conv = convMap[r.phone] || {};
+                        const afterSend = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at);
+                        const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
+                        const btns = afterSend.filter(m => m.isBtn).map(m => m.btnText).filter(Boolean);
+                        const converted = conv.status === 'completed';
+                        return `<tr style="border-bottom:1px solid #f3f4f6;">
                                     <td style="padding:4px 8px;">${escHtml(conv.name || '—')}</td>
                                     <td style="padding:4px 8px;font-family:monospace;">${escHtml(r.phone || '')}</td>
                                     <td style="padding:4px 8px;">${r.status || ''}</td>
@@ -8414,7 +8437,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                                     <td style="padding:4px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(firstReply?.message || '')}">${firstReply ? escHtml(firstReply.message) : '—'}</td>
                                     <td style="padding:4px 8px;${converted ? 'color:#0891b2;font-weight:700;' : 'color:#9ca3af;'}">${converted ? '✅ Yes' : '—'}</td>
                                   </tr>`;
-                                }).join('')}
+                    }).join('')}
                               </tbody>
                             </table>
                           </div>
