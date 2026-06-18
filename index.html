@@ -3423,6 +3423,12 @@
                         <span id="modeLabel">AI Active</span>
                     </div>
 
+                    <div class="icon-btn" id="profileToggleBtn" onclick="toggleProfile()" title="Toggle Profile">
+
+                        <i class="fa-solid fa-circle-info"></i>
+
+                    </div>
+
                     <div class="icon-btn" id="followUpBtn" onclick="toggleFollowUp()" title="Follow Up">
 
                         <i class="fa-solid fa-star"></i>
@@ -3438,12 +3444,6 @@
                     <div class="icon-btn" id="spamBtn" onclick="toggleSpam()" title="Mark as Spam">
 
                         <i class="fa-solid fa-ban"></i>
-
-                    </div>
-
-                    <div class="icon-btn" id="profileToggleBtn" onclick="toggleProfile()" title="Toggle Profile">
-
-                        <i class="fa-solid fa-circle-info"></i>
 
                     </div>
 
@@ -3611,57 +3611,55 @@
                 <div class="profile-value" id="languageValue">N/A</div>
             </div>
 
+            <!-- MEDIA -->
+
+            <div class="media-section">
+
+                <div class="media-header" onclick="toggleMediaSection()">
+
+                    <div>
+                        Media
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right" id="mediaArrow"></i>
+
+                </div>
+
+                <div class="media-content" id="mediaContent">
+
+                    <div class="media-grid" id="mediaGrid"></div>
+
+                    <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No media yet
+                    </div>
+
+                </div>
+
+                <!-- FILES -->
+
+                <div class="media-header files-header" onclick="toggleFilesSection()">
+
+                    <div>
+                        Files
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right" id="filesArrow"></i>
+
+                </div>
+
+                <div class="files-content" id="filesContent">
+
+                    <div id="filesList"></div>
+
+                    <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
+                        No files yet
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
-
-        <!-- MEDIA -->
-
-        <div class="media-section">
-
-            <div class="media-header" onclick="toggleMediaSection()">
-
-                <div>
-                    Media
-                </div>
-
-                <i class="fa-solid fa-chevron-right" id="mediaArrow"></i>
-
-            </div>
-
-            <div class="media-content" id="mediaContent">
-
-                <div class="media-grid" id="mediaGrid"></div>
-
-                <div class="media-empty" id="mediaEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
-                    No media yet
-                </div>
-
-            </div>
-
-            <!-- FILES -->
-
-            <div class="media-header files-header" onclick="toggleFilesSection()">
-
-                <div>
-                    Files
-                </div>
-
-                <i class="fa-solid fa-chevron-right" id="filesArrow"></i>
-
-            </div>
-
-            <div class="files-content" id="filesContent">
-
-                <div id="filesList"></div>
-
-                <div class="files-empty" id="filesEmpty" style="font-size:12px;color:#9ca3af;margin-top:10px;">
-                    No files yet
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
 
     </div>
 
@@ -5708,7 +5706,7 @@
                     platform: conv.platform || "WhatsApp",
                     platformType: normalisePlatform(conv.platform),
                     phone: conv.phone,
-                    email: "N/A",
+                    email: conv.email || "N/A",
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     messages: [],
@@ -7047,7 +7045,7 @@ ${bodyHtml}
 
                 phone: data.phone,
 
-                email: "N/A",
+                email: data.email || "N/A",
 
                 country: data.country || "Unknown",
 
