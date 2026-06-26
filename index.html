@@ -5911,8 +5911,9 @@
             const { data, error } = await supabaseClient
                 .from('conversations')
                 .select('*')
-                .order('last_message_time', { ascending: false })
-                .order('created_at', { ascending: false });
+                .order('last_message_time', { ascending: false, nullsFirst: false })
+                .order('created_at', { ascending: false })
+                .limit(2000);
 
             if (error) {
                 console.error('Error loading conversations:', error);
