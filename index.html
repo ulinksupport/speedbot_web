@@ -1587,6 +1587,46 @@
             color: #6b7280;
         }
 
+        .profile-comment-section {
+            padding: 18px 22px 28px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .profile-comment-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        #progressCommentInput {
+            width: 100%;
+            min-height: 130px;
+            border: 1px solid #d1d5db;
+            border-radius: 14px;
+            padding: 12px;
+            resize: vertical;
+            font-size: 13px;
+            outline: none;
+        }
+
+        #saveProgressCommentBtn {
+            width: 100%;
+            margin-top: 10px;
+            height: 42px;
+            border: none;
+            border-radius: 12px;
+            background: #111827;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #saveProgressCommentBtn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         /* =========================================================
         ASSIGN MODAL
         ========================================================= */
@@ -3658,6 +3698,20 @@
 
                 </div>
 
+                <div class="profile-comment-section">
+                    <div class="profile-comment-title">
+                        Status / Progress Comment
+                    </div>
+
+                    <textarea id="progressCommentInput"
+                        placeholder="Add case status, progress update, or internal notes..."
+                        oninput="markProgressCommentDirty()"></textarea>
+
+                    <button id="saveProgressCommentBtn" onclick="saveProgressComment()" disabled>
+                        Save Comment
+                    </button>
+                </div>
+
             </div>
 
         </div>
@@ -5331,6 +5385,45 @@
             document.getElementById("emailValue").innerText = chat.email || "N/A";
             document.getElementById("countryValue").innerText = chat.country || "N/A";
             document.getElementById("languageValue").innerText = chat.language || "N/A";
+
+            document.getElementById("progressCommentInput").value = chat.progress_comment || "";
+            document.getElementById("saveProgressCommentBtn").disabled = true;
+        }
+        function markProgressCommentDirty() {
+            document.getElementById("saveProgressCommentBtn").disabled = false;
+        }
+
+        async function saveProgressComment() {
+            if (!currentChat) return;
+
+            const value = document.getElementById("progressCommentInput").value.trim();
+
+            const confirmed = confirm(
+                "Are you sure you want to save this status/progress comment?"
+            );
+
+            if (!confirmed) return;
+
+            const { error } = await supabaseClient
+                .from("conversations")
+                .update({ progress_comment: value || null })
+                .eq("id", currentChat.id);
+
+            if (error) {
+                console.error("Comment update failed:", error);
+                showToast("Comment update failed", "error");
+                return;
+            }
+
+            currentChat.progress_comment = value || null;
+
+            const chatIndex = chats.findIndex(c => c.id === currentChat.id);
+            if (chatIndex !== -1) {
+                chats[chatIndex].progress_comment = value || null;
+            }
+
+            document.getElementById("saveProgressCommentBtn").disabled = true;
+            showToast("Comment saved", "success");
         }
 
         function openEditModal(key) {
@@ -5722,6 +5815,7 @@
                     email: conv.email || "N/A",
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
+                    progress_comment: conv.progress_comment || "",
                     messages: [],
                     unread_count: conv.unread_count || 0,
                     last_incoming_at: conv.last_incoming_at || null,
@@ -6674,6 +6768,14 @@
                             if (conv.is_spam !== undefined) {
                                 existing.is_spam = conv.is_spam;
                                 existing.spam_at = conv.spam_at || null;
+                            }
+                            if (conv.progress_comment !== undefined) {
+                                existing.progress_comment = conv.progress_comment || "";
+
+                                if (currentChat && currentChat.id === conv.id) {
+                                    currentChat.progress_comment = conv.progress_comment || "";
+                                    updateProfilePanel(currentChat);
+                                }
                             }
                             if (conv.follow_up_stage !== undefined) {
                                 existing.follow_up_stage = conv.follow_up_stage;
