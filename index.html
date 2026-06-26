@@ -3710,6 +3710,17 @@
                     <button id="saveProgressCommentBtn" onclick="saveProgressComment()" disabled>
                         Save Comment
                     </button>
+
+                    <div id="lastProgressCommentBox" style="display:none;margin-top:12px;font-size:12px;color:#6b7280;">
+                        <strong>Last saved:</strong>
+                        <div id="lastProgressCommentText" style="margin-top:4px;color:#374151;"></div>
+                        <div id="lastProgressCommentTime" style="margin-top:4px;color:#9ca3af;"></div>
+                    </div>
+
+                    <button id="seeCommentHistoryBtn" onclick="openCommentHistoryModal()"
+                        style="width:100%;margin-top:10px;height:38px;border:1px solid #d1d5db;border-radius:12px;background:white;color:#374151;font-weight:600;cursor:pointer;">
+                        See All History
+                    </button>
                 </div>
 
             </div>
@@ -3788,6 +3799,22 @@
 
         </div>
 
+    </div>
+
+    <!-- COMMENT HISTORY MODAL -->
+    <div class="edit-overlay" id="commentHistoryOverlay">
+        <div class="edit-modal">
+            <div class="edit-header">
+                <h3>Comment History</h3>
+                <button onclick="closeCommentHistoryModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="edit-body" id="commentHistoryList" style="max-height:420px;overflow-y:auto;">
+                Loading...
+            </div>
+        </div>
     </div>
 
     <!-- EDIT PROFILE MODAL -->
@@ -5389,6 +5416,91 @@
             document.getElementById("progressCommentInput").value = chat.progress_comment || "";
             document.getElementById("saveProgressCommentBtn").disabled = true;
         }
+
+        function formatCommentTime(iso) {
+            if (!iso) return "";
+
+            return new Date(iso).toLocaleString("en-SG", {
+                timeZone: "Asia/Singapore",
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            });
+        }
+
+        async function loadLastProgressComment() {
+            if (!currentChat) return;
+
+            const { data, error } = await supabaseClient
+                .from("conversation_comments")
+                .select("*")
+                .eq("conversation_id", currentChat.id)
+                .order("created_at", { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error("Load last comment failed:", error);
+                return;
+            }
+
+            const box = document.getElementById("lastProgressCommentBox");
+
+            if (!data || !data.length) {
+                box.style.display = "none";
+                return;
+            }
+
+            document.getElementById("lastProgressCommentText").innerText = data[0].comment || "";
+            document.getElementById("lastProgressCommentTime").innerText =
+                formatCommentTime(data[0].created_at);
+
+            box.style.display = "block";
+        }
+
+        async function openCommentHistoryModal() {
+            if (!currentChat) return;
+
+            document.getElementById("commentHistoryOverlay").classList.add("show");
+            document.getElementById("commentHistoryList").innerHTML = "Loading...";
+
+            const { data, error } = await supabaseClient
+                .from("conversation_comments")
+                .select("*")
+                .eq("conversation_id", currentChat.id)
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                document.getElementById("commentHistoryList").innerHTML =
+                    `<div style="color:#dc2626;">Failed to load comment history.</div>`;
+                return;
+            }
+
+            if (!data || !data.length) {
+                document.getElementById("commentHistoryList").innerHTML =
+                    `<div style="color:#9ca3af;text-align:center;padding:20px;">No comment history yet.</div>`;
+                return;
+            }
+
+            document.getElementById("commentHistoryList").innerHTML = data.map(item => `
+        <div style="padding:12px 0;border-bottom:1px solid #e5e7eb;">
+            <div style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
+                ${formatCommentTime(item.created_at)}
+                ${item.created_by ? " · " + escHtml(item.created_by) : ""}
+            </div>
+            <div style="font-size:13px;color:#374151;white-space:pre-wrap;line-height:1.5;">
+                ${escHtml(item.comment || "")}
+            </div>
+        </div>
+    `).join("");
+        }
+
+        function closeCommentHistoryModal() {
+            document.getElementById("commentHistoryOverlay").classList.remove("show");
+        }
+
         function markProgressCommentDirty() {
             document.getElementById("saveProgressCommentBtn").disabled = false;
         }
@@ -5415,6 +5527,21 @@
                 return;
             }
 
+            if (value) {
+                const { error: historyError } = await supabaseClient
+                    .from("conversation_comments")
+                    .insert({
+                        conversation_id: currentChat.id,
+                        comment: value,
+                        created_by: agentName || null
+                    });
+
+                if (historyError) {
+                    console.error("Comment history save failed:", historyError);
+                    showToast("Comment saved, but history failed", "error");
+                }
+            }
+
             currentChat.progress_comment = value || null;
 
             const chatIndex = chats.findIndex(c => c.id === currentChat.id);
@@ -5423,6 +5550,9 @@
             }
 
             document.getElementById("saveProgressCommentBtn").disabled = true;
+
+            await loadLastProgressComment();
+
             showToast("Comment saved", "success");
         }
 
@@ -5469,6 +5599,7 @@
             }
 
             updateProfilePanel(currentChat);
+            loadLastProgressComment();
             renderChats(activeFilter);
             closeEditModal();
 
@@ -6323,6 +6454,7 @@
             if (!chat) return;
             currentChat = chat;
             updateProfilePanel(currentChat);
+            await loadLastProgressComment();
             await supabaseClient
                 .from('conversations')
                 .update({
