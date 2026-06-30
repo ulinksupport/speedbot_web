@@ -5153,7 +5153,13 @@
                 !currentChat.follow_up;
 
             const updateData = { follow_up: newValue };
-            if (newValue) updateData.bot_enabled = false;
+            if (newValue) {
+                updateData.bot_enabled = false;
+                // Switching to Human mode here is the same "resolved" signal
+                // as the AI/Human toggle - keep escalate state consistent.
+                updateData.escalate = false;
+                updateData.escalate_reason = null;
+            }
 
             const { error } =
                 await supabaseClient
@@ -5170,6 +5176,8 @@
             currentChat.follow_up = newValue;
             if (newValue) {
                 currentChat.bot_enabled = false;
+                currentChat.escalate = false;
+                currentChat.escalate_reason = null;
                 updateBotButton();
             }
 
