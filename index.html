@@ -5912,16 +5912,30 @@
         let _analyticsCache = null;
 
         async function loadConversations() {
-            const { data, error } = await supabaseClient
-                .from('conversations')
-                .select('*')
-                .order('last_message_time', { ascending: false, nullsFirst: false })
-                .order('created_at', { ascending: false })
-                .limit(2000);
+            // Supabase REST API hard-caps any single request at 1000 rows
+            // regardless of .limit() — page through with .range() to fetch
+            // every conversation instead of silently truncating at 1000.
+            const PAGE_SIZE = 1000;
+            let data = [];
+            let from = 0;
+            while (true) {
+                const { data: page, error } = await supabaseClient
+                    .from('conversations')
+                    .select('*')
+                    .order('last_message_time', { ascending: false, nullsFirst: false })
+                    .order('created_at', { ascending: false })
+                    .order('id', { ascending: false })
+                    .range(from, from + PAGE_SIZE - 1);
 
-            if (error) {
-                console.error('Error loading conversations:', error);
-                return;
+                if (error) {
+                    console.error('Error loading conversations:', error);
+                    if (data.length === 0) return;
+                    break;
+                }
+                if (!page || page.length === 0) break;
+                data = data.concat(page);
+                if (page.length < PAGE_SIZE) break;
+                from += PAGE_SIZE;
             }
 
             chats = data.map(conv => {
@@ -6664,8 +6678,10 @@
                 .eq('phone', currentChat.phone)
 
                 .order('created_at', {
-                    ascending: true
-                });
+                    ascending: false
+                })
+
+                .limit(1000);
 
             if (error) {
 
@@ -6677,6 +6693,12 @@
                 return;
 
             }
+
+            // Supabase caps unbounded/limited requests at 1000 rows server-side.
+            // Fetching newest-first + limit(1000) then reversing guarantees we
+            // always get the most recent messages, not the oldest, for
+            // conversations with more than 1000 total messages.
+            data.reverse();
 
             const messagesContainer =
                 document.getElementById("messages");
