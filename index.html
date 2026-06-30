@@ -353,7 +353,7 @@
 
         .sidebar.collapsed span,
         .sidebar.collapsed #count-all,
-        .sidebar.collapsed #count-myinbox,
+        .sidebar.collapsed #count-escalated,
         .sidebar.collapsed #count-unassigned,
         .sidebar.collapsed #count-unreplied,
         .sidebar.collapsed #count-followup,
@@ -3155,14 +3155,14 @@
 
                 </div>
 
-                <div class="menu-item" onclick="filterChats('myinbox', this)">
+                <div class="menu-item" onclick="filterChats('escalated', this)">
 
                     <div class="menu-left">
-                        <i class="fa-regular fa-user"></i>
+                        <i class="fa-solid fa-triangle-exclamation"></i>
                         <span>Escalated</span>
                     </div>
 
-                    <div id="count-myinbox">0</div>
+                    <div id="count-escalated">0</div>
 
                 </div>
 
@@ -5952,6 +5952,8 @@
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     progress_comment: conv.progress_comment || "",
+                    escalate: conv.escalate || false,
+                    escalate_reason: conv.escalate_reason || null,
                     messages: [],
                     unread_count: conv.unread_count || 0,
                     last_incoming_at: conv.last_incoming_at || null,
@@ -6076,7 +6078,7 @@
 
         function updateSidebarCounts() {
             document.getElementById('count-all').innerText = chats.length;
-            document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
+            document.getElementById('count-escalated').innerText = chats.filter(c => c.escalate).length;
             document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
@@ -6229,6 +6231,8 @@
 
                 if (filter === "unread") {
                     if (!chat.unread_count || chat.unread_count <= 0) return;
+                } else if (filter === "escalated") {
+                    if (!chat.escalate) return;
                 } else if (filter === "active") {
                     if (isWindowExpired(chat.last_incoming_at)) return;
                 } else if (filter === "expired") {
@@ -6331,6 +6335,7 @@
 
         <div class="chat-name">
             ${chat.name}
+            ${chat.escalate ? `<span title="${chat.escalate_reason ? escHtml(chat.escalate_reason) : 'Escalated'}" style="font-size:11px;font-weight:600;color:#d9534f;margin-left:6px;">🚨 Escalated</span>` : ''}
             ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
         </div>
 
@@ -6950,6 +6955,11 @@
                             if (conv.is_spam !== undefined) {
                                 existing.is_spam = conv.is_spam;
                                 existing.spam_at = conv.spam_at || null;
+                            }
+                            if (conv.escalate !== undefined) {
+                                existing.escalate = conv.escalate || false;
+                                existing.escalate_reason = conv.escalate_reason || null;
+                                updateSidebarCounts();
                             }
                             if (conv.progress_comment !== undefined) {
                                 existing.progress_comment = conv.progress_comment || "";
