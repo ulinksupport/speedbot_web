@@ -3159,7 +3159,7 @@
 
                     <div class="menu-left">
                         <i class="fa-regular fa-user"></i>
-                        <span>My Inbox</span>
+                        <span>Escalated</span>
                     </div>
 
                     <div id="count-myinbox">0</div>
@@ -5773,6 +5773,10 @@
                 updateBulkBar();
             }
 
+            if (type === "inactive7") {
+                autoSwitchInactiveToBot();
+            }
+
             renderChats(type);
 
         }
@@ -6023,6 +6027,51 @@
             // Ensure UTC parsing if timezone is missing
             if (!parseDate.endsWith('Z') && !parseDate.includes('+')) parseDate += 'Z';
             return (Date.now() - new Date(parseDate).getTime() > 86400000);
+        }
+
+        async function autoSwitchInactiveToBot() {
+            const inactiveChats = chats.filter(c => {
+                const last = c.last_incoming_at || c.last_message_time || c.created_at;
+                const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000);
+
+                return olderThan7Days &&
+                    c.status !== "completed" &&
+                    c.bot_enabled === false &&
+                    !c.opted_out &&
+                    !c.is_spam;
+            });
+
+            if (!inactiveChats.length) return;
+
+            const ids = inactiveChats.map(c => c.id);
+
+            const { error } = await supabaseClient
+                .from("conversations")
+                .update({
+                    bot_enabled: true,
+                    agent_name: null
+                })
+                .in("id", ids);
+
+            if (error) {
+                console.error("Auto switch inactive chats to bot failed:", error);
+                showToast("Failed to auto switch inactive chats", "error");
+                return;
+            }
+
+            inactiveChats.forEach(c => {
+                c.bot_enabled = true;
+                c.agent_name = null;
+            });
+
+            if (currentChat && ids.includes(currentChat.id)) {
+                currentChat.bot_enabled = true;
+                currentChat.agent_name = null;
+                updateBotButton();
+            }
+
+            updateSidebarCounts();
+            showToast(`${inactiveChats.length} inactive chat(s) switched to Bot Active`, "success");
         }
 
         function updateSidebarCounts() {
@@ -7098,7 +7147,7 @@
   <a href="${escHtml(ref.source_url)}" target="_blank" style="color:#60a5fa;text-decoration:none;font-size:11px;">View Ad ↗</a>
 </div>`;
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
 
             div.innerHTML = `
