@@ -7228,15 +7228,31 @@ ${referralHtml}${bodyHtml}
 
             const botEnabled = mode === "bot";
 
+            const updatePayload = {
+                bot_enabled: botEnabled,
+                agent_name: botEnabled ? null : agentName
+            };
+
+            // Human taking over is the resolution of an escalation - clear it
+            // so the Escalated filter only ever shows cases nobody has picked up yet.
+            if (!botEnabled) {
+                updatePayload.escalate = false;
+                updatePayload.escalate_reason = null;
+            }
+
             const { error } = await supabaseClient
                 .from('conversations')
-                .update({
-                    bot_enabled: botEnabled,
-                    agent_name: botEnabled ? null : agentName
-                })
+                .update(updatePayload)
                 .eq('id', currentChat.id);
 
             currentChat.agent_name = botEnabled ? null : agentName;
+
+            if (!botEnabled) {
+                currentChat.escalate = false;
+                currentChat.escalate_reason = null;
+                updateSidebarCounts();
+                renderChats(activeFilter);
+            }
 
             if (error) {
 
