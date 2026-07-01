@@ -352,15 +352,12 @@
         }
 
         .sidebar.collapsed span,
-        .sidebar.collapsed #count-all,
-        .sidebar.collapsed #count-escalated,
-        .sidebar.collapsed #count-unassigned,
-        .sidebar.collapsed #count-unreplied,
-        .sidebar.collapsed #count-followup,
-        .sidebar.collapsed #count-unread,
-        .sidebar.collapsed #count-active,
-        .sidebar.collapsed #count-expired {
-            display: none;
+        .sidebar.collapsed .menu-item>div[id^="count-"] {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .menu-unread-badge.show {
+            display: inline-flex !important;
         }
 
         .sidebar.collapsed .menu-item {
@@ -396,6 +393,33 @@
             align-items: center;
             gap: 14px;
             font-size: 15px;
+        }
+
+        /* Small unread badge inside sidebar menu items */
+        .menu-unread-badge {
+            position: absolute;
+            top: 5px;
+            right: 6px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #25D366;
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+                0 0 0 2px white,
+                0 2px 6px rgba(0, 0, 0, 0.18);
+            z-index: 5;
+        }
+
+        .menu-unread-badge.show {
+            display: inline-flex;
         }
 
         /* =========================================================
@@ -3163,6 +3187,7 @@
                     </div>
 
                     <div id="count-escalated">0</div>
+                    <div id="unread-escalated" class="menu-unread-badge">0</div>
 
                 </div>
 
@@ -3196,6 +3221,7 @@
                     </div>
 
                     <div id="count-followup">0</div>
+                    <div id="unread-followup" class="menu-unread-badge">0</div>
 
                 </div>
 
@@ -3246,6 +3272,7 @@
                         <span>Inactive &gt; 1 week</span>
                     </div>
                     <div id="count-inactive7">0</div>
+                    <div id="unread-inactive7" class="menu-unread-badge">0</div>
                 </div>
 
                 <div class="menu-item" onclick="filterChats('human', this)">
@@ -3254,6 +3281,7 @@
                         <span>Human Active</span>
                     </div>
                     <div id="count-human">0</div>
+                    <div id="unread-human" class="menu-unread-badge">0</div>
                 </div>
 
                 <div class="menu-item" onclick="filterChats('bot', this)">
@@ -3344,6 +3372,25 @@
                                 class="fa-brands fa-facebook-messenger"></i> Messenger</button>
                         <button id="pfIg" class="pf-btn" onclick="setPlatformFilter('instagram',this)"><i
                                 class="fa-brands fa-instagram"></i> Instagram</button>
+                    </div>
+
+                    <div class="filter-section-label">Unread / Mode</div>
+                    <div class="pf-btns">
+                        <button id="ufAll" class="pf-btn active" onclick="setUnreadModeFilter('all', this)">
+                            All
+                        </button>
+
+                        <button id="ufUnread" class="pf-btn" onclick="setUnreadModeFilter('unread', this)">
+                            <i class="fa-regular fa-envelope"></i> Unread
+                        </button>
+
+                        <button id="ufBot" class="pf-btn" onclick="setUnreadModeFilter('bot', this)">
+                            <i class="fa-solid fa-robot"></i> Bot
+                        </button>
+
+                        <button id="ufHuman" class="pf-btn" onclick="setUnreadModeFilter('human', this)">
+                            <i class="fa-solid fa-user-check"></i> Human
+                        </button>
                     </div>
 
                     <div class="filter-section-label">Date Range (SGT)</div>
@@ -4557,10 +4604,53 @@
             renderChats(activeFilter);
         }
 
+        function setUnreadModeFilter(type, el) {
+            if (type === 'all') {
+                activeUnreadModeFilter.unread = false;
+                activeUnreadModeFilter.bot = false;
+                activeUnreadModeFilter.human = false;
+            }
+
+            if (type === 'unread') {
+                activeUnreadModeFilter.unread = !activeUnreadModeFilter.unread;
+            }
+
+            if (type === 'bot') {
+                activeUnreadModeFilter.bot = !activeUnreadModeFilter.bot;
+            }
+
+            if (type === 'human') {
+                activeUnreadModeFilter.human = !activeUnreadModeFilter.human;
+            }
+
+            syncUnreadModeButtons();
+            renderChats(activeFilter);
+        }
+
+        function syncUnreadModeButtons() {
+            const allBtn = document.getElementById('ufAll');
+            const unreadBtn = document.getElementById('ufUnread');
+            const botBtn = document.getElementById('ufBot');
+            const humanBtn = document.getElementById('ufHuman');
+
+            if (!allBtn || !unreadBtn || !botBtn || !humanBtn) return;
+
+            unreadBtn.classList.toggle('active', activeUnreadModeFilter.unread);
+            botBtn.classList.toggle('active', activeUnreadModeFilter.bot);
+            humanBtn.classList.toggle('active', activeUnreadModeFilter.human);
+
+            allBtn.classList.toggle('active', !activeUnreadModeFilter.unread);
+        }
+
         /* =========================================================
         DATE RANGE FILTER
         ========================================================= */
 
+        let activeUnreadModeFilter = {
+            unread: false,
+            bot: false,
+            human: false
+        };
         let activeDateFilterIds = null;
 
         async function applyDateFilter() {
@@ -4595,6 +4685,14 @@
 
         function clearDateFilter() {
             activeDateFilterIds = null;
+            activeUnreadModeFilter.unread = false;
+            activeUnreadModeFilter.bot = false;
+            activeUnreadModeFilter.human = false;
+            syncUnreadModeButtons();
+            activeUnreadFilter = 'all';
+            document.querySelectorAll('#ufAll, #ufUnread, #ufBot, #ufHuman')
+                .forEach(b => b.classList.remove('active'));
+            document.getElementById('ufAll')?.classList.add('active');
             document.getElementById('filterDateFrom').value = '';
             document.getElementById('filterDateTo').value = '';
             const panel = document.getElementById('filterPanel');
@@ -6098,38 +6196,70 @@
             showToast(`${inactiveChats.length} inactive chat(s) switched to Bot Active`, "success");
         }
 
+        function setMenuUnreadBadge(id, count) {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            const value = Number(count || 0);
+
+            el.innerText = value > 99 ? '99+' : String(value);
+            el.title = value + ' unread message' + (value === 1 ? '' : 's');
+            el.classList.toggle('show', value > 0);
+        }
+
+        function sumUnread(list) {
+            return list.reduce((sum, c) => sum + Number(c.unread_count || 0), 0);
+        }
+
+        function isInactiveOver7Days(c) {
+            const last = c.last_incoming_at || c.last_message_time || c.lastPreviewAt || c.created_at;
+            return last &&
+                ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000) &&
+                c.status !== 'completed';
+        }
+
         function updateSidebarCounts() {
+            const visibleChats = chats.filter(c => !c.is_spam && !c.opted_out);
+
+            const escalatedChats = visibleChats.filter(c => c.escalate);
+
+            const followUpChats = visibleChats.filter(c =>
+                c.follow_up === true &&
+                c.status !== 'completed'
+            );
+
+            const humanChats = visibleChats.filter(c =>
+                c.bot_enabled === false
+            );
+
+            const inactive7Chats = visibleChats.filter(c =>
+                isInactiveOver7Days(c)
+            );
+
             document.getElementById('count-all').innerText = chats.length;
-            document.getElementById('count-escalated').innerText = chats.filter(c => c.escalate).length;
-            document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
+            document.getElementById('count-escalated').innerText = escalatedChats.length; document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
             document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
-            document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
-            document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
+            document.getElementById('count-human').innerText = humanChats.length; document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
             document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out && !c.is_spam).length;
             document.getElementById('count-spam').innerText = chats.filter(c => c.is_spam).length;
-            document.getElementById('count-followup').innerText =
-                chats.filter(c =>
-                    c.follow_up === true &&
-                    c.status !== 'completed'
-                ).length;
+            document.getElementById('count-followup').innerText = followUpChats.length;
 
             document.getElementById('count-completed').innerText =
                 chats.filter(c => c.status === "completed").length;
 
-            document.getElementById('count-inactive7').innerText =
-                chats.filter(c => {
-                    const last = c.last_incoming_at || c.last_message_time || c.created_at;
-                    return last &&
-                        ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000) &&
-                        c.status !== "completed";
-                }).length;
+            document.getElementById('count-inactive7').innerText = inactive7Chats.length;
 
             const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
             document.getElementById('allMessageBadge').innerText = totalUnread;
             document.title = totalUnread > 0 ? `(${totalUnread}) Speedbot Console` : 'Speedbot Console';
+
+            setMenuUnreadBadge('unread-escalated', sumUnread(escalatedChats));
+            setMenuUnreadBadge('unread-followup', sumUnread(followUpChats));
+            setMenuUnreadBadge('unread-human', sumUnread(humanChats));
+            setMenuUnreadBadge('unread-inactive7', sumUnread(inactive7Chats));
         }
 
         /* =========================================================
@@ -6287,6 +6417,27 @@
                     currentPlatform !== "all" &&
                     chat.platformType !== currentPlatform
                 ) return;
+
+                // Unread / Bot / Human dynamic filter
+                if (activeUnreadModeFilter.unread) {
+                    if (!chat.unread_count || chat.unread_count <= 0) return;
+                }
+
+                const botSelected = activeUnreadModeFilter.bot;
+                const humanSelected = activeUnreadModeFilter.human;
+
+                if (botSelected || humanSelected) {
+                    const isHumanActive = chat.bot_enabled === false;
+                    const isBotActive = chat.bot_enabled !== false;
+
+                    if (botSelected && humanSelected) {
+                        // both selected = allow both bot and human chats
+                    } else if (botSelected && !isBotActive) {
+                        return;
+                    } else if (humanSelected && !isHumanActive) {
+                        return;
+                    }
+                }
 
                 // Date range filter
                 if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
