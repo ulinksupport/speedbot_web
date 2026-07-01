@@ -6469,7 +6469,7 @@
         }
 
         function sumUnread(list) {
-            return list.reduce((sum, c) => sum + Number(c.unread_count || 0), 0);
+            return list.filter(c => Number(c.unread_count || 0) > 0).length;
         }
 
         function isInactiveOver7Days(c) {
