@@ -1381,12 +1381,13 @@
 
         .input-box {
             flex: 1;
-            height: 54px;
+            min-height: 54px;
+            height: auto;
             background: #f3f4f6;
             border-radius: 16px;
             display: flex;
             align-items: center;
-            padding: 0 18px;
+            padding: 10px 18px;
         }
 
         .input-box input {
@@ -1394,6 +1395,22 @@
             border: none;
             background: transparent;
             outline: none;
+        }
+
+        .input-box textarea {
+            width: 100%;
+            min-height: 24px;
+            max-height: 130px;
+            border: none;
+            background: transparent;
+            outline: none;
+            resize: none;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.45;
+            color: #111827;
+            padding: 0;
+            display: block;
         }
 
         /* =========================================================
@@ -3592,15 +3609,14 @@
 
                 <!-- Media staging row (replaces normal input row when a file is staged) -->
                 <div id="mediaStagingArea"
-                    style="display:none;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                    style="display:none;align-items:flex-end;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
                     <div id="mediaStagingPreview" style="flex-shrink:0;"></div>
                     <div class="input-box" style="flex:1;display:flex;align-items:center;gap:8px;padding:4px 10px;">
                         <div id="mediaStagingName"
                             style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:0;">
                         </div>
-                        <input type="text" id="mediaCaptionInput" placeholder="Add a caption (optional)..."
-                            style="flex:1;background:transparent;border:none;color:#111827;font-size:13px;outline:none;min-width:0;"
-                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendStagedMedia();}">
+                        <textarea id="mediaCaptionInput" placeholder="Add a caption (optional)..." rows="1"
+                            style="flex:1;background:transparent;border:none;color:#111827;font-size:13px;outline:none;min-width:0;resize:none;line-height:1.4;max-height:90px;overflow-y:auto;"></textarea>
                     </div>
                     <button onclick="clearMediaStaging()" title="Cancel" class="input-action-btn"
                         style="color:#9ca3af;">
@@ -3613,7 +3629,7 @@
 
                 <!-- Normal input row -->
                 <div id="normalInputArea"
-                    style="display:flex;align-items:center;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                    style="display:flex;align-items:flex-end;gap:8px;padding:10px 14px;width:100%;box-sizing:border-box;">
 
                     <button class="input-action-btn" onclick="toggleEmojiPicker()">
 
@@ -3644,7 +3660,7 @@
 
                     <div class="input-box" style="flex:1;">
 
-                        <input type="text" id="messageInput" placeholder="Type message...">
+                        <textarea id="messageInput" placeholder="Type message..." rows="1"></textarea>
 
                     </div>
 
@@ -5019,6 +5035,7 @@
             if (!text || !currentChat) return;
 
             input.value = "";
+            autoResizeTextarea(input);
 
             appendMessage({
 
@@ -5081,17 +5098,36 @@
         ENTER KEY SEND
         ========================================================= */
 
-        document.getElementById(
-            "messageInput"
-        ).addEventListener("keypress", function (e) {
+        function autoResizeTextarea(el) {
+            if (!el) return;
 
-            if (e.key === "Enter") {
+            el.style.height = 'auto';
 
-                sendMessage();
+            const maxHeight = el.id === 'mediaCaptionInput' ? 90 : 130;
+            const newHeight = Math.min(el.scrollHeight, maxHeight);
 
-            }
+            el.style.height = newHeight + 'px';
+        }
 
-        });
+        function setupMultilineSendBox(inputId, sendFn) {
+            const el = document.getElementById(inputId);
+            if (!el) return;
+
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendFn();
+                    setTimeout(() => autoResizeTextarea(el), 0);
+                }
+            });
+
+            el.addEventListener('input', function () {
+                autoResizeTextarea(el);
+            });
+        }
+
+        setupMultilineSendBox('messageInput', sendMessage);
+        setupMultilineSendBox('mediaCaptionInput', sendStagedMedia);
 
         /* =========================================================
         FILE UPLOAD / PASTE / DRAG-DROP
@@ -5118,6 +5154,7 @@
             }
             document.getElementById('mediaStagingName').textContent = file.name;
             document.getElementById('mediaCaptionInput').value = '';
+            autoResizeTextarea(document.getElementById('mediaCaptionInput'));
             document.getElementById('normalInputArea').style.display = 'none';
             document.getElementById('mediaStagingArea').style.display = 'flex';
             document.getElementById('mediaCaptionInput').focus();
@@ -5128,6 +5165,7 @@
             document.getElementById('mediaStagingArea').style.display = 'none';
             document.getElementById('mediaStagingPreview').innerHTML = '';
             document.getElementById('mediaCaptionInput').value = '';
+            autoResizeTextarea(document.getElementById('mediaCaptionInput'));
             document.getElementById('normalInputArea').style.display = 'flex';
         }
 
