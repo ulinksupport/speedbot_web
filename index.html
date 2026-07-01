@@ -3636,6 +3636,11 @@
 
                     </button>
 
+                    <!-- CANNED RESPONSE BUTTON -->
+                    <button class="input-action-btn" onclick="openCannedResponseModal()" title="Canned Responses">
+                        <i class="fa-solid fa-comment-dots"></i>
+                    </button>
+
                     <div class="input-box" style="flex:1;">
 
                         <input type="text" id="messageInput" placeholder="Type message...">
@@ -3993,6 +3998,56 @@
                     <i class="fa-solid fa-paper-plane"></i> Send Template
                 </button>
 
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+    CANNED RESPONSE MODAL — SUPABASE SAVED
+    ========================================================= -->
+
+    <div class="template-overlay" id="cannedResponseOverlay">
+
+        <div class="template-modal">
+
+            <div class="modal-header">
+                <h3>
+                    <i class="fa-solid fa-comment-dots" style="color:#2563eb;margin-right:8px;"></i>
+                    Canned Responses
+                </h3>
+
+                <button onclick="closeCannedResponseModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+
+                <span class="modal-label">Title</span>
+                <input type="text" class="modal-input" id="cannedTitleInput"
+                    placeholder="e.g. Clinic recommendation reply">
+
+                <span class="modal-label">Message</span>
+                <textarea id="cannedMessageInput" placeholder="Type the message to save..."
+                    style="width:100%;min-height:130px;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px;font-size:14px;resize:vertical;outline:none;margin-bottom:12px;"></textarea>
+
+                <button class="modal-btn-primary" onclick="saveCannedResponse()"
+                    style="width:100%;justify-content:center;margin-bottom:18px;">
+                    <i class="fa-solid fa-save"></i> Save
+                </button>
+
+                <span class="modal-label">Saved Canned Responses</span>
+
+                <div class="template-list" id="cannedResponseList">
+                    <!-- filled by renderCannedResponses() -->
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="modal-btn-secondary" onclick="closeCannedResponseModal()">Close</button>
             </div>
 
         </div>
@@ -4740,6 +4795,211 @@
             input.value += emoji;
 
         }
+
+        /* =========================================================
+        CANNED RESPONSES — SUPABASE SAVED, NON META APPROVAL
+        ========================================================= */
+
+        let cannedResponsesCache = [];
+
+        async function loadCannedResponses() {
+            const { data, error } = await supabaseClient
+                .from('canned_responses')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Failed to load canned responses:', error);
+                showToast('Failed to load canned responses.', 'error');
+                cannedResponsesCache = [];
+                return [];
+            }
+
+            cannedResponsesCache = data || [];
+            return cannedResponsesCache;
+        }
+
+        async function openCannedResponseModal() {
+            if (!currentChat) {
+                alert('Please select a conversation first.');
+                return;
+            }
+
+            document.getElementById('cannedTitleInput').value = '';
+            document.getElementById('cannedMessageInput').value = '';
+
+            document.getElementById('cannedResponseList').innerHTML = `
+        <div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px;">
+            Loading canned responses...
+        </div>
+    `;
+
+            document.getElementById('cannedResponseOverlay').classList.add('show');
+
+            await loadCannedResponses();
+            renderCannedResponses();
+        }
+
+        function closeCannedResponseModal() {
+            document.getElementById('cannedResponseOverlay').classList.remove('show');
+        }
+
+        async function saveCannedResponse() {
+            const title = document.getElementById('cannedTitleInput').value.trim();
+            const message = document.getElementById('cannedMessageInput').value.trim();
+
+            if (!title) {
+                alert('Please enter a title.');
+                return;
+            }
+
+            if (!message) {
+                alert('Please enter a message.');
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('canned_responses')
+                .insert({
+                    title: title,
+                    message: message,
+                    created_by: agentName || null
+                });
+
+            if (error) {
+                console.error('Failed to save canned response:', error);
+                showToast('Failed to save canned response.', 'error');
+                return;
+            }
+
+            document.getElementById('cannedTitleInput').value = '';
+            document.getElementById('cannedMessageInput').value = '';
+
+            await loadCannedResponses();
+            renderCannedResponses();
+
+            showToast('Canned response saved.', 'success');
+        }
+
+        function renderCannedResponses() {
+            const wrap = document.getElementById('cannedResponseList');
+            if (!wrap) return;
+
+            const list = cannedResponsesCache || [];
+
+            if (!list.length) {
+                wrap.innerHTML = `
+            <div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px;border:1px dashed #d1d5db;border-radius:14px;">
+                No canned responses saved yet.
+            </div>
+        `;
+                return;
+            }
+
+            wrap.innerHTML = list.map(item => `
+        <div class="template-card">
+            <div class="template-card-name">
+                ${escHtml(item.title || '')}
+            </div>
+
+            <div class="template-card-body" style="white-space:pre-wrap;">
+                ${escHtml(item.message || '')}
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button class="modal-btn-secondary"
+                    style="height:36px;padding:0 12px;font-size:12px;"
+                    onclick="insertCannedResponse('${item.id}')">
+                    Insert
+                </button>
+
+                <button class="modal-btn-primary"
+                    style="height:36px;padding:0 12px;font-size:12px;"
+                    onclick="sendCannedResponse('${item.id}')">
+                    Send
+                </button>
+
+                <button class="modal-btn-secondary"
+                    style="height:36px;padding:0 12px;font-size:12px;color:#dc2626;border-color:#fecaca;margin-left:auto;"
+                    onclick="deleteCannedResponse('${item.id}')">
+                    Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function findCannedResponse(id) {
+            return cannedResponsesCache.find(item => item.id === id);
+        }
+
+        function insertCannedResponse(id) {
+            const item = findCannedResponse(id);
+            if (!item) return;
+
+            const input = document.getElementById('messageInput');
+            input.value = item.message || '';
+            input.focus();
+
+            closeCannedResponseModal();
+        }
+
+        async function sendCannedResponse(id) {
+            const item = findCannedResponse(id);
+            if (!item) return;
+
+            if (!currentChat) {
+                alert('Please select a conversation first.');
+                return;
+            }
+
+            if (currentChat.windowExpired) {
+                alert('This WhatsApp 24-hour window has expired. Use an approved Meta template instead.');
+                return;
+            }
+
+            if (currentChat.bot_enabled !== false) {
+                alert('Please switch the conversation to Human Active before sending a canned response.');
+                return;
+            }
+
+            const input = document.getElementById('messageInput');
+            input.value = item.message || '';
+
+            closeCannedResponseModal();
+
+            await sendMessage();
+        }
+
+        async function deleteCannedResponse(id) {
+            if (!confirm('Delete this canned response?')) return;
+
+            const { error } = await supabaseClient
+                .from('canned_responses')
+                .update({
+                    is_active: false,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+
+            if (error) {
+                console.error('Failed to delete canned response:', error);
+                showToast('Failed to delete canned response.', 'error');
+                return;
+            }
+
+            await loadCannedResponses();
+            renderCannedResponses();
+
+            showToast('Canned response deleted.', 'success');
+        }
+
+        document.getElementById('cannedResponseOverlay')?.addEventListener('click', function (e) {
+            if (e.target.id === 'cannedResponseOverlay') {
+                closeCannedResponseModal();
+            }
+        });
 
         /* =========================================================
         SEND MESSAGE
@@ -7978,28 +8238,78 @@ ${referralHtml}${bodyHtml}
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
         async function callTemplateSendWebhook(phone, template, variables, conversationId) {
+            const cleanPhone = String(phone || '').replace(/\D/g, '');
+
             const payload = {
-                phone: phone.replace(/\s/g, ''),
+                phone: cleanPhone,
                 template_name: template.name,
                 language_code: template.language,
                 variables: variables,
-                conversation_id: conversationId || null
+                conversation_id: conversationId || null,
+                platform: currentChat?.platformType || 'whatsapp',
+                meta_psid: currentChat?.meta_psid || null
             };
+
             try {
+                console.log('Sending template payload:', payload);
+
                 const resp = await fetch(N8N_BASE + '/send-template-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
                 let data = {};
-                try { data = await resp.json(); } catch (_) { }
-                if (!resp.ok) return { ok: false, wamid: null, error: data?.message || `HTTP ${resp.status}` };
-                if (data?.error) return { ok: false, wamid: null, error: data.error.message || JSON.stringify(data.error) };
-                // n8n should return the wamid from Meta's response
-                const wamid = data?.wamid || data?.messages?.[0]?.id || null;
-                return { ok: true, wamid };
+                try {
+                    data = await resp.json();
+                } catch (_) {
+                    data = {};
+                }
+
+                console.log('Template webhook response:', data);
+
+                if (!resp.ok) {
+                    return {
+                        ok: false,
+                        wamid: null,
+                        error: data?.message || data?.error || `HTTP ${resp.status}`
+                    };
+                }
+
+                if (data?.error) {
+                    return {
+                        ok: false,
+                        wamid: null,
+                        error: data.error.message || JSON.stringify(data.error)
+                    };
+                }
+
+                const wamid =
+                    data?.wamid ||
+                    data?.message_id ||
+                    data?.messages?.[0]?.id ||
+                    data?.data?.messages?.[0]?.id ||
+                    null;
+
+                if (!wamid) {
+                    return {
+                        ok: false,
+                        wamid: null,
+                        error: 'n8n returned success but no WhatsApp message ID. Check n8n Meta Send Template node response.'
+                    };
+                }
+
+                return {
+                    ok: true,
+                    wamid: wamid
+                };
+
             } catch (e) {
-                return { ok: false, wamid: null, error: e.message };
+                return {
+                    ok: false,
+                    wamid: null,
+                    error: e.message
+                };
             }
         }
 
@@ -8028,20 +8338,37 @@ ${referralHtml}${bodyHtml}
                 alert('Please select a template first.');
                 return;
             }
-            const vars = getVariableValues('variableInputs', selectedTemplate.variables.length);
+
+            const templateToSend = selectedTemplate;
+            const vars = getVariableValues('variableInputs', templateToSend.variables.length);
             const btn = document.querySelector('#templateOverlay .modal-btn-primary');
+
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
 
-            const result = await callTemplateSendWebhook(currentChat.phone, selectedTemplate, vars, currentChat?.id);
+            let result;
+
+            try {
+                result = await callTemplateSendWebhook(
+                    currentChat.phone,
+                    templateToSend,
+                    vars,
+                    currentChat?.id
+                );
+            } catch (e) {
+                result = {
+                    ok: false,
+                    wamid: null,
+                    error: e.message
+                };
+            }
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
 
-            // Log send attempt regardless of outcome
             supabaseClient.from('template_sends').insert({
                 phone: currentChat.phone,
-                template_name: selectedTemplate.name,
+                template_name: templateToSend.name,
                 broadcast_id: null,
                 wamid: result.wamid || null,
                 status: result.ok ? 'sent' : 'failed',
@@ -8049,36 +8376,58 @@ ${referralHtml}${bodyHtml}
             }).then();
 
             if (result.ok) {
-                closeTemplatePicker();
-                // Optimistic local display — realtime will deduplicate if n8n logs it too
                 const sentNow = new Date().toISOString();
-                appendMessage({
-                    message: `[Template: ${selectedTemplate.name}]`,
-                    sender: 'outgoing',
-                    sender_type: 'human',
-                    created_at: sentNow,
-                    created_at_sgt: new Intl.DateTimeFormat('en-SG', {
-                        timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
-                    }).format(new Date())
-                });
-                // Update sidebar preview so chat moves to top
-                const previewText = `[Template: ${selectedTemplate.name}]`;
+                const sentNowSgt = new Intl.DateTimeFormat('en-SG', {
+                    timeZone: 'Asia/Singapore',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date());
+
+                const previewText = `[Template: ${templateToSend.name}]`;
+
+                closeTemplatePicker();
+
+                // Save template message permanently into Supabase messages table
+                const { error: msgInsertError } = await supabaseClient
+                    .from('messages')
+                    .insert({
+                        phone: currentChat.phone,
+                        message: previewText,
+                        sender: 'outgoing',
+                        sender_type: 'human',
+                        conversation_id: currentChat.id,
+                        created_at: sentNow,
+                        created_at_sgt: sentNowSgt,
+                        agent_name: agentName || null
+                    });
+
+                if (msgInsertError) {
+                    console.error('Template message save failed:', msgInsertError);
+                    showToast('Template sent, but failed to save message in dashboard.', 'error', 6000);
+                }
+
+                // Update sidebar preview
                 supabaseClient.from('conversations').update({
                     last_message: previewText,
                     last_message_time: sentNow
                 }).eq('phone', currentChat.phone).then();
+
                 const chatObj = chats.find(c => c.phone === currentChat.phone);
+
                 if (chatObj) {
                     chatObj.preview = previewText;
                     chatObj.lastPreviewAt = sentNow;
-                    chatObj.time = new Intl.DateTimeFormat('en-SG', {
-                        timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true
-                    }).format(new Date());
-                    // Move to top of sidebar
+                    chatObj.time = sentNowSgt;
+
                     chats.splice(chats.indexOf(chatObj), 1);
                     chats.unshift(chatObj);
                     renderChats(activeFilter);
                 }
+
+                // Reload from Supabase so the message stays permanently
+                await fetchMessagesForChat();
+
                 showToast('Template sent successfully!', 'success');
             } else {
                 showToast('Failed to send template: ' + (result.error || 'Unknown error'), 'error', 6000);
