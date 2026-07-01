@@ -3290,6 +3290,7 @@
                         <span>Bot Active</span>
                     </div>
                     <div id="count-bot">0</div>
+                    <div id="unread-bot" class="menu-unread-badge">0</div>
                 </div>
 
                 <div class="menu-item" onclick="filterChats('optedout', this)">
@@ -6492,6 +6493,10 @@
                 c.bot_enabled === false
             );
 
+            const botChats = visibleChats.filter(c =>
+                c.bot_enabled !== false
+            );
+
             const inactive7Chats = visibleChats.filter(c =>
                 isInactiveOver7Days(c)
             );
@@ -6502,7 +6507,8 @@
             document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
             document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
-            document.getElementById('count-human').innerText = humanChats.length; document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
+            document.getElementById('count-human').innerText = humanChats.length;
+            document.getElementById('count-bot').innerText = botChats.length;
             document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out && !c.is_spam).length;
             document.getElementById('count-spam').innerText = chats.filter(c => c.is_spam).length;
             document.getElementById('count-followup').innerText = followUpChats.length;
@@ -6519,6 +6525,7 @@
             setMenuUnreadBadge('unread-escalated', sumUnread(escalatedChats));
             setMenuUnreadBadge('unread-followup', sumUnread(followUpChats));
             setMenuUnreadBadge('unread-human', sumUnread(humanChats));
+            setMenuUnreadBadge('unread-bot', sumUnread(botChats));
             setMenuUnreadBadge('unread-inactive7', sumUnread(inactive7Chats));
         }
 
