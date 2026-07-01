@@ -1345,6 +1345,42 @@
         }
 
         /* =========================================================
+        Floating - Go to latest message
+        ========================================================= */
+
+        .chat-window {
+            position: relative;
+        }
+
+        .scroll-recent-btn {
+            position: absolute;
+            right: 24px;
+            bottom: 92px;
+            width: 42px;
+            height: 42px;
+            border: none;
+            border-radius: 50%;
+            background: #111827;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+            font-size: 15px;
+        }
+
+        .scroll-recent-btn.show {
+            display: flex;
+        }
+
+        .scroll-recent-btn:hover {
+            background: #1f2937;
+        }
+
+
+        /* =========================================================
         CHAT INPUT
         ========================================================= */
 
@@ -3594,6 +3630,11 @@
 
             </div>
 
+            <button id="scrollRecentBtn" class="scroll-recent-btn" onclick="scrollMessagesToBottom(true)"
+                title="Go to latest message">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+
             <!-- CHAT INPUT -->
 
             <div class="chat-input" id="chatInputArea" style="flex-direction:column;padding:0;">
@@ -5107,7 +5148,73 @@
             const newHeight = Math.min(el.scrollHeight, maxHeight);
 
             el.style.height = newHeight + 'px';
+
+            updateScrollRecentButton();
         }
+
+        function scrollMessagesToBottomIfNearBottom() {
+            const messagesContainer = document.getElementById('messages');
+            if (!messagesContainer) return;
+
+            const nearBottom =
+                messagesContainer.scrollHeight -
+                messagesContainer.scrollTop -
+                messagesContainer.clientHeight < 180;
+
+            if (nearBottom) {
+                requestAnimationFrame(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                });
+            }
+        }
+
+        function isMessagesNearBottom(threshold = 140) {
+            const messagesContainer = document.getElementById('messages');
+            if (!messagesContainer) return true;
+
+            return (
+                messagesContainer.scrollHeight -
+                messagesContainer.scrollTop -
+                messagesContainer.clientHeight
+            ) < threshold;
+        }
+
+        function updateScrollRecentButton() {
+            const messagesContainer = document.getElementById('messages');
+            const btn = document.getElementById('scrollRecentBtn');
+            const inputArea = document.getElementById('chatInputArea');
+
+            if (!messagesContainer || !btn) return;
+
+            // Keep button above the expanding chat textbox
+            if (inputArea) {
+                btn.style.bottom = (inputArea.offsetHeight + 18) + 'px';
+            }
+
+            btn.classList.toggle('show', !isMessagesNearBottom(180));
+        }
+
+        function scrollMessagesToBottom(smooth = true) {
+            const messagesContainer = document.getElementById('messages');
+            const btn = document.getElementById('scrollRecentBtn');
+
+            if (!messagesContainer) return;
+
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+
+            if (btn) btn.classList.remove('show');
+
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                if (btn) btn.classList.remove('show');
+            }, 120);
+        }
+
+        document.getElementById('messages')?.addEventListener('scroll', updateScrollRecentButton);
+        window.addEventListener('resize', updateScrollRecentButton);
 
         function setupMultilineSendBox(inputId, sendFn) {
             const el = document.getElementById(inputId);
@@ -5117,12 +5224,17 @@
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendFn();
-                    setTimeout(() => autoResizeTextarea(el), 0);
+
+                    setTimeout(() => {
+                        autoResizeTextarea(el);
+                        scrollMessagesToBottomIfNearBottom();
+                    }, 0);
                 }
             });
 
             el.addEventListener('input', function () {
                 autoResizeTextarea(el);
+                scrollMessagesToBottomIfNearBottom();
             });
         }
 
@@ -7654,10 +7766,22 @@ ${referralHtml}${bodyHtml}
 <div class="message-time">${time}</div>
 `;
 
+            const shouldScrollToBottom =
+                msg.sender !== "incoming" ||
+                isMessagesNearBottom(160);
+
             messagesContainer.appendChild(div);
 
-            if (!suppressScroll && messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            if (!suppressScroll && shouldScrollToBottom) {
+                requestAnimationFrame(() => {
+                    scrollMessagesToBottom(false);
+                });
+
+                setTimeout(() => {
+                    scrollMessagesToBottom(false);
+                }, 80);
+            } else {
+                updateScrollRecentButton();
             }
 
         }
