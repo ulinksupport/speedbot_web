@@ -1226,7 +1226,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            scroll-behavior: smooth;
+            scroll-behavior: auto;
             min-height: 0;
         }
 
@@ -6432,7 +6432,7 @@
             // Supabase REST API hard-caps any single request at 1000 rows
             // regardless of .limit() — page through with .range() to fetch
             // every conversation instead of silently truncating at 1000.
-            const PAGE_SIZE = 1000;
+            const PAGE_SIZE = 300;
             let data = [];
             let from = 0;
             while (true) {
@@ -7113,7 +7113,6 @@
                 .update({ unread_count: 0 })
                 .eq('phone', currentChat.phone);
 
-            renderChats(activeFilter);
             updateUnreadBadges();
             _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
 
