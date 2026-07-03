@@ -6507,7 +6507,7 @@
             // n8n only writes incoming messages to conversations.last_message — bot replies are messages-table-only
             const { data: recentMsgs } = await supabaseClient
                 .from('messages')
-                .select('phone, message, created_at, created_at_sgt, sender')
+                .select('phone, message, created_at, created_at_sgt, sender, sender_type')
                 .order('created_at', { ascending: false, nullsFirst: false })
                 .limit(500);
             if (recentMsgs && recentMsgs.length > 0) {
@@ -6523,6 +6523,8 @@
                     const latest = latestByPhone[c.phone];
                     if (latest && latest.message) {
                         c.preview = latest.message;
+                        c.last_sender = latest.sender || '';
+                        c.last_sender_type = latest.sender_type || '';
                         c.lastPreviewAt = latest.created_at || c.lastPreviewAt;
                         c.time = latest.created_at_sgt || (latest.created_at ? formatSGT(latest.created_at) : c.time);
                     }
@@ -6953,7 +6955,7 @@
                 min-width:0;
             "
         >
-            ${formatPreview(chat.preview)}
+            <strong>${getPreviewSenderLabel(chat)}:</strong> ${formatPreview(chat.preview)}
         </div>
 
         ${unreadBadge}
@@ -9968,6 +9970,21 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             return String(str || '').replace(/[&<>"']/g, m => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[m]));
+        }
+
+        function getPreviewSenderLabel(chat) {
+            const sender = chat.last_sender || '';
+            const senderType = chat.last_sender_type || '';
+
+            if (sender === 'incoming') {
+                return chat.name || 'Customer';
+            }
+
+            if (senderType === 'human') {
+                return 'Human';
+            }
+
+            return 'Bot';
         }
 
         function formatPreview(text) {
