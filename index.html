@@ -10,6 +10,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <script src="supabase-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
     <style>
         /* =========================================================
@@ -4199,6 +4200,22 @@
             </div>
 
             <div class="modal-body">
+
+                <div
+                    style="margin-bottom:14px;padding:10px;border:1px dashed #d1d5db;border-radius:12px;background:#f9fafb;">
+                    <input type="file" id="broadcastListFileInput" accept=".csv,.xlsx,.xls" style="display:none;"
+                        onchange="handleBroadcastImportFile(event)">
+
+                    <button type="button" class="modal-btn-secondary"
+                        onclick="document.getElementById('broadcastListFileInput').click()"
+                        style="width:100%;justify-content:center;">
+                        <i class="fa-solid fa-file-import"></i> Import Broadcast List
+                    </button>
+
+                    <div id="broadcastListImportMsg" style="margin-top:8px;font-size:12px;color:#6b7280;">
+                        Optional: upload Excel/CSV with columns: name, contact number, medical condition
+                    </div>
+                </div>
 
                 <!-- Template section -->
                 <div id="broadcastTemplateSection">
@@ -8399,15 +8416,23 @@ ${referralHtml}${bodyHtml}
 
         function resolveMergeTags(vars, contact, phone) {
             const name = contact?.name || '';
+            const medicalCondition = contact?.medical_condition || '';
+
             return vars.map(v =>
                 v.replace(/\{name\}/gi, name)
                     .replace(/\{phone\}/gi, phone || '')
+                    .replace(/\{medical_condition\}/gi, medicalCondition)
+                    .replace(/\{condition\}/gi, medicalCondition)
             );
         }
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
         async function callTemplateSendWebhook(phone, template, variables, conversationId) {
-            const cleanPhone = String(phone || '').replace(/\D/g, '');
+            let cleanPhone = String(phone || '').replace(/\s/g, '').trim();
+
+            if (cleanPhone && !cleanPhone.startsWith('+')) {
+                cleanPhone = '+' + cleanPhone.replace(/\D/g, '');
+            }
 
             const payload = {
                 phone: cleanPhone,
@@ -8863,6 +8888,12 @@ ${referralHtml}${bodyHtml}
 
         function openBroadcastModal() {
             selectedTemplate = null;
+            broadcastUseImportedOnly = false;
+            broadcastImportedContacts = [];
+            const importMsg = document.getElementById('broadcastListImportMsg');
+            if (importMsg) {
+                importMsg.innerHTML = 'Optional: upload CSV with columns: name, contact number, medical condition';
+            }
             broadcastMode = 'template';
             switchBroadcastMode('template');
             document.getElementById('broadcastVariables').style.display = 'none';
@@ -8891,9 +8922,11 @@ ${referralHtml}${bodyHtml}
             const country = document.getElementById('broadcastCountryFilter').value;
             const language = document.getElementById('broadcastLanguageFilter').value;
 
-            const excludedCount = chats.filter(c => c.opted_out || c.is_spam).length;
+            const audience = broadcastUseImportedOnly ? broadcastImportedContacts : chats;
 
-            broadcastFilteredContacts = chats.filter(chat => {
+            const excludedCount = audience.filter(c => c.opted_out || c.is_spam).length;
+
+            broadcastFilteredContacts = audience.filter(chat => {
                 if (chat.opted_out || chat.is_spam) return false;
 
                 const matchesSearch =
@@ -8936,7 +8969,10 @@ ${referralHtml}${bodyHtml}
                     <div style="font-weight:600;font-size:13px;">${escHtml(chat.name || chat.phone)}</div>
                     <div style="font-size:12px;color:#6b7280;">${escHtml(chat.phone || '')}</div>
                     <div style="font-size:11px;color:#9ca3af;">
-                        ${escHtml(chat.country || 'Unknown')} · ${escHtml(chat.language || 'Unknown')}
+                        ${chat.is_broadcast_import
+                    ? 'Condition: ' + escHtml(chat.medical_condition || 'N/A')
+                    : escHtml(chat.country || 'Unknown') + ' · ' + escHtml(chat.language || 'Unknown')
+                }
                     </div>
                 </div>
             </label>
@@ -8975,8 +9011,10 @@ ${referralHtml}${bodyHtml}
                 const selected = [...document.querySelectorAll('.broadcast-check:checked')];
                 if (!selected.length) return alert('Please select at least one recipient.');
                 if (!window.confirm(`Send message to ${selected.length} contact(s)?\n\nThis cannot be undone.`)) return;
+                const contactSource = broadcastUseImportedOnly ? broadcastImportedContacts : chats;
+
                 const contactMap = {};
-                chats.forEach(c => { contactMap[c.phone] = c; });
+                contactSource.forEach(c => { contactMap[c.phone] = c; });
                 const btn = document.getElementById('broadcastSendBtn');
                 btn.disabled = true;
                 let success = 0, failed = 0;
@@ -9028,8 +9066,10 @@ ${referralHtml}${bodyHtml}
             if (!confirmed) return;
 
             // Build phone → contact map for merge tag resolution
+            const contactSource = broadcastUseImportedOnly ? broadcastImportedContacts : chats;
+
             const contactMap = {};
-            chats.forEach(c => { contactMap[c.phone] = c; });
+            contactSource.forEach(c => { contactMap[c.phone] = c; });
 
             const btn = document.querySelector('#broadcastOverlay .modal-btn-primary');
             btn.disabled = true;
@@ -9042,7 +9082,12 @@ ${referralHtml}${bodyHtml}
 
             for (let i = 0; i < selected.length; i++) {
                 const cb = selected[i];
-                const phone = cb.dataset.phone;
+                let phone = cb.dataset.phone || '';
+
+                if (phone && !phone.startsWith('+')) {
+                    phone = '+' + phone.replace(/\D/g, '');
+                }
+
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
                 const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
                 const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars, contactMap[phone]?.id || null);
@@ -10138,6 +10183,132 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         let csvParsedContacts = [];
         let csvRejectedContacts = [];
+        let broadcastImportedContacts = [];
+        let broadcastUseImportedOnly = false;
+
+        function handleBroadcastImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const msg = document.getElementById('broadcastListImportMsg')
+            msg.innerHTML = 'Reading file...';
+
+            const reader = new FileReader();
+
+            reader.onload = e => {
+                try {
+                    let rows = [];
+
+                    const data = new Uint8Array(e.target.result);
+
+                    // Read both real .xlsx and .csv-renamed-as-xlsx
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[firstSheetName];
+
+                    rows = XLSX.utils.sheet_to_json(sheet, {
+                        header: 1,
+                        defval: ''
+                    });
+
+                    rows = rows.filter(r => r.some(cell => String(cell).trim()));
+
+                    if (rows.length < 2) {
+                        msg.innerHTML = '<span style="color:#dc2626;">File has no data rows.</span>';
+                        return;
+                    }
+
+                    const header = rows[0].map(h =>
+                        String(h).trim().toLowerCase().replace(/['"]/g, '')
+                    );
+
+                    const nameIdx = header.indexOf('name');
+                    const phoneIdx = header.indexOf('contact number');
+                    const conditionIdx = header.indexOf('medical condition');
+
+                    if (phoneIdx === -1) {
+                        msg.innerHTML = '<span style="color:#dc2626;">Missing column: contact number</span>';
+                        return;
+                    }
+
+                    const existingMap = {};
+                    chats.forEach(c => {
+                        if (c.phone) existingMap[c.phone.replace(/\s/g, '')] = c;
+                    });
+
+                    const seenPhones = new Set();
+                    const valid = [];
+                    const rejected = [];
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+
+                        const name = nameIdx >= 0 ? String(row[nameIdx] || '').trim() : '';
+                        let phone = String(row[phoneIdx] || '').replace(/\s/g, '').trim();
+
+                        if (phone && !phone.startsWith('+')) {
+                            phone = '+' + phone;
+                        }
+                        const medicalCondition = conditionIdx >= 0 ? String(row[conditionIdx] || '').trim() : '';
+
+                        if (!phone || !phone.startsWith('+')) {
+                            rejected.push(`${name || phone || 'Unknown'} - invalid/missing + country code`);
+                            continue;
+                        }
+
+                        if (seenPhones.has(phone)) {
+                            rejected.push(`${name || phone} - duplicate number`);
+                            continue;
+                        }
+
+                        seenPhones.add(phone);
+
+                        const existing = existingMap[phone] || null;
+
+                        valid.push({
+                            ...(existing || {}),
+                            id: existing?.id || null,
+                            name: existing?.name || name || phone,
+                            phone,
+                            medical_condition: medicalCondition,
+                            platform: existing?.platform || 'WhatsApp',
+                            platformType: existing?.platformType || 'whatsapp',
+                            avatar: existing?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || phone)}&background=A7E8EF&color=000`,
+                            country: 'Imported',
+                            language: 'Imported',
+                            is_broadcast_import: true
+                        });
+                    }
+
+                    broadcastImportedContacts = valid;
+                    broadcastUseImportedOnly = true;
+
+                    document.getElementById('broadcastSearchInput').value = '';
+                    document.getElementById('broadcastCountryFilter').value = '';
+                    document.getElementById('broadcastLanguageFilter').value = '';
+
+                    renderBroadcastContacts();
+
+                    const selectAll = document.getElementById('broadcastSelectAll');
+                    if (selectAll) {
+                        selectAll.checked = true;
+                        toggleSelectAllContacts();
+                    }
+
+                    msg.innerHTML =
+                        `<span style="color:#16a34a;">✓ ${valid.length} imported for broadcast</span>` +
+                        (rejected.length ? ` <span style="color:#dc2626;">✗ ${rejected.length} skipped</span>` : '');
+
+                } catch (err) {
+                    console.error(err);
+                    msg.innerHTML = '<span style="color:#dc2626;">Unable to read file. Please upload Excel .xlsx or valid CSV.</span>';
+                }
+
+                event.target.value = '';
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
 
         function openCsvImport() {
             csvParsedContacts = [];
