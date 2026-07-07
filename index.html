@@ -6448,7 +6448,7 @@
             // Supabase REST API hard-caps any single request at 1000 rows
             // regardless of .limit() — page through with .range() to fetch
             // every conversation instead of silently truncating at 1000.
-            const PAGE_SIZE = 300;
+            const PAGE_SIZE = 100;
             let data = [];
             let from = 0;
             while (true) {
@@ -6525,7 +6525,7 @@
                 .from('messages')
                 .select('phone, message, created_at, created_at_sgt, sender, sender_type')
                 .order('created_at', { ascending: false, nullsFirst: false })
-                .limit(500);
+                .limit(200);
             if (recentMsgs && recentMsgs.length > 0) {
                 const latestByPhone = {};
                 const latestIncomingByPhone = {};
