@@ -6525,7 +6525,7 @@
                 .from('messages')
                 .select('phone, message, created_at, created_at_sgt, sender, sender_type')
                 .order('created_at', { ascending: false, nullsFirst: false })
-                .limit(200);
+                .limit(5000);
             if (recentMsgs && recentMsgs.length > 0) {
                 const latestByPhone = {};
                 const latestIncomingByPhone = {};
@@ -10019,26 +10019,14 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         function getPreviewSenderLabel(chat) {
             const sender = String(chat.last_sender || '').toLowerCase();
             const senderType = String(chat.last_sender_type || '').toLowerCase();
-            const preview = String(chat.preview || '');
 
-            if (sender === 'incoming') {
-                return chat.name || 'Customer';
-            }
+            if (sender === 'incoming') return chat.name || 'Customer';
 
-            if (sender === 'outgoing' && senderType === 'human') {
-                return 'Human';
-            }
+            if (sender === 'outgoing' && senderType === 'human') return 'Human';
 
-            if (sender === 'outgoing') {
-                return 'Bot';
-            }
+            if (sender === 'outgoing') return 'Bot';
 
-            // Fallback based on preview content
-            if (/^\[Template:/i.test(preview)) return 'Human';
-            if (/^\[Button:/i.test(preview)) return chat.name || 'Customer';
-
-            // Safer fallback: do not assume Bot
-            return 'Customer';
+            return 'Unknown';
         }
 
         function formatPreview(text) {
