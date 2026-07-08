@@ -10017,18 +10017,28 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         }
 
         function getPreviewSenderLabel(chat) {
-            const sender = chat.last_sender || '';
-            const senderType = chat.last_sender_type || '';
+            const sender = String(chat.last_sender || '').toLowerCase();
+            const senderType = String(chat.last_sender_type || '').toLowerCase();
+            const preview = String(chat.preview || '');
 
             if (sender === 'incoming') {
                 return chat.name || 'Customer';
             }
 
-            if (senderType === 'human') {
+            if (sender === 'outgoing' && senderType === 'human') {
                 return 'Human';
             }
 
-            return 'Bot';
+            if (sender === 'outgoing') {
+                return 'Bot';
+            }
+
+            // Fallback based on preview content
+            if (/^\[Template:/i.test(preview)) return 'Human';
+            if (/^\[Button:/i.test(preview)) return chat.name || 'Customer';
+
+            // Safer fallback: do not assume Bot
+            return 'Customer';
         }
 
         function formatPreview(text) {
