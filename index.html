@@ -10019,10 +10019,13 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         function getPreviewSenderLabel(chat) {
             const sender = String(chat.last_sender || '').toLowerCase();
             const senderType = String(chat.last_sender_type || '').toLowerCase();
+            const preview = String(chat.preview || '');
 
             if (sender === 'incoming') return chat.name || 'Customer';
 
             if (sender === 'outgoing' && senderType === 'human') return 'Human';
+
+            if (/^\[Template:/i.test(preview)) return 'Human';
 
             if (sender === 'outgoing') return 'Bot';
 
