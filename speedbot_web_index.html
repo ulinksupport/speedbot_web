@@ -860,12 +860,19 @@
             min-height: 0;
         }
 
+        .virtual-top, .virtual-bottom {
+            width: 100%;
+            pointer-events: none;
+        }
+
         .chat-item {
             display: flex;
             gap: 14px;
             padding: 18px;
             border-bottom: 1px solid #f3f4f6;
             cursor: pointer;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .chat-item:hover {
@@ -5377,33 +5384,7 @@
         CHAT SWITCHING
         ========================================================= */
 
-        const chatItems =
-            document.querySelectorAll(
-                ".chat-item"
-            );
-
-        chatItems.forEach(item => {
-
-            item.addEventListener(
-                "click",
-                function () {
-
-                    chatItems.forEach(i => {
-
-                        i.classList.remove(
-                            "active"
-                        );
-
-                    });
-
-                    item.classList.add(
-                        "active"
-                    );
-
-                }
-            );
-
-        });
+        // Chat item click handlers are now attached in _renderVisibleSlice (virtual scrolling)
 
         /* =========================================================
         FILTER CHANNEL ACTIVE
@@ -5517,13 +5498,12 @@
 
             element.classList.add("active");
 
-            // Clear selection when switching filters
             if (selectionMode) {
                 selectedChatIds.clear();
                 updateBulkBar();
             }
 
-            renderChats(type);
+            renderChatsAndScrollTop(type);
 
         }
 
@@ -5657,13 +5637,18 @@
         let selectedChatIds = new Set();
         let _analyticsCache = null;
 
+        // Virtual scrolling state
+        const CHAT_ITEM_HEIGHT = 79; // 18px padding top + 54px avatar + 6px gap + 1px border ≈ 79
+        const VIRTUAL_BUFFER = 10;   // extra items above/below viewport
+        let _filteredChats = [];     // cached filtered list for virtual scroll
+        let _renderDebounceTimer = null;
+
         async function loadConversations() {
             const { data, error } = await supabaseClient
                 .from('conversations')
                 .select('*')
                 .order('last_message_time', { ascending: false, nullsFirst: false })
-                .order('created_at', { ascending: false })
-                .limit(2000);
+                .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error loading conversations:', error);
@@ -5775,35 +5760,45 @@
         }
 
         function updateSidebarCounts() {
-            document.getElementById('count-all').innerText = chats.length;
-            document.getElementById('count-myinbox').innerText = chats.filter(c => c.type === 'myinbox').length;
-            document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
-            document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
-            document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
-            document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
-            document.getElementById('count-human').innerText = chats.filter(c => c.bot_enabled === false && !c.opted_out).length;
-            document.getElementById('count-bot').innerText = chats.filter(c => c.bot_enabled !== false && !c.opted_out).length;
-            document.getElementById('count-optedout').innerText = chats.filter(c => c.opted_out && !c.is_spam).length;
-            document.getElementById('count-spam').innerText = chats.filter(c => c.is_spam).length;
-            document.getElementById('count-followup').innerText =
-                chats.filter(c =>
-                    c.follow_up === true &&
-                    c.status !== 'completed'
-                ).length;
-
-            document.getElementById('count-completed').innerText =
-                chats.filter(c => c.status === "completed").length;
-
-            document.getElementById('count-inactive7').innerText =
-                chats.filter(c => {
-                    const last = c.last_incoming_at || c.last_message_time || c.created_at;
-                    return last &&
-                        ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000) &&
-                        c.status !== "completed";
-                }).length;
-
-            const totalUnread = chats.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+            let all = 0, myinbox = 0, unassigned = 0, unreplied = 0, unread = 0,
+                active = 0, expired = 0, human = 0, bot = 0, optedout = 0, spam = 0,
+                followup = 0, completed = 0, inactive7 = 0, totalUnread = 0;
+            const now = Date.now();
+            const sevenDays = 7 * 86400000;
+            for (let i = 0; i < chats.length; i++) {
+                const c = chats[i];
+                all++;
+                if (c.type === 'myinbox') myinbox++;
+                if (c.type === 'unassigned') unassigned++;
+                if (c.type === 'unreplied') unreplied++;
+                const ur = c.unread_count || 0;
+                if (ur > 0) unread++;
+                totalUnread += ur;
+                const winExp = isWindowExpired(c.last_incoming_at);
+                if (!winExp) active++; else expired++;
+                if (c.bot_enabled === false && !c.opted_out) human++;
+                if (c.bot_enabled !== false && !c.opted_out) bot++;
+                if (c.opted_out && !c.is_spam) optedout++;
+                if (c.is_spam) spam++;
+                if (c.follow_up === true && c.status !== 'completed') followup++;
+                if (c.status === 'completed') completed++;
+                const last = c.last_incoming_at || c.last_message_time || c.created_at;
+                if (last && (now - new Date(last).getTime() > sevenDays) && c.status !== 'completed') inactive7++;
+            }
+            document.getElementById('count-all').innerText = all;
+            document.getElementById('count-myinbox').innerText = myinbox;
+            document.getElementById('count-unassigned').innerText = unassigned;
+            document.getElementById('count-unreplied').innerText = unreplied;
+            document.getElementById('count-unread').innerText = unread;
+            document.getElementById('count-active').innerText = active;
+            document.getElementById('count-expired').innerText = expired;
+            document.getElementById('count-human').innerText = human;
+            document.getElementById('count-bot').innerText = bot;
+            document.getElementById('count-optedout').innerText = optedout;
+            document.getElementById('count-spam').innerText = spam;
+            document.getElementById('count-followup').innerText = followup;
+            document.getElementById('count-completed').innerText = completed;
+            document.getElementById('count-inactive7').innerText = inactive7;
             document.getElementById('allMessageBadge').innerText = totalUnread;
             document.title = totalUnread > 0 ? `(${totalUnread}) Speedbot Console` : 'Speedbot Console';
         }
@@ -5843,31 +5838,20 @@
         }
 
         function selectAllVisible() {
-            const items = [...document.querySelectorAll('#chatItems .chat-item')];
-            const allSelected = items.length > 0 && items.every(el => selectedChatIds.has(el.dataset.chatId));
+            const allSelected = _filteredChats.length > 0 && _filteredChats.every(c => selectedChatIds.has(c.id));
             if (allSelected) {
-                items.forEach(el => {
-                    selectedChatIds.delete(el.dataset.chatId);
-                    el.classList.remove('sel-selected');
-                    const check = el.querySelector('.chat-check');
-                    if (check) { check.classList.remove('checked'); check.innerHTML = ''; }
-                });
+                _filteredChats.forEach(c => selectedChatIds.delete(c.id));
             } else {
-                items.forEach(el => {
-                    selectedChatIds.add(el.dataset.chatId);
-                    el.classList.add('sel-selected');
-                    const check = el.querySelector('.chat-check');
-                    if (check) { check.classList.add('checked'); check.innerHTML = '<i class="fa-solid fa-check"></i>'; }
-                });
+                _filteredChats.forEach(c => selectedChatIds.add(c.id));
             }
+            _renderVisibleSlice();
             updateBulkBar();
         }
 
         function updateBulkBar() {
             const n = selectedChatIds.size;
             document.getElementById('bulkCount').innerText = `${n} selected`;
-            const items = [...document.querySelectorAll('#chatItems .chat-item')];
-            const allSel = items.length > 0 && items.every(el => selectedChatIds.has(el.dataset.chatId));
+            const allSel = _filteredChats.length > 0 && _filteredChats.every(c => selectedChatIds.has(c.id));
             document.getElementById('selectAllLabel').innerText = allSel ? 'Deselect All' : 'Select All';
         }
 
@@ -5908,92 +5892,107 @@
             }
         }
 
-        function renderChats(filter = "all") {
-
-            const container =
-                document.getElementById("chatItems");
-
-            activeFilter = filter;
-
-            container.innerHTML = "";
-
-            chats.forEach(chat => {
-
-                // Spam contacts are hidden from all filters except 'spam';
-                // opted-out (non-spam) contacts are hidden from all filters except 'optedout'
+        function _filterChatsForRender(filter) {
+            const result = [];
+            const q = searchQuery ? searchQuery.toLowerCase() : '';
+            for (let i = 0; i < chats.length; i++) {
+                const chat = chats[i];
                 if (chat.is_spam) {
-                    if (filter !== 'spam') return;
+                    if (filter !== 'spam') continue;
                 } else if (chat.opted_out) {
-                    if (filter !== 'optedout') return;
+                    if (filter !== 'optedout') continue;
                 }
-
                 if (filter === "unread") {
-                    if (!chat.unread_count || chat.unread_count <= 0) return;
+                    if (!chat.unread_count || chat.unread_count <= 0) continue;
                 } else if (filter === "active") {
-                    if (isWindowExpired(chat.last_incoming_at)) return;
+                    if (isWindowExpired(chat.last_incoming_at)) continue;
                 } else if (filter === "expired") {
-                    if (!isWindowExpired(chat.last_incoming_at)) return;
+                    if (!isWindowExpired(chat.last_incoming_at)) continue;
                 } else if (filter === "human") {
-                    if (chat.bot_enabled !== false) return;
+                    if (chat.bot_enabled !== false) continue;
                 } else if (filter === "bot") {
-                    if (chat.bot_enabled === false) return;
+                    if (chat.bot_enabled === false) continue;
                 } else if (filter === "optedout") {
-                    if (!chat.opted_out) return;
+                    if (!chat.opted_out) continue;
                 } else if (filter === "spam") {
-                    if (!chat.is_spam) return;
+                    if (!chat.is_spam) continue;
                 } else if (filter === "followup") {
-                    if (!chat.follow_up || chat.status === 'completed') return;
+                    if (!chat.follow_up || chat.status === 'completed') continue;
                 } else if (filter === "completed") {
-                    if (chat.status !== "completed") return;
-
+                    if (chat.status !== "completed") continue;
                 } else if (filter === "inactive7") {
                     const last = chat.last_incoming_at || chat.last_message_time || chat.created_at;
-                    const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000);
-
-                    if (!olderThan7Days || chat.status === "completed") return;
-
+                    const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 86400000);
+                    if (!olderThan7Days || chat.status === "completed") continue;
                 } else if (filter === "awaitingfollowup") {
-                    if (!chat.follow_up_stage || chat.follow_up_stage <= 0) return;
-                } else if (filter !== "all" && chat.type !== filter) return;
-
-
-                if (
-                    currentPlatform !== "all" &&
-                    chat.platformType !== currentPlatform
-                ) return;
-
-                // Date range filter
-                if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
-
-                // Search filter
-                if (searchQuery) {
-                    const q = searchQuery.toLowerCase();
+                    if (!chat.follow_up_stage || chat.follow_up_stage <= 0) continue;
+                } else if (filter !== "all" && chat.type !== filter) continue;
+                if (currentPlatform !== "all" && chat.platformType !== currentPlatform) continue;
+                if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) continue;
+                if (q) {
                     const matchName = (chat.name || '').toLowerCase().includes(q);
                     const matchPhone = (chat.phone || '').includes(q);
                     const matchPreview = (chat.preview || '').toLowerCase().includes(q);
-                    if (!matchName && !matchPhone && !matchPreview) return;
+                    if (!matchName && !matchPhone && !matchPreview) continue;
                 }
+                result.push(chat);
+            }
+            return result;
+        }
 
-                const chatTime =
-                    chat.last_message_time_sgt ||
-                    chat.time ||
-                    '';
+        function _buildChatItemHTML(chat) {
+            const chatTime = chat.last_message_time_sgt || chat.time || '';
+            const unreadCount = Number(chat.unread_count || 0);
+            const unreadBadge = unreadCount > 0
+                ? `<div class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</div>`
+                : '';
+            const isSelected = selectedChatIds.has(chat.id);
+            return `
+    <div class="chat-avatar-wrap">
+        <img class="chat-avatar" src="${chat.avatar}" loading="lazy">
+        ${getPlatformAvatarIcon(chat.platform)}
+        ${selectionMode ? `<div class="chat-check${isSelected ? ' checked' : ''}">${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}</div>` : ''}
+    </div>
+    <div style="flex:1;min-width:0;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div class="chat-name">
+            ${chat.name}
+            ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
+        </div>
+        <div class="chat-time">${chatTime}</div>
+    </div>
+    <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div class="chat-preview" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">
+            ${formatPreview(chat.preview)}
+        </div>
+        ${unreadBadge}
+    </div>
+</div>`;
+        }
 
-                const unreadCount =
-                    Number(chat.unread_count || 0);
+        function _renderVisibleSlice() {
+            const container = document.getElementById("chatItems");
+            const topSpacer = container.querySelector('.virtual-top');
+            if (!topSpacer) return; // virtual structure not set up yet
+            const scrollTop = container.scrollTop;
+            const viewportHeight = container.clientHeight;
+            const totalItems = _filteredChats.length;
 
-                const unreadBadge =
-                    unreadCount > 0
-                        ? `
-                        <div class="unread-badge">
-                            ${unreadCount > 99 ? '99+' : unreadCount}
-                        </div>
-                        `
-                        : '';
+            let startIdx = Math.floor(scrollTop / CHAT_ITEM_HEIGHT) - VIRTUAL_BUFFER;
+            if (startIdx < 0) startIdx = 0;
+            let endIdx = Math.ceil((scrollTop + viewportHeight) / CHAT_ITEM_HEIGHT) + VIRTUAL_BUFFER;
+            if (endIdx > totalItems) endIdx = totalItems;
 
-                const div =
-                    document.createElement("div");
+            const bottomSpacer = container.querySelector('.virtual-bottom');
+            const itemsWrap = container.querySelector('.virtual-items');
 
+            topSpacer.style.height = (startIdx * CHAT_ITEM_HEIGHT) + 'px';
+            bottomSpacer.style.height = ((totalItems - endIdx) * CHAT_ITEM_HEIGHT) + 'px';
+
+            const frag = document.createDocumentFragment();
+            for (let i = startIdx; i < endIdx; i++) {
+                const chat = _filteredChats[i];
+                const div = document.createElement("div");
                 const isSelected = selectedChatIds.has(chat.id);
                 div.className = [
                     'chat-item',
@@ -6001,86 +6000,61 @@
                     selectionMode ? 'sel-mode' : '',
                     selectionMode && isSelected ? 'sel-selected' : ''
                 ].filter(Boolean).join(' ');
-
                 div.setAttribute("data-chat-id", chat.id);
                 div.setAttribute("data-phone", chat.phone);
-
-                div.innerHTML = `
-
-    <div class="chat-avatar-wrap">
-
-        <img class="chat-avatar" src="${chat.avatar}">
-        ${getPlatformAvatarIcon(chat.platform)}
-
-        ${selectionMode ? `
-            <div class="chat-check${isSelected ? ' checked' : ''}">
-                ${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}
-            </div>
-        ` : ''}
-
-    </div>
-
-    <div style="flex:1;min-width:0;">
-
-    <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:10px;
-    ">
-
-        <div class="chat-name">
-            ${chat.name}
-            ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
-        </div>
-
-        <div class="chat-time">
-            ${chatTime}
-        </div>
-
-    </div>
-
-    <div style="
-        margin-top:6px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:8px;
-    ">
-
-        <div
-            class="chat-preview"
-            style="
-                overflow:hidden;
-                text-overflow:ellipsis;
-                white-space:nowrap;
-                flex:1;
-                min-width:0;
-            "
-        >
-            ${formatPreview(chat.preview)}
-        </div>
-
-        ${unreadBadge}
-
-    </div>
-
-</div>
-
-`;
-
-                div.onclick = (e) => {
+                div.style.height = CHAT_ITEM_HEIGHT + 'px';
+                div.innerHTML = _buildChatItemHTML(chat);
+                div.onclick = () => {
                     if (selectionMode) {
                         toggleChatSelection(chat.id, div);
                     } else {
                         openChat(chat.id, div);
                     }
                 };
+                frag.appendChild(div);
+            }
+            itemsWrap.innerHTML = '';
+            itemsWrap.appendChild(frag);
+        }
 
-                container.appendChild(div);
-
+        let _scrollRAF = null;
+        function _onChatScroll() {
+            if (_scrollRAF) return;
+            _scrollRAF = requestAnimationFrame(() => {
+                _scrollRAF = null;
+                _renderVisibleSlice();
             });
+        }
 
+        function renderChats(filter = "all") {
+            if (_renderDebounceTimer) clearTimeout(_renderDebounceTimer);
+            const isImmediate = activeFilter !== filter;
+            activeFilter = filter;
+            if (isImmediate) {
+                _renderChatsCore(filter);
+            } else {
+                _renderDebounceTimer = setTimeout(() => _renderChatsCore(filter), 40);
+            }
+        }
+
+        function _renderChatsCore(filter) {
+            const container = document.getElementById("chatItems");
+            _filteredChats = _filterChatsForRender(filter);
+
+            if (!container.querySelector('.virtual-top')) {
+                container.innerHTML = '<div class="virtual-top"></div><div class="virtual-items"></div><div class="virtual-bottom"></div>';
+                container.removeEventListener('scroll', _onChatScroll);
+                container.addEventListener('scroll', _onChatScroll, { passive: true });
+            }
+
+            _renderVisibleSlice();
+        }
+
+        function renderChatsAndScrollTop(filter) {
+            activeFilter = filter;
+            const container = document.getElementById("chatItems");
+            container.scrollTop = 0;
+            _renderChatsCore(filter);
         }
 
         function normalisePlatform(platform) {
@@ -6158,38 +6132,9 @@
         }
 
         function updateSingleConversationUI(chat) {
-            const existing = document.querySelector(`[data-chat-id="${chat.id}"]`);
-
-            if (!existing) {
-                renderChats(activeFilter);
-                return;
-            }
-
-            existing.querySelector(".chat-preview").innerHTML =
-                formatPreview(chat.preview);
-
-            existing.querySelector(".chat-time").innerText =
-                chat.last_message_time_sgt || chat.time || '';
-
-            const timeColumn = existing.querySelector(".chat-time").parentElement;
-
-            let badge = existing.querySelector(".unread-badge");
-            const unreadCount = Number(chat.unread_count || 0);
-
-            if (unreadCount > 0) {
-                if (!badge) {
-                    badge = document.createElement("div");
-                    badge.className = "unread-badge";
-                    timeColumn.appendChild(badge);
-                }
-
-                badge.innerText = unreadCount > 99 ? "99+" : unreadCount;
-            } else {
-                if (badge) badge.remove();
-            }
-
-            const container = document.getElementById("chatItems");
-            container.prepend(existing);
+            // With virtual scrolling, just re-render the visible slice
+            _filteredChats = _filterChatsForRender(activeFilter);
+            _renderVisibleSlice();
         }
 
         /* =========================================================
@@ -6197,7 +6142,8 @@
         ========================================================= */
 
         async function openChat(id, element) {
-            document.querySelectorAll(".chat-item").forEach(item => item.classList.remove("active"));
+            // Virtual scroll re-renders handle active class; just mark for next render
+            document.querySelectorAll(".chat-item.active").forEach(item => item.classList.remove("active"));
             if (element) element.classList.add("active");
 
             const chat = chats.find(c => c.id === id);
@@ -6546,20 +6492,6 @@
                                 existingChat,
                                 ...chats.filter(c => c.phone !== msg.phone)
                             ];
-
-                            const existingElement =
-                                document.querySelector(
-                                    `[data-chat-id="${existingChat.id}"]`
-                                );
-
-                            if (existingElement) {
-
-                                const container =
-                                    document.getElementById("chatItems");
-
-                                container.prepend(existingElement);
-
-                            }
 
                             updateSingleConversationUI(existingChat);
 
@@ -8036,13 +7968,13 @@ ${referralHtml}${bodyHtml}
 
         function _ratePill(n, d) {
             if (!d) return '<span class="rate-pill low">—</span>';
-            const pct = Math.round(n / d * 100);
+            const pct = Math.min(100, Math.round(n / d * 100));
             const cls = pct >= 30 ? 'good' : pct >= 10 ? 'mid' : 'low';
             return `<span class="rate-pill ${cls}">${pct}%</span>`;
         }
         function _pct(n, d) {
             if (!d) return '—';
-            return Math.round(n / d * 100) + '%';
+            return Math.min(100, Math.round(n / d * 100)) + '%';
         }
 
         function formatDuration(ms) {
@@ -8239,7 +8171,27 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             const convMap = {};
             (convs || []).forEach(c => { convMap[c.phone] = c; });
 
-            _analyticsCache = { sends, inboundMap, convMap };
+            // Each send's reply-attribution window ends where the NEXT send to that
+            // same phone begins (or "now" if it's the latest/only send). Without this,
+            // a single inbound reply satisfies `m.ts > r.sent_at` for every earlier send
+            // to that phone too, so a phone with 3 sends and 1 reply could count as 3
+            // "replied" rows off one message — inflating Response Rate past 100%.
+            const nextSendAtById = new Map();
+            {
+                const byPhoneAsc = {};
+                sends.forEach(r => {
+                    if (!byPhoneAsc[r.phone]) byPhoneAsc[r.phone] = [];
+                    byPhoneAsc[r.phone].push(r);
+                });
+                Object.values(byPhoneAsc).forEach(arr => {
+                    arr.sort((a, b) => a.sent_at.localeCompare(b.sent_at));
+                    for (let i = 0; i < arr.length; i++) {
+                        nextSendAtById.set(arr[i].id, arr[i + 1] ? arr[i + 1].sent_at : null);
+                    }
+                });
+            }
+
+            _analyticsCache = { sends, inboundMap, convMap, nextSendAtById };
 
             // ── Compute per-row stats ─────────────────────────────
             function rowStats(rows) {
@@ -8250,7 +8202,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 let replied = 0, btnClicks = 0, conversions = 0;
                 rows.forEach(r => {
                     const msgs = inboundMap[r.phone] || [];
-                    const afterSend = msgs.filter(m => m.ts > r.sent_at);
+                    const windowEnd = nextSendAtById.get(r.id);
+                    const afterSend = msgs.filter(m => m.ts > r.sent_at && (!windowEnd || m.ts < windowEnd));
                     if (afterSend.length) replied++;
                     if (afterSend.some(m => m.isBtn)) btnClicks++;
                     if (convMap[r.phone]?.status === 'completed') conversions++;
@@ -8296,7 +8249,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             const tmplBtnBreakdown = {};
             sends.forEach(r => {
                 const k = r.template_name;
-                const msgs = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at && m.isBtn);
+                const windowEnd = nextSendAtById.get(r.id);
+                const msgs = (inboundMap[r.phone] || [])
+                    .filter(m => m.ts > r.sent_at && (!windowEnd || m.ts < windowEnd) && m.isBtn);
                 msgs.forEach(m => {
                     if (!tmplBtnBreakdown[k]) tmplBtnBreakdown[k] = {};
                     tmplBtnBreakdown[k][m.btnText] = (tmplBtnBreakdown[k][m.btnText] || 0) + 1;
@@ -8451,7 +8406,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting…';
 
             try {
-                let { sends, inboundMap, convMap: cachedConvMap } = _analyticsCache || {};
+                let { sends, inboundMap, convMap: cachedConvMap, nextSendAtById } = _analyticsCache || {};
 
                 // Use cached convMap; fall back to full fetch for extra columns
                 const allPhones = [...new Set((sends || []).map(r => r.phone))];
@@ -8482,7 +8437,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const csvRows = (sends || []).map(r => {
                     const conv = convMap[r.phone] || {};
                     const msgs = (inboundMap && inboundMap[r.phone]) || [];
-                    const afterSend = msgs.filter(m => m.ts > (r.sent_at || ''));
+                    const windowEnd = nextSendAtById && nextSendAtById.get(r.id);
+                    const afterSend = msgs.filter(m => m.ts > (r.sent_at || '') && (!windowEnd || m.ts < windowEnd));
                     const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
                     const btnMsgs = afterSend.filter(m => m.isBtn);
                     const firstBtn = btnMsgs[0]?.btnText || '';
@@ -9005,16 +8961,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         chat.lastPreviewAt = data[0].created_at;
                         chat.time = formatSGT(data[0].created_at);
                     }
-                    const el = document.querySelector(`[data-chat-id="${chat.id}"]`);
-                    if (el) {
-                        const previewEl = el.querySelector('.chat-preview');
-                        const timeEl = el.querySelector('.chat-time');
-                        if (previewEl) previewEl.innerText = formatPreview(chat.preview);
-                        if (timeEl) timeEl.innerText = chat.time;
-                        renderChats(activeFilter);
-
-                        updateUnreadBadges();
-                    }
+                    renderChats(activeFilter);
+                    updateUnreadBadges();
                 }
             } catch (_) { }
         }, 3000);

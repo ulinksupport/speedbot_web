@@ -9895,13 +9895,13 @@ ${referralHtml}${bodyHtml}
 
         function _ratePill(n, d) {
             if (!d) return '<span class="rate-pill low">—</span>';
-            const pct = Math.round(n / d * 100);
+            const pct = Math.min(100, Math.round(n / d * 100));
             const cls = pct >= 30 ? 'good' : pct >= 10 ? 'mid' : 'low';
             return `<span class="rate-pill ${cls}">${pct}%</span>`;
         }
         function _pct(n, d) {
             if (!d) return '—';
-            return Math.round(n / d * 100) + '%';
+            return Math.min(100, Math.round(n / d * 100)) + '%';
         }
 
         function formatDuration(ms) {
@@ -10098,7 +10098,27 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             const convMap = {};
             (convs || []).forEach(c => { convMap[c.phone] = c; });
 
-            _analyticsCache = { sends, inboundMap, convMap };
+            // Each send's reply-attribution window ends where the NEXT send to that
+            // same phone begins (or "now" if it's the latest/only send). Without this,
+            // a single inbound reply satisfies `m.ts > r.sent_at` for every earlier send
+            // to that phone too, so a phone with 3 sends and 1 reply could count as 3
+            // "replied" rows off one message — inflating Response Rate past 100%.
+            const nextSendAtById = new Map();
+            {
+                const byPhoneAsc = {};
+                sends.forEach(r => {
+                    if (!byPhoneAsc[r.phone]) byPhoneAsc[r.phone] = [];
+                    byPhoneAsc[r.phone].push(r);
+                });
+                Object.values(byPhoneAsc).forEach(arr => {
+                    arr.sort((a, b) => a.sent_at.localeCompare(b.sent_at));
+                    for (let i = 0; i < arr.length; i++) {
+                        nextSendAtById.set(arr[i].id, arr[i + 1] ? arr[i + 1].sent_at : null);
+                    }
+                });
+            }
+
+            _analyticsCache = { sends, inboundMap, convMap, nextSendAtById };
 
             // ── Compute per-row stats ─────────────────────────────
             function rowStats(rows) {
@@ -10109,7 +10129,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 let replied = 0, btnClicks = 0, conversions = 0;
                 rows.forEach(r => {
                     const msgs = inboundMap[r.phone] || [];
-                    const afterSend = msgs.filter(m => m.ts > r.sent_at);
+                    const windowEnd = nextSendAtById.get(r.id);
+                    const afterSend = msgs.filter(m => m.ts > r.sent_at && (!windowEnd || m.ts < windowEnd));
                     if (afterSend.length) replied++;
                     if (afterSend.some(m => m.isBtn)) btnClicks++;
                     if (convMap[r.phone]?.status === 'completed') conversions++;
@@ -10155,7 +10176,9 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             const tmplBtnBreakdown = {};
             sends.forEach(r => {
                 const k = r.template_name;
-                const msgs = (inboundMap[r.phone] || []).filter(m => m.ts > r.sent_at && m.isBtn);
+                const windowEnd = nextSendAtById.get(r.id);
+                const msgs = (inboundMap[r.phone] || [])
+                    .filter(m => m.ts > r.sent_at && (!windowEnd || m.ts < windowEnd) && m.isBtn);
                 msgs.forEach(m => {
                     if (!tmplBtnBreakdown[k]) tmplBtnBreakdown[k] = {};
                     tmplBtnBreakdown[k][m.btnText] = (tmplBtnBreakdown[k][m.btnText] || 0) + 1;
@@ -10311,7 +10334,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting…';
 
             try {
-                let { sends, inboundMap, convMap: cachedConvMap } = _analyticsCache || {};
+                let { sends, inboundMap, convMap: cachedConvMap, nextSendAtById } = _analyticsCache || {};
 
                 // Use cached convMap; fall back to full fetch for extra columns
                 const allPhones = [...new Set((sends || []).map(r => r.phone))];
@@ -10342,7 +10365,8 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 const csvRows = (sends || []).map(r => {
                     const conv = convMap[r.phone] || {};
                     const msgs = (inboundMap && inboundMap[r.phone]) || [];
-                    const afterSend = msgs.filter(m => m.ts > (r.sent_at || ''));
+                    const windowEnd = nextSendAtById && nextSendAtById.get(r.id);
+                    const afterSend = msgs.filter(m => m.ts > (r.sent_at || '') && (!windowEnd || m.ts < windowEnd));
                     const firstReply = afterSend.find(m => !m.isBtn) || afterSend[0];
                     const btnMsgs = afterSend.filter(m => m.isBtn);
                     const firstBtn = btnMsgs[0]?.btnText || '';
