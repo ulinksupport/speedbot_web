@@ -7533,6 +7533,19 @@
 
                             const msg = payload.new;
 
+                            // Every UPDATE on messages is a delivery/read status tick
+                            // (see updateMessageStatusInPlace) — never new content, since
+                            // nothing in this app edits a message after insert. Patch the
+                            // one bubble in place; only fall back to a full reload/sidebar
+                            // refresh if that bubble isn't currently rendered (chat not
+                            // open, or message outside the loaded window).
+                            const patchedInPlace =
+                                currentChat &&
+                                currentChat.phone === msg.phone &&
+                                updateMessageStatusInPlace(msg);
+
+                            if (patchedInPlace) return;
+
                             if (
                                 currentChat &&
                                 currentChat.phone === msg.phone
@@ -7656,6 +7669,51 @@
         /* =========================================================
         APPEND MESSAGE
         ========================================================= */
+
+        // Shared by appendMessage() (full render) and updateMessageStatusInPlace()
+        // (realtime status-only patch) so the two never drift apart.
+        function computeMsgStatusHtml(msg, senderClass) {
+            if (senderClass !== 'outgoing-bot' && senderClass !== 'outgoing-human') return '';
+            const st = msg.status || null;
+            if (st === 'failed') {
+                return '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>';
+            } else if (st === 'read') {
+                const t = msg.read_at ? 'Read ' + formatSGT(msg.read_at) : 'Read';
+                return `<span class="msg-status msg-status-read" title="${t}">Read</span>`;
+            } else if (st === 'delivered') {
+                const t = msg.delivered_at ? 'Delivered ' + formatSGT(msg.delivered_at) : 'Delivered';
+                return `<span class="msg-status" title="${t}">Delivered</span>`;
+            } else if (st === 'sent') {
+                return '<span class="msg-status" title="Sent">Sent</span>';
+            }
+            return '';
+        }
+
+        // Cloudflare Worker status webhooks (sent/delivered/read/failed) are the ONLY
+        // writer that ever UPDATEs an existing messages row — nothing in this app edits
+        // message content after insert. So a realtime UPDATE on `messages` always means
+        // "just the status ticked forward," never new content. Patch the one bubble's
+        // status label in place instead of reloading/rebuilding the whole pane+sidebar.
+        // Returns true if the bubble was found and patched, false if the caller should
+        // fall back to a full reload (message not currently rendered — e.g. chat wasn't
+        // open yet, or it's outside the loaded window).
+        function updateMessageStatusInPlace(msg) {
+            if (!msg.id) return false;
+            const bubble = document.querySelector(`.message[data-msg-id="${msg.id}"]`);
+            if (!bubble) return false;
+
+            const senderClass = ['outgoing-bot', 'outgoing-human', 'incoming']
+                .find(c => bubble.classList.contains(c));
+            if (!senderClass) return false;
+
+            const timeRow = bubble.querySelector('.message-time');
+            if (!timeRow) return false;
+
+            const timeSpan = timeRow.querySelector('span');
+            const time = timeSpan ? timeSpan.outerHTML : timeRow.firstChild?.outerHTML || '';
+            timeRow.innerHTML = time + computeMsgStatusHtml(msg, senderClass);
+            return true;
+        }
 
         function appendMessage(msg, suppressScroll = false) {
 
@@ -7783,21 +7841,7 @@
             }
 
             // ── Delivery/read status (outbound messages only) ──────────
-            let statusHtml = '';
-            if (senderClass === 'outgoing-bot' || senderClass === 'outgoing-human') {
-                const st = msg.status || null;
-                if (st === 'failed') {
-                    statusHtml = '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>';
-                } else if (st === 'read') {
-                    const t = msg.read_at ? 'Read ' + formatSGT(msg.read_at) : 'Read';
-                    statusHtml = `<span class="msg-status msg-status-read" title="${t}">Read</span>`;
-                } else if (st === 'delivered') {
-                    const t = msg.delivered_at ? 'Delivered ' + formatSGT(msg.delivered_at) : 'Delivered';
-                    statusHtml = `<span class="msg-status" title="${t}">Delivered</span>`;
-                } else if (st === 'sent') {
-                    statusHtml = '<span class="msg-status" title="Sent">Sent</span>';
-                }
-            }
+            const statusHtml = computeMsgStatusHtml(msg, senderClass);
 
             let referralHtml = '';
             if (msg.referral) {
@@ -8480,7 +8524,8 @@ ${referralHtml}${bodyHtml}
                 variables: variables,
                 conversation_id: conversationId || null,
                 platform: currentChat?.platformType || 'whatsapp',
-                meta_psid: currentChat?.meta_psid || null
+                meta_psid: currentChat?.meta_psid || null,
+                agent_name: agentName || null
             };
 
             try {
@@ -8621,24 +8666,11 @@ ${referralHtml}${bodyHtml}
 
                 closeTemplatePicker();
 
-                // Save template message permanently into Supabase messages table
-                const { error: msgInsertError } = await supabaseClient
-                    .from('messages')
-                    .insert({
-                        phone: currentChat.phone,
-                        message: previewText,
-                        sender: 'outgoing',
-                        sender_type: 'human',
-                        conversation_id: currentChat.id,
-                        created_at: sentNow,
-                        created_at_sgt: sentNowSgt,
-                        agent_name: agentName || null
-                    });
-
-                if (msgInsertError) {
-                    console.error('Template message save failed:', msgInsertError);
-                    showToast('Template sent, but failed to save message in dashboard.', 'error', 6000);
-                }
+                // NOTE: the messages row itself is inserted by n8n's "Log to Messages"
+                // node (workflow ckmreAYY0MJzp9OL) after the Meta send succeeds — that
+                // already completes before this webhook call resolves. Do NOT also
+                // insert here; that previously created a duplicate bubble for every
+                // template send (this insert + n8n's insert, same event, two rows).
 
                 // Update sidebar preview
                 supabaseClient.from('conversations').update({
