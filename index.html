@@ -6336,6 +6336,8 @@
 
         }
 
+        let _searchRenderDebounce = null;
+
         function searchChats(query) {
             searchQuery = query.trim();
             const box = document.getElementById('searchInput').parentElement;
@@ -6344,10 +6346,24 @@
             } else {
                 box.classList.add('active');
             }
+
+            // Same precedent as filterChats(): the visible set is about to
+            // change, so drop any selection made against the previous view —
+            // otherwise a bulk action (Follow Up / Send Template / etc.) could
+            // silently include chats the user selected earlier but can no
+            // longer see, since search doesn't limit which tabs it searches.
+            if (selectionMode) {
+                selectedChatIds.clear();
+                updateBulkBar();
+            }
+
             // renderChats() already filters by chat.name/phone/preview when
             // searchQuery is set — just re-render against the current filter,
-            // no separate message-content search needed.
-            renderChats(activeFilter);
+            // no separate message-content search needed. Light debounce so a
+            // fast typist doesn't re-render a 1000+ row sidebar on every
+            // single keystroke — short enough to still feel instant.
+            clearTimeout(_searchRenderDebounce);
+            _searchRenderDebounce = setTimeout(() => renderChats(activeFilter), 120);
         }
 
         function scrollToAndHighlight(msgId) {
@@ -6745,11 +6761,12 @@
 
                 // Spam contacts are hidden from all filters except 'spam';
                 // opted-out (non-spam) contacts are hidden from all filters except 'optedout'
-                // — still applies while searching, spam/opted-out stays hidden by default.
+                // — unconditional on `filter`, so this still applies while searching
+                // (spam/opted-out stays hidden regardless of which tab search is run from).
                 if (chat.is_spam) {
-                    if (filter !== 'spam' && !searchQuery) return;
+                    if (filter !== 'spam') return;
                 } else if (chat.opted_out) {
-                    if (filter !== 'optedout' && !searchQuery) return;
+                    if (filter !== 'optedout') return;
                 }
 
                 // A search query means "search every conversation" — it should
@@ -7024,6 +7041,23 @@
                 return;
             }
 
+            // This row is only visible right now because its OLD preview
+            // matched an active search — the new preview might not. Rather
+            // than patch it in place and leave a stale/wrong match on screen,
+            // fall back to a full re-render (cheap now, see the fragment fix)
+            // so the search filter re-evaluates against the new preview text.
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const stillMatches =
+                    (chat.name || '').toLowerCase().includes(q) ||
+                    (chat.phone || '').includes(q) ||
+                    (chat.preview || '').toLowerCase().includes(q);
+                if (!stillMatches) {
+                    renderChats(activeFilter);
+                    return;
+                }
+            }
+
             existing.querySelector(".chat-preview").innerHTML =
                 formatPreview(chat.preview);
 
@@ -7253,6 +7287,7 @@
             messagesContainer.appendChild(fragment);
 
             populateMediaFiles(data);
+            updateScrollRecentButton();
 
             if (_pendingScrollMsgId) {
                 const target = _pendingScrollMsgId;
@@ -7806,22 +7841,32 @@ ${referralHtml}${bodyHtml}
 <div class="message-time"><span>${time}</span>${statusHtml}</div>
 `;
 
-            const shouldScrollToBottom =
-                msg.sender !== "incoming" ||
-                isMessagesNearBottom(160);
-
             messagesContainer.appendChild(div);
 
-            if (!suppressScroll && shouldScrollToBottom) {
-                requestAnimationFrame(() => {
-                    scrollMessagesToBottom(false);
-                });
+            // Skipped entirely when suppressScroll is true (bulk load into a
+            // fragment) — isMessagesNearBottom()/updateScrollRecentButton()
+            // both read live layout properties (offsetHeight etc.), and doing
+            // that once per message in a loop is a read-write-read-write
+            // thrash that forces a synchronous reflow each time, undoing most
+            // of the point of batching the DOM writes into a fragment. The
+            // bulk caller (fetchMessagesForChat) updates the button once
+            // after the whole batch is inserted instead.
+            if (!suppressScroll) {
+                const shouldScrollToBottom =
+                    msg.sender !== "incoming" ||
+                    isMessagesNearBottom(160);
 
-                setTimeout(() => {
-                    scrollMessagesToBottom(false);
-                }, 80);
-            } else {
-                updateScrollRecentButton();
+                if (shouldScrollToBottom) {
+                    requestAnimationFrame(() => {
+                        scrollMessagesToBottom(false);
+                    });
+
+                    setTimeout(() => {
+                        scrollMessagesToBottom(false);
+                    }, 80);
+                } else {
+                    updateScrollRecentButton();
+                }
             }
 
         }
