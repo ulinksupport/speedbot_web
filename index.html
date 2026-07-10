@@ -6745,72 +6745,81 @@
 
                 // Spam contacts are hidden from all filters except 'spam';
                 // opted-out (non-spam) contacts are hidden from all filters except 'optedout'
+                // — still applies while searching, spam/opted-out stays hidden by default.
                 if (chat.is_spam) {
-                    if (filter !== 'spam') return;
+                    if (filter !== 'spam' && !searchQuery) return;
                 } else if (chat.opted_out) {
-                    if (filter !== 'optedout') return;
+                    if (filter !== 'optedout' && !searchQuery) return;
                 }
 
-                if (filter === "unread") {
-                    if (!chat.unread_count || chat.unread_count <= 0) return;
-                } else if (filter === "escalated") {
-                    if (!chat.escalate) return;
-                } else if (filter === "active") {
-                    if (isWindowExpired(chat.last_incoming_at)) return;
-                } else if (filter === "expired") {
-                    if (!isWindowExpired(chat.last_incoming_at)) return;
-                } else if (filter === "human") {
-                    if (chat.bot_enabled !== false) return;
-                } else if (filter === "bot") {
-                    if (chat.bot_enabled === false) return;
-                } else if (filter === "optedout") {
-                    if (!chat.opted_out) return;
-                } else if (filter === "spam") {
-                    if (!chat.is_spam) return;
-                } else if (filter === "followup") {
-                    if (!chat.follow_up || chat.status === 'completed') return;
-                } else if (filter === "completed") {
-                    if (chat.status !== "completed") return;
+                // A search query means "search every conversation" — it should
+                // find an old chat sitting in Expired/Inactive/whatever bucket
+                // even while some other tab/filter is selected, not just
+                // whatever the current tab happens to show. Skip every other
+                // status/type/platform/date filter below while searching;
+                // only the name/phone/preview match at the end applies.
+                if (!searchQuery) {
+                    if (filter === "unread") {
+                        if (!chat.unread_count || chat.unread_count <= 0) return;
+                    } else if (filter === "escalated") {
+                        if (!chat.escalate) return;
+                    } else if (filter === "active") {
+                        if (isWindowExpired(chat.last_incoming_at)) return;
+                    } else if (filter === "expired") {
+                        if (!isWindowExpired(chat.last_incoming_at)) return;
+                    } else if (filter === "human") {
+                        if (chat.bot_enabled !== false) return;
+                    } else if (filter === "bot") {
+                        if (chat.bot_enabled === false) return;
+                    } else if (filter === "optedout") {
+                        if (!chat.opted_out) return;
+                    } else if (filter === "spam") {
+                        if (!chat.is_spam) return;
+                    } else if (filter === "followup") {
+                        if (!chat.follow_up || chat.status === 'completed') return;
+                    } else if (filter === "completed") {
+                        if (chat.status !== "completed") return;
 
-                } else if (filter === "inactive7") {
-                    const last = chat.last_incoming_at || chat.last_message_time || chat.created_at;
-                    const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000);
+                    } else if (filter === "inactive7") {
+                        const last = chat.last_incoming_at || chat.last_message_time || chat.created_at;
+                        const olderThan7Days = last && ((Date.now() - new Date(last).getTime()) > 7 * 24 * 60 * 60 * 1000);
 
-                    if (!olderThan7Days || chat.status === "completed") return;
+                        if (!olderThan7Days || chat.status === "completed") return;
 
-                } else if (filter === "awaitingfollowup") {
-                    if (!chat.follow_up_stage || chat.follow_up_stage <= 0) return;
-                } else if (filter !== "all" && chat.type !== filter) return;
+                    } else if (filter === "awaitingfollowup") {
+                        if (!chat.follow_up_stage || chat.follow_up_stage <= 0) return;
+                    } else if (filter !== "all" && chat.type !== filter) return;
 
 
-                if (
-                    currentPlatform !== "all" &&
-                    chat.platformType !== currentPlatform
-                ) return;
+                    if (
+                        currentPlatform !== "all" &&
+                        chat.platformType !== currentPlatform
+                    ) return;
 
-                // Unread / Bot / Human dynamic filter
-                if (activeUnreadModeFilter.unread) {
-                    if (!chat.unread_count || chat.unread_count <= 0) return;
-                }
-
-                const botSelected = activeUnreadModeFilter.bot;
-                const humanSelected = activeUnreadModeFilter.human;
-
-                if (botSelected || humanSelected) {
-                    const isHumanActive = chat.bot_enabled === false;
-                    const isBotActive = chat.bot_enabled !== false;
-
-                    if (botSelected && humanSelected) {
-                        // both selected = allow both bot and human chats
-                    } else if (botSelected && !isBotActive) {
-                        return;
-                    } else if (humanSelected && !isHumanActive) {
-                        return;
+                    // Unread / Bot / Human dynamic filter
+                    if (activeUnreadModeFilter.unread) {
+                        if (!chat.unread_count || chat.unread_count <= 0) return;
                     }
-                }
 
-                // Date range filter
-                if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
+                    const botSelected = activeUnreadModeFilter.bot;
+                    const humanSelected = activeUnreadModeFilter.human;
+
+                    if (botSelected || humanSelected) {
+                        const isHumanActive = chat.bot_enabled === false;
+                        const isBotActive = chat.bot_enabled !== false;
+
+                        if (botSelected && humanSelected) {
+                            // both selected = allow both bot and human chats
+                        } else if (botSelected && !isBotActive) {
+                            return;
+                        } else if (humanSelected && !isHumanActive) {
+                            return;
+                        }
+                    }
+
+                    // Date range filter
+                    if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
+                }
 
                 // Search filter
                 if (searchQuery) {
