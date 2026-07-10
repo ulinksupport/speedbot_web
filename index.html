@@ -7511,7 +7511,14 @@
 
                             if (
                                 currentChat &&
-                                currentChat.phone === msg.phone
+                                currentChat.phone === msg.phone &&
+                                // Guards against a duplicate bubble when a manual
+                                // fetchMessagesForChat() reload (e.g. right after
+                                // sending a template) already rendered this exact
+                                // row before this realtime INSERT event arrives —
+                                // Supabase Realtime delivery isn't guaranteed to
+                                // beat a synchronous re-fetch.
+                                !(msg.id && document.querySelector(`.message[data-msg-id="${CSS.escape(String(msg.id))}"]`))
                             ) {
 
                                 appendMessage(msg);
@@ -7535,16 +7542,17 @@
 
                             // Every UPDATE on messages is a delivery/read status tick
                             // (see updateMessageStatusInPlace) — never new content, since
-                            // nothing in this app edits a message after insert. Patch the
-                            // one bubble in place; only fall back to a full reload/sidebar
-                            // refresh if that bubble isn't currently rendered (chat not
-                            // open, or message outside the loaded window).
-                            const patchedInPlace =
+                            // nothing in this app edits a message after insert. A status
+                            // tick never changes conversations.last_message/last_message_time
+                            // (only the Worker's status/delivered_at/read_at columns), so
+                            // there's nothing here that ever needs a sidebar refresh —
+                            // skip it entirely rather than reordering/rebuilding the whole
+                            // chat list on every sent/delivered/read event, open chat or not.
+                            if (
                                 currentChat &&
                                 currentChat.phone === msg.phone &&
-                                updateMessageStatusInPlace(msg);
-
-                            if (patchedInPlace) return;
+                                updateMessageStatusInPlace(msg)
+                            ) return;
 
                             if (
                                 currentChat &&
@@ -7554,10 +7562,6 @@
                                 fetchMessagesForChat();
 
                             }
-
-                            refreshConversationOnly(
-                                msg.phone
-                            );
 
                         }
                     )
@@ -7699,7 +7703,7 @@
         // open yet, or it's outside the loaded window).
         function updateMessageStatusInPlace(msg) {
             if (!msg.id) return false;
-            const bubble = document.querySelector(`.message[data-msg-id="${msg.id}"]`);
+            const bubble = document.querySelector(`.message[data-msg-id="${CSS.escape(String(msg.id))}"]`);
             if (!bubble) return false;
 
             const senderClass = ['outgoing-bot', 'outgoing-human', 'incoming']
@@ -8766,12 +8770,12 @@ ${referralHtml}${bodyHtml}
 
             // Send template via n8n
             const vars = getVariableValues('newChatVariableInputs', selectedTemplate.variables.length);
-            const ok = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId);
+            const result = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-comment-dots"></i> Start Chat';
 
-            if (!ok) {
+            if (!result.ok) {
                 alert('Conversation created but template send failed.\nCheck that the n8n workflow "send-template-message" is active.');
             }
 
