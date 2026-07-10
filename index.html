@@ -4776,13 +4776,23 @@
             if (event.key === 'Enter') saveSupabaseKeyFirstTime();
         });
 
-        // Cheap pre-check before any network round trip: this key MUST be a
-        // service_role key (bypasses RLS — everything in this app depends on
-        // that), so decode the JWT payload and check the role directly
+        // Cheap pre-check before any network round trip: this key MUST have
+        // full (service_role-equivalent) access — bypasses RLS, everything
+        // in this app depends on that — so check the key's shape directly
         // rather than only inferring "it works" from one successful read,
         // which could pass under a differently-permissioned key and still
         // fail later on writes/other tables/Realtime.
+        //
+        // Supabase has two valid formats for this:
+        //  - New "secret" API keys: opaque string prefixed sb_secret_ (not a
+        //    JWT — this project migrated to this system 2026-07, see
+        //    project_speedbot_web memory). This is the one to use going
+        //    forward.
+        //  - Legacy service_role key: a JWT with payload.role === 'service_role'.
+        //    Kept for backward compatibility in case a legacy key is ever
+        //    pasted here before the legacy key system is fully disabled.
         function isServiceRoleKey(key) {
+            if (key.startsWith('sb_secret_')) return true;
             try {
                 const payload = JSON.parse(atob(key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
                 return payload.role === 'service_role';
