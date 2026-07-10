@@ -5116,32 +5116,38 @@
             input.value = "";
             autoResizeTextarea(input);
 
-            appendMessage({
+            const sentAt =
+                new Date().toISOString();
 
+            const sentAtSgt =
+                new Intl.DateTimeFormat(
+                    "en-SG",
+                    {
+                        timeZone: "Asia/Singapore",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                    }
+                ).format(new Date());
+
+            const optimisticMessage = {
                 sender: "outgoing",
-
                 sender_type: "human",
-
                 message: text,
-
-                created_at: new Date().toISOString(),
-
-                created_at_sgt:
-                    new Intl.DateTimeFormat(
-                        "en-SG",
-                        {
-                            timeZone: "Asia/Singapore",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                        }
-                    ).format(new Date()),
-
+                created_at: sentAt,
+                created_at_sgt: sentAtSgt,
                 phone: currentChat.phone,
-
                 agent_name: agentName || null
+            };
 
-            });
+            appendMessage(optimisticMessage);
+
+            applyLatestMessageMetadata(
+                currentChat,
+                optimisticMessage
+            );
+
+            updateSingleConversationUI(currentChat);
 
             await fetch(
                 N8N_BASE + '/human-send-message',
@@ -5340,7 +5346,31 @@
 
             // Optimistic UI
             const tempUrl = URL.createObjectURL(file);
-            appendMessage({ sender: 'outgoing', sender_type: 'human', message: caption, media_url: tempUrl, media_type: mediaType, created_at: new Date().toISOString(), created_at_sgt: sgtNow, phone: currentChat.phone, agent_name: agentName || null });
+            const sentAt = new Date().toISOString();
+
+            const optimisticMediaMessage = {
+                sender: 'outgoing',
+                sender_type: 'human',
+                message: caption || '',
+                media_url: tempUrl,
+                media_type: mediaType,
+                file_name: file.name || '',
+                mime_type: file.type || '',
+                created_at: sentAt,
+                created_at_sgt: sgtNow,
+                phone: currentChat.phone,
+                agent_name: agentName || null
+            };
+
+            appendMessage(optimisticMediaMessage);
+
+            // Update the conversation-list preview immediately.
+            applyLatestMessageMetadata(
+                currentChat,
+                optimisticMediaMessage
+            );
+
+            updateSingleConversationUI(currentChat);
 
             try {
                 // Upload to Supabase storage (all platforms)
@@ -6610,7 +6640,15 @@
             // n8n only writes incoming messages to conversations.last_message — bot replies are messages-table-only
             const { data: recentMsgs } = await supabaseClient
                 .from('messages')
-                .select('phone, message, created_at, created_at_sgt, sender, sender_type')
+                .select(`
+                    phone,
+                    message,
+                    media_type,
+                    created_at,
+                    created_at_sgt,
+                    sender,
+                    sender_type
+                `)
                 .order('created_at', { ascending: false, nullsFirst: false })
                 .limit(5000);
             if (recentMsgs && recentMsgs.length > 0) {
@@ -6624,12 +6662,8 @@
                 }
                 chats.forEach(c => {
                     const latest = latestByPhone[c.phone];
-                    if (latest && latest.message) {
-                        c.preview = latest.message;
-                        c.last_sender = latest.sender || '';
-                        c.last_sender_type = latest.sender_type || '';
-                        c.lastPreviewAt = latest.created_at || c.lastPreviewAt;
-                        c.time = latest.created_at_sgt || (latest.created_at ? formatSGT(latest.created_at) : c.time);
+                    if (latest) {
+                        applyLatestMessageMetadata(c, latest);
                     }
                     // Derive last_incoming_at from messages table — conversations.last_incoming_at is unreliable
                     // because n8n doesn't write it; messages table is the authoritative source
@@ -7025,7 +7059,7 @@
                 div.setAttribute("data-chat-id", chat.id);
                 div.setAttribute("data-phone", chat.phone);
 
-                const previewHtml = `<strong>${getPreviewSenderLabel(chat)}:</strong> ${formatPreview(chat.preview)}`;
+                const previewHtml = formatChatPreview(chat);
 
                 div.innerHTML = `
 
@@ -7210,12 +7244,15 @@
             }
 
             existing.querySelector(".chat-preview").innerHTML =
-                formatPreview(chat.preview);
+                formatChatPreview(chat);
 
             existing.querySelector(".chat-time").innerText =
-                chat.last_message_time_sgt || chat.time || '';
+                chat.last_message_time_sgt ||
+                chat.time ||
+                '';
 
-            const timeColumn = existing.querySelector(".chat-time").parentElement;
+            const timeColumn =
+                existing.querySelector(".chat-time").parentElement;
 
             let badge = existing.querySelector(".unread-badge");
             const unreadCount = Number(chat.unread_count || 0);
@@ -7534,8 +7571,7 @@
 
                             }
 
-                            existingChat.preview = msg.message || '';
-                            existingChat.lastPreviewAt = msg.created_at;
+                            applyLatestMessageMetadata(existingChat, msg);
 
                             let updatePayload = { last_message: msg.message, last_message_time: msg.created_at };
 
@@ -7725,6 +7761,24 @@
 
                             existing.bot_enabled =
                                 conv.bot_enabled;
+
+                            if (conv.follow_up !== undefined) {
+
+                                existing.follow_up =
+                                    Boolean(conv.follow_up);
+
+                                if (
+                                    currentChat &&
+                                    currentChat.id === conv.id
+                                ) {
+                                    currentChat.follow_up =
+                                        Boolean(conv.follow_up);
+
+                                    updateFollowUpButton();
+                                }
+
+                                updateSidebarCounts();
+                            }
                             if (conv.opted_out !== undefined) {
                                 existing.opted_out = conv.opted_out;
                                 existing.opted_out_at = conv.opted_out_at || null;
@@ -7755,9 +7809,26 @@
                             // than what we already set from the messages channel
                             const convTime = conv.last_message_time ? new Date(conv.last_message_time).getTime() : 0;
                             const chatTime = existing.lastPreviewAt ? new Date(existing.lastPreviewAt).getTime() : 0;
-                            if (conv.last_message && convTime >= chatTime) {
-                                existing.preview = conv.last_message;
-                                existing.lastPreviewAt = conv.last_message_time;
+                            if (
+                                conv.last_message_time &&
+                                convTime >= chatTime
+                            ) {
+
+                                existing.preview =
+                                    conv.last_message || '';
+
+                                existing.lastPreviewAt =
+                                    conv.last_message_time;
+
+                                if (conv.last_sender) {
+                                    existing.last_sender =
+                                        conv.last_sender;
+                                }
+
+                                if (conv.last_sender_type) {
+                                    existing.last_sender_type =
+                                        conv.last_sender_type;
+                                }
                             }
                             existing.type = conv.status === 'open' && !conv.assigned_to
                                 ? 'unassigned'
@@ -8040,24 +8111,14 @@ ${referralHtml}${bodyHtml}
         async function setMode(mode) {
 
             if (!currentChat) {
-
                 alert("Please open a conversation first");
-
-                return;
-
+                return false;
             }
 
             currentMode = mode;
 
-            const input =
-                document.getElementById(
-                    "messageInput"
-                );
-
-            const sendBtn =
-                document.querySelector(
-                    ".send-btn"
-                );
+            const input = document.getElementById("messageInput");
+            const sendBtn = document.querySelector(".send-btn");
 
             const botEnabled = mode === "bot";
 
@@ -8066,9 +8127,14 @@ ${referralHtml}${bodyHtml}
                 agent_name: botEnabled ? null : agentName
             };
 
-            // Human taking over is the resolution of an escalation - clear it
-            // so the Escalated filter only ever shows cases nobody has picked up yet.
+            // When the agent changes to Human Active:
+            // 1. Automatically enable Follow Up
+            // 2. Clear escalation
+            //
+            // Changing back to Bot Active does not remove Follow Up.
+            // The agent can still manually remove Follow Up using the star button.
             if (!botEnabled) {
+                updatePayload.follow_up = true;
                 updatePayload.escalate = false;
                 updatePayload.escalate_reason = null;
             }
@@ -8078,25 +8144,27 @@ ${referralHtml}${bodyHtml}
                 .update(updatePayload)
                 .eq('id', currentChat.id);
 
+            if (error) {
+                console.error("Mode update failed:", error);
+                showToast('Unable to change conversation mode', 'error');
+                return false;
+            }
+
+            currentChat.bot_enabled = botEnabled;
             currentChat.agent_name = botEnabled ? null : agentName;
 
             if (!botEnabled) {
+                currentChat.follow_up = true;
                 currentChat.escalate = false;
                 currentChat.escalate_reason = null;
-                updateSidebarCounts();
-                renderChats(activeFilter);
             }
 
-            if (error) {
-
-                console.error("Mode update failed:", error);
-
-            }
+            updateFollowUpButton();
+            updateSidebarCounts();
+            renderChats(activeFilter);
 
             if (mode === "bot") {
-
                 input.disabled = true;
-
                 sendBtn.disabled = true;
 
                 input.placeholder =
@@ -8104,22 +8172,17 @@ ${referralHtml}${bodyHtml}
 
                 input.title =
                     "Conversation currently handled by AI Agent";
-
-            }
-
-            else {
-
+            } else {
                 input.disabled = false;
-
                 sendBtn.disabled = false;
 
                 input.placeholder =
                     "Type message...";
 
                 input.title = "";
-
             }
 
+            return true;
         }
 
         async function toggleBotMode() {
@@ -8131,13 +8194,11 @@ ${referralHtml}${bodyHtml}
                     ? "bot"
                     : "human";
 
-            await setMode(newMode);
+            const updated = await setMode(newMode);
 
-            currentChat.bot_enabled =
-                newMode === "bot";
+            if (!updated) return;
 
             updateBotButton();
-
         }
 
         function updateBotButton() {
@@ -8826,12 +8887,22 @@ ${referralHtml}${bodyHtml}
                 const chatObj = chats.find(c => c.phone === currentChat.phone);
 
                 if (chatObj) {
-                    chatObj.preview = previewText;
-                    chatObj.lastPreviewAt = sentNow;
-                    chatObj.time = sentNowSgt;
 
-                    chats.splice(chats.indexOf(chatObj), 1);
+                    applyLatestMessageMetadata(chatObj, {
+                        message: previewText,
+                        sender: 'outgoing',
+                        sender_type: 'human',
+                        created_at: sentNow,
+                        created_at_sgt: sentNowSgt
+                    });
+
+                    chats.splice(
+                        chats.indexOf(chatObj),
+                        1
+                    );
+
                     chats.unshift(chatObj);
+
                     renderChats(activeFilter);
                 }
 
@@ -9318,8 +9389,13 @@ ${referralHtml}${bodyHtml}
                     }).eq('phone', phone).then();
                     const chatObj = chats.find(c => c.phone === phone);
                     if (chatObj) {
-                        chatObj.preview = previewText;
-                        chatObj.lastPreviewAt = sentAt;
+
+                        applyLatestMessageMetadata(chatObj, {
+                            message: previewText,
+                            sender: 'outgoing',
+                            sender_type: 'human',
+                            created_at: sentAt
+                        });
                     }
                 } else {
                     failed++;
@@ -10232,20 +10308,289 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             }[m]));
         }
 
+        function applyLatestMessageMetadata(chat, msg) {
+
+            if (!chat || !msg) return;
+
+            const messageText =
+                String(msg.message || '').trim();
+
+            const mediaType =
+                String(
+                    msg.media_type ||
+                    msg.mime_type ||
+                    msg.media_mime_type ||
+                    ''
+                ).toLowerCase();
+
+            const fileName =
+                String(
+                    msg.file_name ||
+                    msg.filename ||
+                    msg.media_filename ||
+                    ''
+                ).toLowerCase();
+
+            /*
+             * Preview priority:
+             *
+             * 1. Message or media caption
+             * 2. Media placeholder
+             * 3. Empty preview
+             */
+            if (messageText) {
+
+                chat.preview = msg.message;
+
+            } else if (
+                mediaType === 'image' ||
+                mediaType.startsWith('image/') ||
+                mediaType.includes('image')
+            ) {
+
+                chat.preview = '📷 Image';
+
+            } else if (
+                mediaType === 'audio' ||
+                mediaType.startsWith('audio/') ||
+                mediaType.includes('audio')
+            ) {
+
+                chat.preview = '🎵 Audio';
+
+            } else if (
+                mediaType === 'video' ||
+                mediaType.startsWith('video/') ||
+                mediaType.includes('video')
+            ) {
+
+                chat.preview = '🎬 Video';
+
+            } else if (
+                mediaType === 'document' ||
+                mediaType === 'file' ||
+                mediaType.startsWith('application/') ||
+                mediaType.includes('document') ||
+                mediaType.includes('wordprocessingml') ||
+                mediaType.includes('msword') ||
+                mediaType.includes('pdf') ||
+                mediaType.includes('spreadsheet') ||
+                mediaType.includes('presentation') ||
+                mediaType.includes('excel') ||
+                mediaType.includes('powerpoint') ||
+                fileName.endsWith('.doc') ||
+                fileName.endsWith('.docx') ||
+                fileName.endsWith('.pdf') ||
+                fileName.endsWith('.xls') ||
+                fileName.endsWith('.xlsx') ||
+                fileName.endsWith('.ppt') ||
+                fileName.endsWith('.pptx') ||
+                fileName.endsWith('.txt') ||
+                fileName.endsWith('.csv') ||
+                fileName.endsWith('.zip')
+            ) {
+
+                chat.preview = '📄 File';
+
+            } else if (
+                msg.media_url ||
+                msg.file_url ||
+                msg.document_url
+            ) {
+
+                // Unknown attachment type.
+                chat.preview = '📎 Attachment';
+
+            } else {
+
+                chat.preview = '';
+            }
+
+            /*
+             * Store the direction and role of the actual latest message.
+             */
+            chat.last_sender =
+                String(msg.sender || '').toLowerCase();
+
+            chat.last_sender_type =
+                String(msg.sender_type || '').toLowerCase();
+
+            /*
+             * Store the latest message time.
+             */
+            if (msg.created_at) {
+
+                chat.lastPreviewAt = msg.created_at;
+
+                chat.time =
+                    msg.created_at_sgt ||
+                    formatSGT(msg.created_at);
+
+            } else if (msg.created_at_sgt) {
+
+                chat.time = msg.created_at_sgt;
+            }
+        }
+
+
+        function getPreviewUsername(chat) {
+
+            const name =
+                String(chat?.name || '').trim();
+
+            const phone =
+                String(chat?.phone || '').trim();
+
+            /*
+             * Use the customer name unless it contains a placeholder value.
+             */
+            if (
+                name &&
+                !/^unknown(?:\s+user)?$/i.test(name) &&
+                !/^user$/i.test(name) &&
+                !/^n\/?a$/i.test(name) &&
+                name !== '-'
+            ) {
+                return name;
+            }
+
+            /*
+             * Use the phone number when no valid name exists.
+             */
+            if (phone) {
+                return phone;
+            }
+
+            /*
+             * No customer label.
+             * The preview will show only the message or media placeholder.
+             */
+            return '';
+        }
+
+
         function getPreviewSenderLabel(chat) {
-            const sender = String(chat.last_sender || '').toLowerCase();
-            const senderType = String(chat.last_sender_type || '').toLowerCase();
-            const preview = String(chat.preview || '');
 
-            if (sender === 'incoming') return chat.name || 'Customer';
+            const sender =
+                String(chat?.last_sender || '').toLowerCase();
 
-            if (sender === 'outgoing' && senderType === 'human') return 'Human';
+            const senderType =
+                String(chat?.last_sender_type || '').toLowerCase();
 
-            if (/^\[Template:/i.test(preview)) return 'Human';
+            const preview =
+                String(chat?.preview || '');
 
-            if (sender === 'outgoing') return 'Bot';
+            /*
+             * Incoming customer message:
+             * show customer name, phone, or nothing.
+             */
+            if (sender === 'incoming') {
+                return getPreviewUsername(chat);
+            }
 
-            return 'Unknown';
+            /*
+             * Human outgoing message.
+             */
+            if (
+                sender === 'outgoing' &&
+                (
+                    senderType === 'human' ||
+                    senderType === 'agent' ||
+                    senderType === 'staff'
+                )
+            ) {
+                return 'Human';
+            }
+
+            /*
+             * Template messages are normally sent by a human agent.
+             */
+            if (
+                sender === 'outgoing' &&
+                (
+                    senderType === 'template' ||
+                    /^\[Template:/i.test(preview) ||
+                    /^⚡/.test(preview)
+                )
+            ) {
+                return 'Human';
+            }
+
+            /*
+             * Bot outgoing message.
+             */
+            if (
+                sender === 'outgoing' &&
+                (
+                    senderType === 'bot' ||
+                    senderType === 'ai' ||
+                    senderType === 'assistant'
+                )
+            ) {
+                return 'Bot';
+            }
+
+            /*
+             * Any outgoing message without a recognised human role
+             * is treated as a Bot message.
+             *
+             * This guarantees that outgoing messages always show
+             * Human or Bot.
+             */
+            if (sender === 'outgoing') {
+                return 'Bot';
+            }
+
+            /*
+             * Fallback when the sender direction is missing
+             * but sender_type exists.
+             */
+            if (
+                senderType === 'human' ||
+                senderType === 'agent' ||
+                senderType === 'staff' ||
+                senderType === 'template'
+            ) {
+                return 'Human';
+            }
+
+            if (
+                senderType === 'bot' ||
+                senderType === 'ai' ||
+                senderType === 'assistant'
+            ) {
+                return 'Bot';
+            }
+
+            /*
+             * Unknown direction:
+             * use customer name or phone when available.
+             * Otherwise show no label.
+             */
+            return getPreviewUsername(chat);
+        }
+
+
+        function formatChatPreview(chat) {
+
+            const label =
+                getPreviewSenderLabel(chat);
+
+            const previewContent =
+                formatPreview(chat?.preview || '');
+
+            /*
+             * Human, Bot, or customer name/phone.
+             */
+            if (label) {
+                return `<strong>${escHtml(label)}:</strong> ${previewContent}`;
+            }
+
+            /*
+             * Incoming customer message without name or phone.
+             * Do not show an empty colon.
+             */
+            return previewContent;
         }
 
         function formatPreview(text) {
@@ -10374,22 +10719,39 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                         .eq('id', chat.id);
 
                 }
-                if (chat && data[0] && data[0].message) {
-                    chat.preview = data[0].message;
-                    if (data[0].created_at) {
-                        chat.lastPreviewAt = data[0].created_at;
-                        chat.time = formatSGT(data[0].created_at);
-                    }
-                    const el = document.querySelector(`[data-chat-id="${chat.id}"]`);
-                    if (el) {
-                        const previewEl = el.querySelector('.chat-preview');
-                        const timeEl = el.querySelector('.chat-time');
-                        if (previewEl) previewEl.innerText = formatPreview(chat.preview);
-                        if (timeEl) timeEl.innerText = chat.time;
-                        renderChats(activeFilter);
+                if (chat && data[0]) {
 
-                        updateUnreadBadges();
+                    applyLatestMessageMetadata(
+                        chat,
+                        data[0]
+                    );
+
+                    const el =
+                        document.querySelector(
+                            `[data-chat-id="${chat.id}"]`
+                        );
+
+                    if (el) {
+
+                        const previewEl =
+                            el.querySelector('.chat-preview');
+
+                        const timeEl =
+                            el.querySelector('.chat-time');
+
+                        if (previewEl) {
+                            previewEl.innerHTML =
+                                formatChatPreview(chat);
+                        }
+
+                        if (timeEl) {
+                            timeEl.innerText =
+                                chat.time;
+                        }
                     }
+
+                    renderChats(activeFilter);
+                    updateUnreadBadges();
                 }
             } catch (_) { }
         }, 3000);
