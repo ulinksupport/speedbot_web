@@ -4313,7 +4313,16 @@
     <script>
 
         const SUPABASE_URL = "https://ehhynoowqlsgmcfyqofh.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4";
+        // SECURITY: this file is a stale/divergent working copy of index.html
+        // (kept out of sync intentionally — has local WIP not in index.html)
+        // and was found to be independently deployed/downloadable at its own
+        // URL by Vercel, exposing the hardcoded service_role key that used to
+        // be here regardless of any fix made to index.html. Minimal fix only
+        // (not the full init()/login-gated flow index.html now has, to avoid
+        // touching this file's unrelated in-progress changes) — this closes
+        // the leak but leaves Supabase connectivity inert in this copy until
+        // reconciled with index.html or given its own way to set the key.
+        let SUPABASE_KEY = localStorage.getItem("sb_key") || "";
 
         const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
@@ -4323,10 +4332,9 @@
         let META_TOKEN = localStorage.getItem("meta_token") || "";
         let agentName = localStorage.getItem("cfg_agent_name") || "";
 
-        const supabaseClient = supabase.createClient(
-            SUPABASE_URL,
-            SUPABASE_ANON_KEY
-        );
+        let supabaseClient = SUPABASE_KEY
+            ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+            : null;
 
         let currentChat = null;
         let realtimeChannel = null;
@@ -4710,7 +4718,7 @@
                 const storageKey = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
                 const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/whatsapp-media/${storageKey}`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type },
+                    headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
                     body: file
                 });
                 const storageJson = await storageRes.json();

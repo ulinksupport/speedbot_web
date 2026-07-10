@@ -3156,6 +3156,42 @@
 
     </div>
 
+    <!-- Shown once per browser, only after a correct password AND only when
+         no Supabase key is saved yet — see login()/promptForSupabaseKey().
+         Reuses .login-screen's styling but stays hidden (inline style wins
+         over the class's default display:flex) until explicitly shown. -->
+    <div class="login-screen" id="supabaseKeyScreen" style="display:none;">
+
+        <div class="login-card">
+
+            <div class="login-logo">
+
+                <img src="ulink_logo.png">
+
+                <h1>Ulink Assist</h1>
+
+                <p>One-time setup — paste the Supabase key</p>
+
+            </div>
+
+            <input type="password" class="login-input" id="supabaseKeyInput" placeholder="Supabase key">
+
+            <button class="login-btn" id="supabaseKeyBtn" onclick="saveSupabaseKeyFirstTime()">
+
+                Continue
+
+            </button>
+
+            <div class="login-error" id="supabaseKeyError" style="display:none;">
+
+                Couldn't connect with that key — check it and try again.
+
+            </div>
+
+        </div>
+
+    </div>
+
     <!-- TOPBAR -->
 
     <div class="topbar">
@@ -4544,12 +4580,24 @@
 
                 <!-- Agent name -->
                 <div class="tmgr-token-strip"
-                    style="background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e3a8a;border-radius:12px;">
+                    style="background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e3a8a;border-radius:12px;margin-bottom:14px;">
                     <i class="fa-solid fa-user"></i>
                     <span>Your Name:</span>
                     <input type="text" id="settingsAgentNameInput" placeholder="e.g. Sarah"
                         style="border-color:#93c5fd;">
                     <button onclick="saveAgentName()">Save</button>
+                </div>
+
+                <!-- Supabase key — changing this reloads the page (see
+                     saveSupabaseKeySettings()); only needed to rotate an
+                     existing key, first-time entry happens right after login -->
+                <div class="tmgr-token-strip"
+                    style="background:#f0fdf4;border:1.5px solid #bbf7d0;color:#14532d;border-radius:12px;">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Supabase Key:</span>
+                    <input type="password" id="settingsSupabaseKeyInput" placeholder="Supabase key"
+                        style="border-color:#86efac;">
+                    <button onclick="saveSupabaseKeySettings(this)">Save</button>
                 </div>
 
             </div>
@@ -4601,7 +4649,11 @@
     <script>
 
         const SUPABASE_URL = "https://ehhynoowqlsgmcfyqofh.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4";
+        // Not the real anon key despite the localStorage key name below —
+        // decoding the JWT shows "role":"service_role". Never hardcode this;
+        // it's entered once via the post-login prompt / Settings and kept
+        // only in localStorage. See saveSupabaseKey() / promptForSupabaseKey().
+        let SUPABASE_KEY = localStorage.getItem("sb_key") || "";
 
         const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
@@ -4611,10 +4663,12 @@
         let META_TOKEN = localStorage.getItem("meta_token") || "";
         let agentName = localStorage.getItem("cfg_agent_name") || "";
 
-        const supabaseClient = supabase.createClient(
-            SUPABASE_URL,
-            SUPABASE_ANON_KEY
-        );
+        // Constructed inside init(), which only ever runs after login AND
+        // after we know SUPABASE_KEY is present — never at parse time. The
+        // Supabase SDK throws synchronously on an empty key, so constructing
+        // this unconditionally at module scope (as it used to be) would
+        // crash the whole page before any prompt could ever show.
+        let supabaseClient = null;
 
         let currentChat = null;
         let realtimeChannel = null;
@@ -4683,6 +4737,12 @@
                     "loginScreen"
                 ).style.display = "none";
 
+                if (SUPABASE_KEY) {
+                    init();
+                } else {
+                    promptForSupabaseKey();
+                }
+
             } else {
 
                 document.getElementById(
@@ -4707,6 +4767,83 @@
 
             }
         );
+
+        function promptForSupabaseKey() {
+            document.getElementById('supabaseKeyScreen').style.display = 'flex';
+        }
+
+        document.getElementById('supabaseKeyInput').addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') saveSupabaseKeyFirstTime();
+        });
+
+        // Cheap pre-check before any network round trip: this key MUST be a
+        // service_role key (bypasses RLS — everything in this app depends on
+        // that), so decode the JWT payload and check the role directly
+        // rather than only inferring "it works" from one successful read,
+        // which could pass under a differently-permissioned key and still
+        // fail later on writes/other tables/Realtime.
+        function isServiceRoleKey(key) {
+            try {
+                const payload = JSON.parse(atob(key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                return payload.role === 'service_role';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Validates the candidate key (JWT role + a real request) before
+        // committing — a mistyped/wrong-role key would otherwise silently
+        // "pass" (non-empty) and only surface as broken data loads after
+        // init() already ran, with no obvious way back to fix it.
+        let _savingSupabaseKey = false;
+        async function saveSupabaseKeyFirstTime() {
+            if (_savingSupabaseKey) return; // ignore repeated Enter/click while a check is in flight
+            const btn = document.getElementById('supabaseKeyBtn');
+            const errEl = document.getElementById('supabaseKeyError');
+            const val = document.getElementById('supabaseKeyInput').value.trim();
+            errEl.style.display = 'none';
+
+            if (!val) return;
+
+            if (!isServiceRoleKey(val)) {
+                errEl.textContent = "That doesn't look like the right key — this app needs the Supabase service_role key, not the anon key.";
+                errEl.style.display = 'block';
+                return;
+            }
+
+            _savingSupabaseKey = true;
+            btn.disabled = true;
+            btn.textContent = 'Connecting…';
+
+            try {
+                const testClient = supabase.createClient(SUPABASE_URL, val);
+                const { error } = await testClient.from('conversations').select('id').limit(1);
+                if (error) throw error;
+            } catch (e) {
+                _savingSupabaseKey = false;
+                btn.disabled = false;
+                btn.textContent = 'Continue';
+                errEl.textContent = "Couldn't connect with that key — check it and try again.";
+                errEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                localStorage.setItem('sb_key', val);
+                if (localStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
+            } catch (e) {
+                _savingSupabaseKey = false;
+                btn.disabled = false;
+                btn.textContent = 'Continue';
+                errEl.textContent = "Key works, but couldn't save it in this browser (private/incognito mode?). Try a normal window.";
+                errEl.style.display = 'block';
+                return;
+            }
+
+            SUPABASE_KEY = val;
+            document.getElementById('supabaseKeyScreen').style.display = 'none';
+            init();
+        }
 
         /* =========================================================
         LOGOUT
@@ -5377,7 +5514,7 @@
                 const storageKey = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
                 const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/whatsapp-media/${storageKey}`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type },
+                    headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
                     body: file
                 });
                 const storageJson = await storageRes.json();
@@ -6769,7 +6906,16 @@
 
                 if (error) {
                     console.error('Error loading conversations:', error);
-                    if (data.length === 0) return;
+                    if (data.length === 0) {
+                        // Nothing loaded at all on what's usually the very
+                        // first Supabase call after boot — most likely cause
+                        // is a revoked/wrong Supabase key, which would
+                        // otherwise fail completely silently (console-only)
+                        // and leave whoever's logged in staring at a blank,
+                        // unexplained dashboard with no clue how to fix it.
+                        showToast('Could not load conversations — your Supabase key may be invalid or revoked. Open Settings to update it.', 'error', 8000);
+                        return;
+                    }
                     break;
                 }
                 if (!page || page.length === 0) break;
@@ -8536,9 +8682,14 @@ ${referralHtml}${bodyHtml}
                 "ulink_logged_in"
             );
 
-            document.getElementById(
-                "loginScreen"
-            ).style.display = "flex";
+            // Deliberately NOT setting loginScreen.style.display here —
+            // .login-screen already defaults to display:flex in CSS, and
+            // window "load" (which waits for images etc.) can fire AFTER a
+            // fast user has already typed the password and successfully
+            // logged in. Re-asserting "flex" here would un-hide a screen
+            // login() just correctly hid, and since login() now gates
+            // init(), that previously-cosmetic-only bug would cause a
+            // second login → a second init() call.
 
             document.getElementById(
                 "mainLayout"
@@ -8547,6 +8698,28 @@ ${referralHtml}${bodyHtml}
             // Always start with sidebar expanded (clear any stale collapsed state)
             document.querySelector('.sidebar').classList.remove('collapsed');
             document.body.classList.remove('sidebar-collapsed');
+
+            // No Supabase-dependent calls here — those only ever run from
+            // init(), which only ever runs after login AND after we know
+            // SUPABASE_KEY is present. See login() / init() below.
+
+        });
+
+        // Only ever called after login() has verified the password AND
+        // confirmed SUPABASE_KEY is present (either already saved, or just
+        // entered via promptForSupabaseKey()). Constructs the real Supabase
+        // client for the first time and starts loading data — nothing in
+        // this app touches Supabase before this runs.
+        // Idempotency guard: defends against any path that could call this
+        // twice (e.g. a fast user submitting login() a second time before
+        // realizing the first one already succeeded) duplicating the
+        // visibilitychange listener / setInterval / realtime channels.
+        let _appInitialized = false;
+        function init() {
+            if (_appInitialized) return;
+            _appInitialized = true;
+
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             loadTemplates();
             loadConversations();
@@ -8565,7 +8738,7 @@ ${referralHtml}${bodyHtml}
                 if (!document.hidden) loadConversations();
             }, 30000);
 
-        });
+        }
 
         function toggleSidebar() {
 
@@ -9636,6 +9809,55 @@ ${referralHtml}${bodyHtml}
             showToast(val ? `Your name set to "${val}"` : 'Your name cleared', 'success');
         }
 
+        // Rotating an already-configured key, unlike the first-time prompt
+        // (promptForSupabaseKey/saveSupabaseKeyFirstTime), which calls
+        // init() directly. Here the app is already running with a live
+        // supabaseClient and active realtime channels — reassigning the
+        // client in place risks setupRealtime()'s existing teardown
+        // (supabaseClient.removeChannel(...)) trying to remove a channel via
+        // a DIFFERENT client instance than the one that created it. A reload
+        // sidesteps that entirely; this path is rare (key rotation), not the
+        // common case, so the extra reload is an acceptable tradeoff.
+        let _savingSupabaseKeySettings = false;
+        async function saveSupabaseKeySettings(btn) {
+            if (_savingSupabaseKeySettings) return;
+            const val = document.getElementById('settingsSupabaseKeyInput').value.trim();
+            if (!val) return;
+
+            if (!isServiceRoleKey(val)) {
+                showToast("That doesn't look like the right key — this app needs the Supabase service_role key, not the anon key.", 'error', 6000);
+                return;
+            }
+
+            const originalText = btn ? btn.textContent : 'Save';
+            _savingSupabaseKeySettings = true;
+            if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+
+            try {
+                const testClient = supabase.createClient(SUPABASE_URL, val);
+                const { error } = await testClient.from('conversations').select('id').limit(1);
+                if (error) throw error;
+            } catch (e) {
+                _savingSupabaseKeySettings = false;
+                if (btn) { btn.disabled = false; btn.textContent = originalText; }
+                showToast("Couldn't connect with that key — check it and try again.", 'error', 6000);
+                return;
+            }
+
+            try {
+                localStorage.setItem('sb_key', val);
+                if (localStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
+            } catch (e) {
+                _savingSupabaseKeySettings = false;
+                if (btn) { btn.disabled = false; btn.textContent = originalText; }
+                showToast("Key works, but couldn't save it in this browser's storage.", 'error', 6000);
+                return;
+            }
+
+            showToast('Supabase key saved — reloading…', 'success');
+            setTimeout(() => location.reload(), 600);
+        }
+
         /* =========================================================
         SETTINGS MODAL
         ========================================================= */
@@ -9643,6 +9865,7 @@ ${referralHtml}${bodyHtml}
         function openSettings() {
             document.getElementById('settingsTokenInput').value = META_TOKEN;
             document.getElementById('settingsAgentNameInput').value = agentName;
+            document.getElementById('settingsSupabaseKeyInput').value = SUPABASE_KEY;
             document.getElementById('settingsOverlay').classList.add('show');
         }
 
