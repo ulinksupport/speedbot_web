@@ -6336,111 +6336,18 @@
 
         }
 
-        let _searchDebounce = null;
-
         function searchChats(query) {
             searchQuery = query.trim();
             const box = document.getElementById('searchInput').parentElement;
-            clearTimeout(_searchDebounce);
             if (!searchQuery) {
                 box.classList.remove('active');
-                renderChats(activeFilter);
-                return;
+            } else {
+                box.classList.add('active');
             }
-            box.classList.add('active');
-            if (searchQuery.length < 2) return;
-            _searchDebounce = setTimeout(() => searchAllMessages(searchQuery), 350);
-        }
-
-        async function searchAllMessages(query) {
-            if (!query || query.length < 2) return;
-            const container = document.getElementById('chatItems');
-            container.innerHTML = '<div class="search-loading"><i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Searching messages…</div>';
-
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .select('id, phone, message, created_at, created_at_sgt, sender')
-                .ilike('message', `%${query}%`)
-                .order('created_at', { ascending: false })
-                .limit(60);
-
-            // user cleared the box while we were fetching
-            if (!searchQuery) { renderChats(activeFilter); return; }
-
-            if (error) {
-                container.innerHTML = '<div class="search-loading">Error searching messages</div>';
-                return;
-            }
-            renderSearchResults(data || [], query);
-        }
-
-        function renderSearchResults(results, query) {
-            const container = document.getElementById('chatItems');
-            container.innerHTML = '';
-
-            const header = document.createElement('div');
-            header.className = 'search-results-header';
-            const label = results.length === 0
-                ? 'No messages found'
-                : `${results.length} result${results.length !== 1 ? 's' : ''} for "${query}"`;
-            header.innerHTML = `<span>${label}</span><button onclick="clearSearch()">Clear</button>`;
-            container.appendChild(header);
-
-            const q = query.toLowerCase();
-            results.forEach(msg => {
-                const chat = chats.find(c => c.phone === msg.phone);
-                const name = chat?.name || msg.phone || 'Unknown';
-                const avatar = chat?.avatar ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-                const time = msg.created_at_sgt || (msg.created_at ? formatSGT(msg.created_at) : '');
-
-                // Build snippet with highlighted match
-                const text = msg.message || '';
-                const idx = text.toLowerCase().indexOf(q);
-                let snippet;
-                if (idx === -1) {
-                    snippet = escHtml(text.slice(0, 80));
-                } else {
-                    const start = Math.max(0, idx - 30);
-                    const end = Math.min(text.length, idx + q.length + 50);
-                    const before = escHtml(text.slice(start, idx));
-                    const match = escHtml(text.slice(idx, idx + q.length));
-                    const after = escHtml(text.slice(idx + q.length, end));
-                    snippet = `${start > 0 ? '…' : ''}${before}<mark>${match}</mark>${after}${end < text.length ? '…' : ''}`;
-                }
-
-                const div = document.createElement('div');
-                div.className = 'search-result-item';
-                div.innerHTML = `
-                    <div style="position:relative;width:44px;height:44px;flex-shrink:0;">
-                        <img class="chat-avatar" src="${avatar}" style="width:44px;height:44px;">
-                        ${getPlatformAvatarIcon(chat?.platform)}
-                    </div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                            <div class="chat-name" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(name)}</div>
-                            <div class="chat-time" style="font-size:11px;flex-shrink:0;">${escHtml(time)}</div>
-                        </div>
-                        <div class="search-result-snippet">${snippet}</div>
-                    </div>
-                `;
-
-                div.onclick = () => {
-                    const chatObj = chats.find(c => c.phone === msg.phone);
-                    if (!chatObj) return;
-                    _pendingScrollMsgId = msg.id;
-                    const el = document.querySelector(`[data-chat-id="${chatObj.id}"]`);
-                    openChat(chatObj.id, el);
-                };
-
-                container.appendChild(div);
-            });
-        }
-
-        function clearSearch() {
-            const input = document.getElementById('searchInput');
-            input.value = '';
-            searchChats('');
+            // renderChats() already filters by chat.name/phone/preview when
+            // searchQuery is set — just re-render against the current filter,
+            // no separate message-content search needed.
+            renderChats(activeFilter);
         }
 
         function scrollToAndHighlight(msgId) {
