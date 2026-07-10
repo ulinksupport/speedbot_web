@@ -4830,6 +4830,7 @@
                 const { error } = await testClient.from('conversations').select('id').limit(1);
                 if (error) throw error;
             } catch (e) {
+                console.error('Supabase key validation failed:', e);
                 _savingSupabaseKey = false;
                 btn.disabled = false;
                 btn.textContent = 'Continue';
@@ -9848,6 +9849,7 @@ ${referralHtml}${bodyHtml}
                 const { error } = await testClient.from('conversations').select('id').limit(1);
                 if (error) throw error;
             } catch (e) {
+                console.error('Supabase key validation failed:', e);
                 _savingSupabaseKeySettings = false;
                 if (btn) { btn.disabled = false; btn.textContent = originalText; }
                 showToast("Couldn't connect with that key — check it and try again.", 'error', 6000);
