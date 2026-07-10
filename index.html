@@ -6373,34 +6373,68 @@
         // appended after the normal chat list. Populated by the debounced
         // message-history search below, consumed by renderMessageSearchResults().
         let _searchMsgResults = [];
+        let _searchMsgLoading = false;
 
         function searchChats(query) {
+
             searchQuery = query.trim();
-            const box = document.getElementById('searchInput').parentElement;
+
+            const box =
+                document.getElementById('searchInput').parentElement;
+
+            const container =
+                document.getElementById('chatItems');
+
             if (!searchQuery) {
+
                 box.classList.remove('active');
-            } else {
-                box.classList.add('active');
+
+                clearTimeout(_searchRenderDebounce);
+
+                // Clear message-search results and cancel stale requests.
+                searchMessageHistoryDebounced('');
+
+                renderChats(activeFilter);
+
+                return;
             }
 
-            // Same precedent as filterChats(): the visible set is about to
-            // change, so drop any selection made against the previous view —
-            // otherwise a bulk action (Follow Up / Send Template / etc.) could
-            // silently include chats the user selected earlier but can no
-            // longer see, since search doesn't limit which tabs it searches.
+            box.classList.add('active');
+
+            /*
+             * Immediately show a loading message.
+             * This prevents the chat-list area from appearing blank.
+             */
+            container.innerHTML = `
+        <div class="search-loading">
+            <i
+                class="fa-solid fa-spinner fa-spin"
+                style="font-size:20px;margin-bottom:10px;"
+            ></i>
+
+            <div>Searching...</div>
+        </div>
+    `;
+
             if (selectionMode) {
                 selectedChatIds.clear();
                 updateBulkBar();
             }
 
-            // renderChats() already filters by chat.name/phone/preview when
-            // searchQuery is set — just re-render against the current filter,
-            // no separate message-content search needed. Light debounce so a
-            // fast typist doesn't re-render a 1000+ row sidebar on every
-            // single keystroke — short enough to still feel instant.
+            /*
+             * Local conversation search.
+             * This checks name, phone and latest preview.
+             */
             clearTimeout(_searchRenderDebounce);
-            _searchRenderDebounce = setTimeout(() => renderChats(activeFilter), 120);
 
+            _searchRenderDebounce = setTimeout(
+                () => renderChats(activeFilter),
+                120
+            );
+
+            /*
+             * Search the full messages table.
+             */
             searchMessageHistoryDebounced(searchQuery);
         }
 
@@ -6415,27 +6449,40 @@
         let _searchMsgRequestId = 0;
 
         function searchMessageHistoryDebounced(query) {
+
             clearTimeout(_searchMsgDebounce);
 
-            // Invalidate any in-flight/pending request for a prior query
-            // immediately (request-id, not string equality — a cleared-then-
-            // retyped identical query still needs a fresh id so a stale
-            // in-flight response for the same text can't win an ABA race)
-            // and drop stale results right away rather than waiting for the
-            // new query to resolve. The already-scheduled 120ms local render
-            // picks this up naturally, so no extra render call is needed here.
+            /*
+             * Invalidate any previous pending or active request.
+             */
             _searchMsgRequestId++;
-            if (_searchMsgResults.length) _searchMsgResults = [];
 
-            // 3+ chars specifically for the network query — the messages
-            // table has no trigram/full-text index, so `ilike '%q%'` is a
-            // sequential scan; a 2-char term like "hi"/"ok" is both an
-            // expensive broad scan AND (per the earlier flood-risk fix) the
-            // kind of low-signal match that clutters the results. The local
-            // name/phone/preview filter above still fires at any length.
-            if (!query || query.length < 3) return;
-            const myRequestId = _searchMsgRequestId;
-            _searchMsgDebounce = setTimeout(() => searchMessageHistory(query, myRequestId), 400);
+            _searchMsgResults = [];
+            _searchMsgLoading = false;
+
+            /*
+             * Full message-history search only starts from
+             * three characters onward.
+             *
+             * Name, phone and latest-preview searching still
+             * works with one or two characters.
+             */
+            if (!query || query.length < 3) {
+                return;
+            }
+
+            _searchMsgLoading = true;
+
+            const myRequestId =
+                _searchMsgRequestId;
+
+            _searchMsgDebounce = setTimeout(
+                () => searchMessageHistory(
+                    query,
+                    myRequestId
+                ),
+                400
+            );
         }
 
         // Postgres LIKE/ILIKE treats %, _, and \ as special — escape them so
@@ -6445,18 +6492,56 @@
             return s.replace(/[\\%_]/g, '\\$&');
         }
 
-        async function searchMessageHistory(query, requestId) {
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .select('id, phone, message, created_at, created_at_sgt')
-                .ilike('message', `%${escapeLikePattern(query)}%`)
-                .order('created_at', { ascending: false })
-                .limit(60);
+        async function searchMessageHistory(
+            query,
+            requestId
+        ) {
 
-            // A newer query has since started — drop this response.
-            if (requestId !== _searchMsgRequestId || error || !data) return;
+            const { data, error } =
+                await supabaseClient
+                    .from('messages')
+                    .select(`
+                id,
+                phone,
+                message,
+                created_at,
+                created_at_sgt
+            `)
+                    .ilike(
+                        'message',
+                        `%${escapeLikePattern(query)}%`
+                    )
+                    .order(
+                        'created_at',
+                        { ascending: false }
+                    )
+                    .limit(60);
+
+            /*
+             * Ignore a response belonging to an older search.
+             */
+            if (requestId !== _searchMsgRequestId) {
+                return;
+            }
+
+            _searchMsgLoading = false;
+
+            if (error || !data) {
+
+                console.error(
+                    'Message search failed:',
+                    error
+                );
+
+                _searchMsgResults = [];
+
+                renderChats(activeFilter);
+
+                return;
+            }
 
             _searchMsgResults = data;
+
             renderChats(activeFilter);
         }
 
@@ -6465,16 +6550,121 @@
         // per matching MESSAGE (not deduped by contact) — clicking opens
         // that chat scrolled to the exact message via openChat()'s third param.
         function renderMessageSearchResults(container) {
-            if (!searchQuery || searchQuery.length < 3 || !_searchMsgResults.length) return;
 
-            // Same visibility rule as the normal chat-row list: spam/opted-out
-            // contacts stay hidden, and a message with no matching chat row
-            // (orphan) is dropped rather than shown as an unusable "Unknown"
-            // result whose click does nothing.
+            if (!searchQuery) {
+                return;
+            }
+
+            /*
+             * For searches shorter than three characters,
+             * only the local name/phone/preview search runs.
+             */
+            if (searchQuery.length < 3) {
+
+                if (!container.children.length) {
+
+                    const empty =
+                        document.createElement('div');
+
+                    empty.className =
+                        'search-loading';
+
+                    empty.innerHTML = `
+                <i
+                    class="fa-regular fa-face-frown"
+                    style="font-size:20px;margin-bottom:10px;"
+                ></i>
+
+                <div>No results found</div>
+            `;
+
+                    container.appendChild(empty);
+                }
+
+                return;
+            }
+
+            /*
+             * The full message-history search is still running.
+             *
+             * If local conversation matches already exist,
+             * this loading status appears underneath them.
+             */
+            if (_searchMsgLoading) {
+
+                const loading =
+                    document.createElement('div');
+
+                loading.className =
+                    'search-loading';
+
+                loading.innerHTML = `
+            <i
+                class="fa-solid fa-spinner fa-spin"
+                style="font-size:20px;margin-bottom:10px;"
+            ></i>
+
+            <div>Searching messages...</div>
+        `;
+
+                container.appendChild(loading);
+
+                return;
+            }
+
             const rows = _searchMsgResults
-                .map(msg => ({ msg, chat: chats.find(c => c.phone === msg.phone) }))
-                .filter(r => r.chat && !r.chat.is_spam && !r.chat.opted_out);
-            if (!rows.length) return;
+                .map(msg => ({
+                    msg,
+                    chat: chats.find(
+                        c => c.phone === msg.phone
+                    )
+                }))
+                .filter(
+                    row =>
+                        row.chat &&
+                        !row.chat.is_spam &&
+                        !row.chat.opted_out
+                );
+
+            /*
+             * The search completed but found nothing.
+             * Only show this message when there are also
+             * no local conversation matches.
+             */
+            if (!rows.length) {
+
+                if (!container.children.length) {
+
+                    const empty =
+                        document.createElement('div');
+
+                    empty.className =
+                        'search-loading';
+
+                    empty.innerHTML = `
+                <i
+                    class="fa-solid fa-magnifying-glass"
+                    style="font-size:20px;margin-bottom:10px;"
+                ></i>
+
+                <div>No results found</div>
+
+                <div
+                    style="
+                        font-size:12px;
+                        margin-top:6px;
+                        color:#9ca3af;
+                    "
+                >
+                    Try another name, phone number or message
+                </div>
+            `;
+
+                    container.appendChild(empty);
+                }
+
+                return;
+            }
 
             const header = document.createElement('div');
             header.className = 'search-results-header';
