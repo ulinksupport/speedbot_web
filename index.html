@@ -1343,6 +1343,28 @@
             opacity: 0.7;
             margin-top: 8px;
             text-align: right;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 5px;
+        }
+
+        .msg-status {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            opacity: 0.85;
+        }
+
+        .msg-status-read {
+            color: #53bdeb;
+            opacity: 1;
+        }
+
+        .msg-status-failed {
+            color: #f87171;
+            opacity: 1;
         }
 
         /* =========================================================
@@ -7760,6 +7782,23 @@
                 bodyHtml = mediaHtml + textHtml;
             }
 
+            // ── Delivery/read status (outbound messages only) ──────────
+            let statusHtml = '';
+            if (senderClass === 'outgoing-bot' || senderClass === 'outgoing-human') {
+                const st = msg.status || null;
+                if (st === 'failed') {
+                    statusHtml = '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>';
+                } else if (st === 'read') {
+                    const t = msg.read_at ? 'Read ' + formatSGT(msg.read_at) : 'Read';
+                    statusHtml = `<span class="msg-status msg-status-read" title="${t}">Read</span>`;
+                } else if (st === 'delivered') {
+                    const t = msg.delivered_at ? 'Delivered ' + formatSGT(msg.delivered_at) : 'Delivered';
+                    statusHtml = `<span class="msg-status" title="${t}">Delivered</span>`;
+                } else if (st === 'sent') {
+                    statusHtml = '<span class="msg-status" title="Sent">Sent</span>';
+                }
+            }
+
             let referralHtml = '';
             if (msg.referral) {
                 try {
@@ -7780,7 +7819,7 @@
 ${label}
 </div>
 ${referralHtml}${bodyHtml}
-<div class="message-time">${time}</div>
+<div class="message-time"><span>${time}</span>${statusHtml}</div>
 `;
 
             const shouldScrollToBottom =
