@@ -6828,6 +6828,12 @@
 
             container.innerHTML = "";
 
+            // Same fix as fetchMessagesForChat's fragment batching — this ran
+            // one appendChild (one layout pass) per conversation row directly
+            // against the live sidebar, which freezes the tab for a chat list
+            // this size (well over 1000 rows). Build off-DOM, insert once.
+            const fragment = document.createDocumentFragment();
+
             chats.forEach(chat => {
 
                 // Spam contacts are hidden from all filters except 'spam';
@@ -7012,9 +7018,11 @@
                     }
                 };
 
-                container.appendChild(div);
+                fragment.appendChild(div);
 
             });
+
+            container.appendChild(fragment);
 
         }
 
@@ -7321,7 +7329,12 @@
             messagesContainer.innerHTML = "";
             _lastRenderedMsgDate = null;
 
-            data.forEach(msg => appendMessage(msg, true));
+            // Build off-DOM, then insert once — see appendMessage()'s `target`
+            // param comment. For a chat with hundreds of messages this is the
+            // difference between one layout pass and hundreds of them.
+            const fragment = document.createDocumentFragment();
+            data.forEach(msg => appendMessage(msg, true, fragment));
+            messagesContainer.appendChild(fragment);
 
             populateMediaFiles(data);
 
@@ -7719,12 +7732,19 @@
             return true;
         }
 
-        function appendMessage(msg, suppressScroll = false) {
+        // `target` lets a bulk caller (fetchMessagesForChat) pass an off-DOM
+        // DocumentFragment instead of the live container, so hundreds of
+        // messages can be built in memory and inserted into the page in one
+        // shot instead of one appendChild (= one layout pass) per message —
+        // that per-message live-DOM insertion was freezing the tab for a
+        // few seconds on any chat with a large history.
+        function appendMessage(msg, suppressScroll = false, target = null) {
 
             if (!msg.message && !msg.media_url) return;
 
-            const messagesContainer =
+            const liveContainer =
                 document.getElementById("messages");
+            const messagesContainer = target || liveContainer;
 
             // Date separator
             if (msg.created_at) {
