@@ -6338,10 +6338,11 @@
 
         let _searchRenderDebounce = null;
         let _searchMsgDebounce = null;
-        // phone -> matched message text, ONLY for conversations that didn't
-        // already match by name/phone/preview — populated by the debounced
-        // message-history search below, consumed by renderChats().
-        let _searchMsgMatches = new Map();
+        // Raw matched message rows (NOT deduped by contact) — each one
+        // renders as its own clickable result in the "Messages" section
+        // appended after the normal chat list. Populated by the debounced
+        // message-history search below, consumed by renderMessageSearchResults().
+        let _searchMsgResults = [];
 
         function searchChats(query) {
             searchQuery = query.trim();
@@ -6373,13 +6374,14 @@
             searchMessageHistoryDebounced(searchQuery);
         }
 
-        // Finds conversations that match somewhere in their FULL message
-        // history, not just the current name/phone/preview — e.g. a contact
-        // whose name doesn't mention "faisal" but who was told about a
-        // Dr Faisal in an older message. Debounced longer than the local
-        // filter since it's a real network round trip. Results only ever
-        // ADD conversations the fast local filter already missed — they're
-        // merged into the same renderChats() pass, not shown separately.
+        // Finds individual MESSAGES matching the search term anywhere in a
+        // conversation's full history (not just name/phone/latest preview) —
+        // e.g. finding a customer who was told about "Dr Faisal" in an older
+        // message. Debounced longer than the local filter since it's a real
+        // network round trip. Every matching message shows as its own result
+        // (like WhatsApp's own message search), separate from the name-
+        // matched chat rows above it — clicking one opens that chat scrolled
+        // to that exact message.
         let _searchMsgRequestId = 0;
 
         function searchMessageHistoryDebounced(query) {
@@ -6389,12 +6391,18 @@
             // immediately (request-id, not string equality — a cleared-then-
             // retyped identical query still needs a fresh id so a stale
             // in-flight response for the same text can't win an ABA race)
-            // and drop stale matches right away rather than waiting for the
+            // and drop stale results right away rather than waiting for the
             // new query to resolve. The already-scheduled 120ms local render
             // picks this up naturally, so no extra render call is needed here.
             _searchMsgRequestId++;
-            if (_searchMsgMatches.size) _searchMsgMatches = new Map();
+            if (_searchMsgResults.length) _searchMsgResults = [];
 
+            // 3+ chars specifically for the network query — the messages
+            // table has no trigram/full-text index, so `ilike '%q%'` is a
+            // sequential scan; a 2-char term like "hi"/"ok" is both an
+            // expensive broad scan AND (per the earlier flood-risk fix) the
+            // kind of low-signal match that clutters the results. The local
+            // name/phone/preview filter above still fires at any length.
             if (!query || query.length < 3) return;
             const myRequestId = _searchMsgRequestId;
             _searchMsgDebounce = setTimeout(() => searchMessageHistory(query, myRequestId), 400);
@@ -6410,33 +6418,95 @@
         async function searchMessageHistory(query, requestId) {
             const { data, error } = await supabaseClient
                 .from('messages')
-                .select('phone, message, created_at')
+                .select('id, phone, message, created_at, created_at_sgt')
                 .ilike('message', `%${escapeLikePattern(query)}%`)
                 .order('created_at', { ascending: false })
-                .limit(200);
+                .limit(60);
 
             // A newer query has since started — drop this response.
             if (requestId !== _searchMsgRequestId || error || !data) return;
 
-            const matches = new Map();
-            // Cap distinct phones added, separate from the row-count limit
-            // above — a broad term (e.g. "the") could otherwise match rows
-            // from 200 different conversations and flood the sidebar with
-            // low-signal results, the exact complaint that got the old
-            // full-text search removed in the first place.
-            const MAX_MATCHED_PHONES = 30;
-            for (const m of data) {
-                if (matches.size >= MAX_MATCHED_PHONES) break;
-                if (!m.phone || matches.has(m.phone)) continue; // most recent match per phone only
-                matches.set(m.phone, m.message || '');
-            }
-            _searchMsgMatches = matches;
+            _searchMsgResults = data;
             renderChats(activeFilter);
+        }
+
+        // Appended into #chatItems after the normal chat-row list, when
+        // there's an active search with message-content matches. One row
+        // per matching MESSAGE (not deduped by contact) — clicking opens
+        // that chat scrolled to the exact message via openChat()'s third param.
+        function renderMessageSearchResults(container) {
+            if (!searchQuery || searchQuery.length < 3 || !_searchMsgResults.length) return;
+
+            // Same visibility rule as the normal chat-row list: spam/opted-out
+            // contacts stay hidden, and a message with no matching chat row
+            // (orphan) is dropped rather than shown as an unusable "Unknown"
+            // result whose click does nothing.
+            const rows = _searchMsgResults
+                .map(msg => ({ msg, chat: chats.find(c => c.phone === msg.phone) }))
+                .filter(r => r.chat && !r.chat.is_spam && !r.chat.opted_out);
+            if (!rows.length) return;
+
+            const header = document.createElement('div');
+            header.className = 'search-results-header';
+            header.innerHTML = `<span>${rows.length} message${rows.length !== 1 ? 's' : ''} matching "${escHtml(searchQuery)}"</span>`;
+            container.appendChild(header);
+
+            const q = searchQuery.toLowerCase();
+            rows.forEach(({ msg, chat }) => {
+                const name = chat?.name || msg.phone || 'Unknown';
+                const avatar = chat?.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+                const time = msg.created_at_sgt || (msg.created_at ? formatSGT(msg.created_at) : '');
+
+                const text = msg.message || '';
+                const idx = text.toLowerCase().indexOf(q);
+                let snippet;
+                if (idx === -1) {
+                    snippet = escHtml(text.slice(0, 80));
+                } else {
+                    const start = Math.max(0, idx - 30);
+                    const end = Math.min(text.length, idx + q.length + 50);
+                    const before = escHtml(text.slice(start, idx));
+                    const match = escHtml(text.slice(idx, idx + q.length));
+                    const after = escHtml(text.slice(idx + q.length, end));
+                    snippet = `${start > 0 ? '…' : ''}${before}<mark>${match}</mark>${after}${end < text.length ? '…' : ''}`;
+                }
+
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.innerHTML = `
+                    <div style="position:relative;width:44px;height:44px;flex-shrink:0;">
+                        <img class="chat-avatar" src="${avatar}" style="width:44px;height:44px;">
+                        ${getPlatformAvatarIcon(chat?.platform)}
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                            <div class="chat-name" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(name)}</div>
+                            <div class="chat-time" style="font-size:11px;flex-shrink:0;">${escHtml(time)}</div>
+                        </div>
+                        <div class="search-result-snippet">${snippet}</div>
+                    </div>
+                `;
+
+                div.onclick = () => {
+                    const el = document.querySelector(`[data-chat-id="${chat.id}"]`);
+                    openChat(chat.id, el, msg.id);
+                };
+
+                container.appendChild(div);
+            });
         }
 
         function scrollToAndHighlight(msgId) {
             const el = document.querySelector(`[data-msg-id="${msgId}"]`);
-            if (!el) return;
+            if (!el) {
+                // Only the newest 1000 messages get loaded per chat — a
+                // message-search result older than that has no element to
+                // scroll to. Silently doing nothing looks like a broken
+                // click, so at least tell the user why.
+                showToast('That message is too far back in this chat\'s history to jump to directly.', 'error', 5000);
+                return;
+            }
             el.scrollIntoView({ behavior: 'instant', block: 'center' });
             el.classList.remove('msg-highlight');
             // force reflow to restart animation if already applied
@@ -6452,7 +6522,11 @@
         let chats = [];
         let activeFilter = 'all';
         let searchQuery = '';
-        let _pendingScrollMsgId = null;
+        // { chatId, msgId } | null — scoped to a specific chat so a
+        // fetchMessagesForChat() for a DIFFERENT chat (e.g. the user clicked
+        // elsewhere while a fetch was still in flight) can't consume a scroll
+        // target that wasn't meant for it. See openChat()/fetchMessagesForChat().
+        let _pendingScroll = null;
         let selectionMode = false;
         let selectedChatIds = new Set();
         let _analyticsCache = null;
@@ -6906,21 +6980,18 @@
                     if (activeDateFilterIds !== null && !activeDateFilterIds.has(chat.id)) return;
                 }
 
-                // Search filter — local match first (instant); if none, fall
-                // back to the debounced message-history match (see
-                // searchMessageHistory) so a contact still surfaces even when
-                // the search term only appears in an older message, not their
-                // name/phone/latest preview.
-                let _searchSnippet = null;
+                // Search filter — name/phone/latest-preview only. Message
+                // content matches are shown separately, one row per matching
+                // message, in the "Messages" section appended after this
+                // list (see renderMessageSearchResults) — matches WhatsApp's
+                // own search UI, and avoids collapsing multiple distinct
+                // matching messages from one contact into a single row.
                 if (searchQuery) {
                     const q = searchQuery.toLowerCase();
                     const matchName = (chat.name || '').toLowerCase().includes(q);
                     const matchPhone = (chat.phone || '').includes(q);
                     const matchPreview = (chat.preview || '').toLowerCase().includes(q);
-                    if (!matchName && !matchPhone && !matchPreview) {
-                        _searchSnippet = _searchMsgMatches.get(chat.phone) || null;
-                        if (!_searchSnippet) return;
-                    }
+                    if (!matchName && !matchPhone && !matchPreview) return;
                 }
 
                 const chatTime =
@@ -6954,9 +7025,7 @@
                 div.setAttribute("data-chat-id", chat.id);
                 div.setAttribute("data-phone", chat.phone);
 
-                const previewHtml = _searchSnippet
-                    ? `<strong style="color:#2563eb;">Found in message:</strong> "${escHtml(_searchSnippet.slice(0, 100))}${_searchSnippet.length > 100 ? '…' : ''}"`
-                    : `<strong>${getPreviewSenderLabel(chat)}:</strong> ${formatPreview(chat.preview)}`;
+                const previewHtml = `<strong>${getPreviewSenderLabel(chat)}:</strong> ${formatPreview(chat.preview)}`;
 
                 div.innerHTML = `
 
@@ -7036,6 +7105,8 @@
             });
 
             container.appendChild(fragment);
+
+            renderMessageSearchResults(container);
 
         }
 
@@ -7126,16 +7197,13 @@
             // than patch it in place and leave a stale/wrong match on screen,
             // fall back to a full re-render (cheap now, see the fragment fix)
             // so the search filter re-evaluates against the new preview text.
-            // A row showing a message-history snippet (not the live preview)
-            // always falls back too — patching would overwrite the snippet
-            // with the new (non-matching) preview text, which is wrong.
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
-                const stillMatchesLocally =
+                const stillMatches =
                     (chat.name || '').toLowerCase().includes(q) ||
                     (chat.phone || '').includes(q) ||
                     (chat.preview || '').toLowerCase().includes(q);
-                if (!stillMatchesLocally || _searchMsgMatches.has(chat.phone)) {
+                if (!stillMatches) {
                     renderChats(activeFilter);
                     return;
                 }
@@ -7172,7 +7240,7 @@
         OPEN CHAT
         ========================================================= */
 
-        async function openChat(id, element) {
+        async function openChat(id, element, pendingScrollMsgId = null) {
             document.querySelectorAll(".chat-item").forEach(item => item.classList.remove("active"));
             if (element) element.classList.add("active");
 
@@ -7289,6 +7357,12 @@
             document.getElementById("countryValue").innerText = chat.country;
             document.getElementById("languageValue").innerText = chat.language;
 
+            // Set immediately before the fetch (no await between) and scoped
+            // to this chat's id — fetchMessagesForChat() only consumes it if
+            // currentChat still matches, so a fetch for a different chat
+            // (e.g. the user clicked elsewhere while this one was in flight)
+            // can't steal or clear a scroll target that wasn't meant for it.
+            _pendingScroll = pendingScrollMsgId ? { chatId: chat.id, msgId: pendingScrollMsgId } : null;
             fetchMessagesForChat();
             checkWindowExpiry();
         }
@@ -7346,6 +7420,7 @@
                     error
                 );
 
+                _pendingScroll = null;
                 return;
 
             }
@@ -7372,12 +7447,14 @@
             populateMediaFiles(data);
             updateScrollRecentButton();
 
-            if (_pendingScrollMsgId) {
-                const target = _pendingScrollMsgId;
-                _pendingScrollMsgId = null;
+            if (_pendingScroll && currentChat && _pendingScroll.chatId === currentChat.id) {
+                const target = _pendingScroll.msgId;
+                _pendingScroll = null;
                 // slight delay so DOM paint is complete
                 setTimeout(() => scrollToAndHighlight(target), 60);
             } else {
+                _pendingScroll = null; // stale/mismatched — don't let it leak into a later unrelated fetch
+
                 // scrollTo with behavior:'instant' overrides CSS scroll-behavior:smooth
                 messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'instant' });
             }
