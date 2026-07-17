@@ -4655,7 +4655,7 @@
         // only in localStorage. See saveSupabaseKey() / promptForSupabaseKey().
         let SUPABASE_KEY = localStorage.getItem("sb_key") || "";
 
-        const N8N_BASE = "https://guest-annie-oxygen-pal.trycloudflare.com/webhook";
+        const N8N_BASE = "https://ulink.app.n8n.cloud/webhook";
 
         const META_WABA_ID = "1328662202356452";
         const META_PHONE_ID = "970011649529902";
@@ -5611,7 +5611,7 @@
                     );
 
                     const backupResponse = await fetch(
-                        N8N_BASE + '/dashboard-outgoing-media-backup',
+                        `${N8N_BASE}/dashboard-outgoing-media-backup`,
                         {
                             method: 'POST',
                             body: backupForm
@@ -6036,7 +6036,7 @@
             try {
 
                 const response = await fetch(
-                    N8N_BASE + '/export-chat',
+                    'https://guest-annie-oxygen-pal.trycloudflare.com/webhook/export-chat',
                     {
                         method: 'POST',
                         headers: {
@@ -6115,7 +6115,7 @@
             alert("Backup initialized! It is safely running in the background. You can continue using the dashboard and check OneDrive later.");
 
             // Fire and forget: We don't await the fetch, so the browser doesn't hang waiting for 60+ chats to process.
-            fetch(N8N_BASE + "/backup-chats", { method: "POST" }).catch(err => {
+            fetch("https://ulink.app.n8n.cloud/webhook/backup-chats", { method: "POST" }).catch(err => {
                 console.error("Background backup network log:", err);
             });
         }
