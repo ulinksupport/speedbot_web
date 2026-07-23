@@ -6110,14 +6110,171 @@
         ========================================================= */
 
         function backupChats() {
-            if (!confirm("Start mass backup? This process takes a few minutes.")) return;
+            /*
+             * SELECTION MODE:
+             * Back up only the chats selected by the user.
+             */
+            if (selectionMode) {
+                if (selectedChatIds.size === 0) {
+                    showToast(
+                        'Select at least one chat before starting the backup',
+                        'error'
+                    );
 
-            alert("Backup initialized! It is safely running in the background. You can continue using the dashboard and check OneDrive later.");
+                    return;
+                }
 
-            // Fire and forget: We don't await the fetch, so the browser doesn't hang waiting for 60+ chats to process.
-            fetch(N8N_BASE + "/backup-chats", { method: "POST" }).catch(err => {
-                console.error("Background backup network log:", err);
-            });
+                /*
+                 * Convert every selected ID to a string.
+                 * This avoids mismatches where one ID is numeric
+                 * and the other is stored as text.
+                 */
+                const selectedIds = new Set(
+                    [...selectedChatIds].map(id => String(id))
+                );
+
+                /*
+                 * Find the full conversation records matching
+                 * the selected conversation IDs.
+                 */
+                const selectedChats = chats
+                    .filter(chat =>
+                        selectedIds.has(String(chat.id))
+                    )
+                    .map(chat => ({
+                        id: chat.id,
+                        name:
+                            chat.name ||
+                            chat.phone ||
+                            'Unknown',
+
+                        phone:
+                            chat.phone || '',
+
+                        platform:
+                            chat.platform || 'Unknown',
+
+                        created_at:
+                            chat.created_at || null,
+
+                        updated_at:
+                            chat.updated_at || null,
+
+                        last_message_time:
+                            chat.last_message_time ||
+                            chat.last_message_time_sgt ||
+                            null,
+
+                        closed_at:
+                            chat.closed_at || null
+                    }));
+
+                /*
+                 * Safety check:
+                 * selected IDs existed, but no matching loaded
+                 * conversations were found.
+                 */
+                if (selectedChats.length === 0) {
+                    showToast(
+                        'The selected chats could not be matched to loaded conversations',
+                        'error'
+                    );
+
+                    return;
+                }
+
+                const confirmed = confirm(
+                    `Back up ${selectedChats.length} selected chat` +
+                    `${selectedChats.length === 1 ? '' : 's'}?`
+                );
+
+                if (!confirmed) {
+                    return;
+                }
+
+                showToast(
+                    `Selected chat backup started for ` +
+                    `${selectedChats.length} chat` +
+                    `${selectedChats.length === 1 ? '' : 's'}`,
+                    'success'
+                );
+
+                fetch(
+                    N8N_BASE + '/selected-chat-backup',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+
+                        body: JSON.stringify({
+                            selected_chats:
+                                selectedChats,
+
+                            selected_count:
+                                selectedChats.length,
+
+                            requested_at:
+                                new Date().toISOString()
+                        })
+                    }
+                )
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(
+                                `Selected backup returned HTTP ${response.status}`
+                            );
+                        }
+
+                        console.log(
+                            'Selected chat backup request accepted'
+                        );
+                    })
+                    .catch(error => {
+                        console.error(
+                            'Selected chat backup network error:',
+                            error
+                        );
+
+                        showToast(
+                            'Could not start selected chat backup',
+                            'error'
+                        );
+                    });
+
+                return;
+            }
+
+            /*
+             * NORMAL MODE:
+             * Preserve the existing full backup.
+             */
+            if (
+                !confirm(
+                    'Start mass backup? This process takes a few minutes.'
+                )
+            ) {
+                return;
+            }
+
+            alert(
+                'Backup initialized! It is safely running in the background. ' +
+                'You can continue using the dashboard and check OneDrive later.'
+            );
+
+            fetch(
+                N8N_BASE + '/backup-chats',
+                {
+                    method: 'POST'
+                }
+            )
+                .catch(error => {
+                    console.error(
+                        'Background backup network error:',
+                        error
+                    );
+                });
         }
 
         /* =========================================================
