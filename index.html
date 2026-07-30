@@ -7298,8 +7298,8 @@
             document.getElementById('count-all').innerText = chats.length;
             document.getElementById('count-escalated').innerText = escalatedChats.length; document.getElementById('count-unassigned').innerText = chats.filter(c => c.type === 'unassigned').length;
             document.getElementById('count-unreplied').innerText = chats.filter(c => c.type === 'unreplied').length;
-            document.getElementById('count-unread').innerText = chats.filter(c => (c.unread_count || 0) > 0).length;
-            document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
+            document.getElementById('count-unread').innerText =
+                visibleChats.filter(c => Number(c.unread_count || 0) > 0).length; document.getElementById('count-active').innerText = chats.filter(c => !isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-expired').innerText = chats.filter(c => isWindowExpired(c.last_incoming_at)).length;
             document.getElementById('count-human').innerText = humanChats.length;
             document.getElementById('count-bot').innerText = botChats.length;
