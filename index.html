@@ -4600,6 +4600,23 @@
                     <button onclick="saveSupabaseKeySettings(this)">Save</button>
                 </div>
 
+                <!-- Facebook / Instagram channels -->
+                <div style="margin-top:18px;padding-top:18px;border-top:1px solid #e5e7eb;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-weight:600;color:#334155;">
+                            <i class="fa-solid fa-share-nodes" style="color:#1877F2;margin-right:6px;"></i>
+                            Facebook &amp; Instagram
+                        </span>
+                        <button onclick="connectMetaChannels()" id="connectMetaBtn"
+                            style="background:#1877F2;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;">
+                            <i class="fa-brands fa-facebook"></i> Connect
+                        </button>
+                    </div>
+                    <div id="channelConnectionsList" style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="color:#94a3b8;font-size:13px;">Loading…</div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -10037,6 +10054,7 @@ ${referralHtml}${bodyHtml}
             document.getElementById('settingsAgentNameInput').value = agentName;
             document.getElementById('settingsSupabaseKeyInput').value = SUPABASE_KEY;
             document.getElementById('settingsOverlay').classList.add('show');
+            loadChannelConnections();
         }
 
         function closeSettings() {
@@ -10046,6 +10064,158 @@ ${referralHtml}${bodyHtml}
         document.getElementById('settingsOverlay').addEventListener('click', function (e) {
             if (e.target.id === 'settingsOverlay') closeSettings();
         });
+
+        /* =========================================================
+        META CHANNELS (Facebook Page + Instagram Connect)
+
+        Popup-based OAuth, not a full-page redirect: this dashboard's login
+        has no session persistence (see login()) — navigating the whole tab
+        to facebook.com and back would land back on the password screen.
+        The popup does the OAuth dance, the Worker does the token exchange
+        server-side (App Secret never reaches the browser), and the popup
+        postMessages the result back to this tab before closing itself.
+        ========================================================= */
+
+        const META_APP_ID = "867205216298809"; // must match META_APP_ID in the Cloudflare Worker's env vars
+        const META_WORKER_BASE = "https://damp-band-cbd6.supportdesk-a17.workers.dev";
+        const META_OAUTH_REDIRECT_URI = META_WORKER_BASE + "/oauth/callback";
+        // Must match CHANNELS_API_KEY in the Cloudflare Worker's env vars — gates
+        // /channels/list and /channels/disconnect (see cloudflare-worker.js header).
+        const META_CHANNELS_API_KEY = "fT-0o0rmujKqqtYCrpcSZk8ftblsLdoN";
+        const META_OAUTH_SCOPES = [
+            "pages_show_list",
+            "pages_manage_metadata",
+            "pages_messaging",
+            "pages_read_engagement",
+            "instagram_basic",
+            "instagram_manage_messages",
+            "business_management",
+        ].join(",");
+
+        let _metaConnectState = null;
+
+        // Opens the popup synchronously (inside the click handler, so browsers
+        // don't treat it as a blocked pop-under) pointed at a blank page, THEN
+        // asynchronously fetches a server-issued state from the Worker and
+        // navigates the already-open popup to Facebook once it arrives. The
+        // Worker mints `state`, not this client — see verifyOAuthState() in
+        // cloudflare-worker.js for why the callback needs to trust that value.
+        async function connectMetaChannels() {
+            const popup = window.open("", "meta_connect", "width=600,height=720");
+            if (!popup) {
+                showToast("Popup blocked — allow popups for this site and try again.", "error");
+                return;
+            }
+            try {
+                const res = await fetch(META_WORKER_BASE + "/oauth/start", {
+                    headers: { "X-Channels-Key": META_CHANNELS_API_KEY },
+                });
+                const data = await res.json();
+                if (!data.state) throw new Error("No state returned");
+                _metaConnectState = data.state;
+
+                const authUrl = "https://www.facebook.com/v23.0/dialog/oauth"
+                    + "?client_id=" + encodeURIComponent(META_APP_ID)
+                    + "&redirect_uri=" + encodeURIComponent(META_OAUTH_REDIRECT_URI)
+                    + "&state=" + encodeURIComponent(_metaConnectState)
+                    + "&response_type=code"
+                    + "&scope=" + encodeURIComponent(META_OAUTH_SCOPES);
+                popup.location.href = authUrl;
+            } catch (e) {
+                popup.close();
+                showToast("Couldn't start the connect flow — try again.", "error");
+            }
+        }
+
+        window.addEventListener("message", function (event) {
+            if (event.origin !== META_WORKER_BASE) return;
+            const data = event.data;
+            if (!data || data.type !== "meta_connect_result") return;
+            if (!_metaConnectState || data.state !== _metaConnectState) return; // stale or foreign response
+            _metaConnectState = null;
+
+            if (data.ok) {
+                const names = (data.pages || [])
+                    .map(p => p.ig_username ? `${p.name} (IG: @${p.ig_username})` : p.name)
+                    .join(", ");
+                if (data.warning) {
+                    showToast(data.warning, "error", 8000);
+                } else {
+                    showToast("Connected: " + (names || "Facebook Page"), "success", 6000);
+                }
+            } else {
+                showToast("Connect failed: " + (data.error || "Unknown error"), "error", 6000);
+            }
+            loadChannelConnections();
+        });
+
+        async function loadChannelConnections() {
+            const listEl = document.getElementById("channelConnectionsList");
+            if (!listEl) return;
+            try {
+                const res = await fetch(META_WORKER_BASE + "/channels/list", {
+                    headers: { "X-Channels-Key": META_CHANNELS_API_KEY },
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const rows = await res.json();
+                if (!Array.isArray(rows) || !rows.length) {
+                    listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;">No Pages connected yet.</div>';
+                    return;
+                }
+                // data-page-id + a delegated click listener, not an inline onclick
+                // built from a string-interpolated id: escapeHtml() escapes for HTML
+                // text/attribute context, not for sitting inside a JS string literal
+                // inside an onclick="..." attribute — the wrong context for that use.
+                listEl.innerHTML = rows.map(r => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;">
+                        <span>
+                            <strong>${escapeHtml(r.page_name || r.page_id)}</strong>
+                            ${r.ig_username ? ` &middot; IG @${escapeHtml(r.ig_username)}` : ''}
+                            ${r.webhook_subscribed === false
+                                ? ' <span style="color:#b45309;" title="Meta never confirmed the webhook subscription — messages may not arrive">⚠ not subscribed</span>'
+                                : ''}
+                        </span>
+                        <button type="button" class="channel-disconnect-btn" data-page-id="${escapeHtml(r.page_id)}"
+                            style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;">
+                            Disconnect
+                        </button>
+                    </div>
+                `).join("");
+            } catch (e) {
+                listEl.innerHTML = '<div style="color:#dc2626;font-size:13px;">Couldn\'t load channel connections.</div>';
+            }
+        }
+
+        document.getElementById("channelConnectionsList")?.addEventListener("click", function (e) {
+            const btn = e.target.closest(".channel-disconnect-btn");
+            if (btn) disconnectChannel(btn.dataset.pageId);
+        });
+
+        async function disconnectChannel(pageId) {
+            if (!confirm("Disconnect this Page? Messages will stop syncing until reconnected.")) return;
+            try {
+                const res = await fetch(META_WORKER_BASE + "/channels/disconnect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "X-Channels-Key": META_CHANNELS_API_KEY },
+                    body: JSON.stringify({ page_id: pageId }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast("Disconnected.", "success");
+                    loadChannelConnections();
+                } else {
+                    showToast(data.error || "Failed to disconnect.", "error");
+                }
+            } catch (e) {
+                showToast("Failed to disconnect.", "error");
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            }[c]));
+        }
 
         /* =========================================================
         BROADCAST ANALYTICS
