@@ -4674,8 +4674,10 @@
 
         const N8N_BASE = "https://n8n.ulinkassist.com/webhook";
 
-        const META_WABA_ID = "1521677369178530";
-        const META_PHONE_ID = "1292684077252611";
+        // const META_WABA_ID = "1521677369178530";
+        // const META_PHONE_ID = "1292684077252611";
+        const META_WABA_ID = "1633971881650214";
+        const META_PHONE_ID = "1286180077917309";
         const META_GRAPH_URL = "https://graph.facebook.com/v23.0";
         let META_TOKEN = localStorage.getItem("meta_token") || "";
         let agentName = localStorage.getItem("cfg_agent_name") || "";
@@ -10172,8 +10174,8 @@ ${referralHtml}${bodyHtml}
                             <strong>${escapeHtml(r.page_name || r.page_id)}</strong>
                             ${r.ig_username ? ` &middot; IG @${escapeHtml(r.ig_username)}` : ''}
                             ${r.webhook_subscribed === false
-                                ? ' <span style="color:#b45309;" title="Meta never confirmed the webhook subscription — messages may not arrive">⚠ not subscribed</span>'
-                                : ''}
+                        ? ' <span style="color:#b45309;" title="Meta never confirmed the webhook subscription — messages may not arrive">⚠ not subscribed</span>'
+                        : ''}
                         </span>
                         <button type="button" class="channel-disconnect-btn" data-page-id="${escapeHtml(r.page_id)}"
                             style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;">
