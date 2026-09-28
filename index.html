@@ -7459,14 +7459,15 @@
 
             chats.forEach(chat => {
 
-                // Spam contacts are hidden from all filters except 'spam';
-                // opted-out (non-spam) contacts are hidden from all filters except 'optedout'
                 // — unconditional on `filter`, so this still applies while searching
                 // (spam/opted-out stays hidden regardless of which tab search is run from).
+                // Spam is hidden everywhere except the Spam tab.
+                // Opted-out contacts are included in All,
+                // but excluded from other tabs except Opted Out.
                 if (chat.is_spam) {
                     if (filter !== 'spam') return;
                 } else if (chat.opted_out) {
-                    if (filter !== 'optedout') return;
+                    if (filter !== 'all' && filter !== 'optedout') return;
                 }
 
                 // A search query means "search every conversation" — it should
@@ -7611,8 +7612,30 @@
 
         <div class="chat-name">
             ${chat.name}
-            ${chat.escalate ? `<span title="${chat.escalate_reason ? escHtml(chat.escalate_reason) : 'Escalated'}" style="font-size:11px;font-weight:600;color:#d9534f;margin-left:6px;">🚨 Escalated</span>` : ''}
-            ${chat.bot_enabled === false && chat.agent_name ? `<span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">👤 ${escHtml(chat.agent_name)}</span>` : ''}
+
+            ${chat.escalate ? `
+                <span
+                    title="${chat.escalate_reason ? escHtml(chat.escalate_reason) : 'Escalated'}"
+                    style="font-size:11px;font-weight:600;color:#d9534f;margin-left:6px;"
+                >
+                    🚨 Escalated
+                </span>
+            ` : ''}
+
+            ${chat.opted_out && !chat.is_spam ? `
+                <span
+                    title="Opted Out"
+                    style="font-size:11px;font-weight:600;color:#dc2626;margin-left:6px;"
+                >
+                    ⛔ Opted Out
+                </span>
+            ` : ''}
+
+            ${chat.bot_enabled === false && chat.agent_name ? `
+                <span style="font-size:11px;font-weight:400;color:#2563eb;margin-left:6px;">
+                    👤 ${escHtml(chat.agent_name)}
+                </span>
+            ` : ''}
         </div>
 
         <div class="chat-time">
