@@ -3013,7 +3013,7 @@
             color: #991b1b;
         }
 
-        /* Meta token config strip */
+        /* Settings input strip */
         .tmgr-token-strip {
             background: #fffbeb;
             border-bottom: 1px solid #fde68a;
@@ -4570,14 +4570,6 @@
 
             <div class="tmgr-panel active" style="padding:24px;">
 
-                <!-- Meta token -->
-                <div class="tmgr-token-strip" style="border-radius:12px;border:1.5px solid #fde68a;margin-bottom:14px;">
-                    <i class="fa-solid fa-key"></i>
-                    <span>Meta Token:</span>
-                    <input type="password" id="settingsTokenInput" placeholder="Paste your permanent Meta access token">
-                    <button onclick="saveMetaToken()">Save</button>
-                </div>
-
                 <!-- Agent name -->
                 <div class="tmgr-token-strip"
                     style="background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e3a8a;border-radius:12px;margin-bottom:14px;">
@@ -4679,7 +4671,6 @@
         const META_WABA_ID = "1633971881650214";
         const META_PHONE_ID = "1286180077917309";
         const META_GRAPH_URL = "https://graph.facebook.com/v23.0";
-        let META_TOKEN = localStorage.getItem("meta_token") || "";
         let agentName = localStorage.getItem("cfg_agent_name") || "";
 
         // Constructed inside init(), which only ever runs after login AND
@@ -5505,8 +5496,6 @@
 
             const isMetaPlatform = ['messenger', 'instagram'].includes(currentChat.platformType);
 
-            if (!isMetaPlatform && !META_TOKEN) return alert('WhatsApp token not set. Go to Settings and enter your META token.');
-
             const sgtNow = new Date().toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true });
             const isImage = file.type.startsWith('image/');
             const mediaType = isImage ? 'image' : 'document';
@@ -5540,16 +5529,33 @@
             updateSingleConversationUI(currentChat);
 
             try {
-                // Upload to Supabase storage (all platforms)
-                const storageKey = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-                const storageRes = await fetch(`${SUPABASE_URL}/storage/v1/object/whatsapp-media/${storageKey}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
-                    body: file
-                });
-                const storageJson = await storageRes.json();
-                const permanentUrl = `${SUPABASE_URL}/storage/v1/object/public/${storageJson.Key || ('whatsapp-media/' + storageKey)}`;
+                // Upload to Supabase Storage through Cloudflare Worker
+                const storageForm = new FormData();
 
+                storageForm.append('file', file, file.name);
+
+                const storageRes = await fetch(
+                    META_WORKER_BASE + '/supabase-storage-upload',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-Channels-Key': META_CHANNELS_API_KEY
+                        },
+                        body: storageForm
+                    }
+                );
+
+                const storageJson = await storageRes.json();
+
+
+                if (!storageRes.ok || !storageJson.public_url) {
+                    throw new Error(
+                        'Supabase storage upload failed: ' +
+                        JSON.stringify(storageJson)
+                    );
+                }
+
+                const permanentUrl = storageJson.public_url;
                 if (isMetaPlatform) {
                     // FB/IG: send via human-send-message webhook (platform-aware, uses Graph API attachment)
                     await fetch(N8N_BASE + '/human-send-message', {
@@ -5569,40 +5575,82 @@
                 } else {
                     // WhatsApp: upload to WA Media API then send
                     const formData = new FormData();
-                    formData.append('messaging_product', 'whatsapp');
+
                     formData.append('file', file, file.name);
                     formData.append('type', file.type);
-                    const waUpload = await fetch(`${META_GRAPH_URL}/${META_PHONE_ID}/media`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${META_TOKEN}` },
-                        body: formData
-                    });
+                    formData.append('phone_id', META_PHONE_ID);
+
+                    const waUpload = await fetch(
+                        META_WORKER_BASE + '/meta-media-upload',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'X-Channels-Key': META_CHANNELS_API_KEY
+                            },
+                            body: formData
+                        }
+                    );
+
                     const waUploadJson = await waUpload.json();
-                    if (!waUploadJson.id) throw new Error('WhatsApp media upload failed: ' + JSON.stringify(waUploadJson));
+
+                    if (!waUpload.ok || !waUploadJson.id) {
+                        throw new Error(
+                            'WhatsApp media upload failed: ' +
+                            JSON.stringify(waUploadJson)
+                        );
+                    }
+
                     const mediaId = waUploadJson.id;
 
                     const mediaObj = isImage
                         ? { id: mediaId, ...(caption && { caption }) }
-                        : { id: mediaId, filename: file.name, ...(caption && { caption }) };
-                    await fetch(`${META_GRAPH_URL}/${META_PHONE_ID}/messages`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${META_TOKEN}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ messaging_product: 'whatsapp', to: currentChat.phone.replace('+', ''), type: mediaType, [mediaType]: mediaObj })
-                    });
+                        : {
+                            id: mediaId,
+                            filename: file.name,
+                            ...(caption && { caption })
+                        };
+
+                    await metaApi(
+                        'POST',
+                        `/${META_PHONE_ID}/messages`,
+                        {
+                            messaging_product: 'whatsapp',
+                            to: currentChat.phone.replace('+', ''),
+                            type: mediaType,
+                            [mediaType]: mediaObj
+                        }
+                    );
                 }
 
-                // Save to messages table (all platforms)
-                await supabaseClient.from('messages').insert({
-                    phone: currentChat.phone,
-                    message: caption,
-                    sender: 'outgoing',
-                    sender_type: 'human',
-                    conversation_id: currentChat.id,
-                    media_url: permanentUrl,
-                    media_type: mediaType,
-                    created_at_sgt: sgtNow,
-                    agent_name: agentName || null
-                });
+                // Save outgoing media message through Cloudflare Worker
+                const messageInsertRes = await fetch(
+                    META_WORKER_BASE + '/supabase-message-insert',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Channels-Key': META_CHANNELS_API_KEY
+                        },
+                        body: JSON.stringify({
+                            phone: currentChat.phone,
+                            message: caption,
+                            conversation_id: currentChat.id,
+                            media_url: permanentUrl,
+                            media_type: mediaType,
+                            created_at_sgt: sgtNow,
+                            agent_name: agentName || null
+                        })
+                    }
+                );
+
+                const messageInsertJson = await messageInsertRes.json();
+
+                if (!messageInsertRes.ok || !messageInsertJson.ok) {
+                    throw new Error(
+                        'Message save failed: ' +
+                        JSON.stringify(messageInsertJson)
+                    );
+                }
 
                 // 5. Backup human-agent outgoing file to OneDrive through n8n
                 try {
@@ -8163,6 +8211,13 @@
 
                             const msg = payload.new;
 
+                            // Realtime already received this message.
+                            // Mark it as the latest polled message so the 3-second
+                            // fallback poller does not immediately reload the whole chat again.
+                            if (msg.id) {
+                                _lastMsgPollTime = msg.id;
+                            }
+
                             let existingChat =
                                 chats.find(c => c.phone === msg.phone);
 
@@ -9254,12 +9309,11 @@ ${referralHtml}${bodyHtml}
         let templateContext = null;
 
         async function loadTemplates() {
-            if (!META_TOKEN) return;
             try {
-                const url = `${META_GRAPH_URL}/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100&access_token=${META_TOKEN}`;
-                const res = await fetch(url);
-                if (!res.ok) return;
-                const data = await res.json();
+                const data = await metaApi(
+                    'GET',
+                    `/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100`
+                );
                 const approved = (data.data || []).filter(t => t.status === 'APPROVED');
                 templates = approved.map(t => {
                     const bodyComp = (t.components || []).find(c => c.type === 'BODY');
@@ -9516,14 +9570,41 @@ ${referralHtml}${bodyHtml}
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Template';
 
-            supabaseClient.from('template_sends').insert({
-                phone: currentChat.phone,
-                template_name: templateToSend.name,
-                broadcast_id: null,
-                wamid: result.wamid || null,
-                status: result.ok ? 'sent' : 'failed',
-                sent_at: new Date().toISOString()
-            }).then();
+            try {
+                const templateLogRes = await fetch(
+                    META_WORKER_BASE + '/supabase-template-send-insert',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Channels-Key': META_CHANNELS_API_KEY
+                        },
+                        body: JSON.stringify({
+                            phone: currentChat.phone,
+                            template_name: templateToSend.name,
+                            broadcast_id: null,
+                            wamid: result.wamid || null,
+                            status: result.ok ? 'sent' : 'failed',
+                            sent_at: new Date().toISOString()
+                        })
+                    }
+                );
+
+                const templateLogJson = await templateLogRes.json();
+
+                if (!templateLogRes.ok || !templateLogJson.ok) {
+                    console.error(
+                        'Template send log failed:',
+                        templateLogJson
+                    );
+                }
+
+            } catch (e) {
+                console.error(
+                    'Template send log failed:',
+                    e
+                );
+            }
 
             if (result.ok) {
                 const sentNow = new Date().toISOString();
@@ -9545,11 +9626,6 @@ ${referralHtml}${bodyHtml}
                 // template send (this insert + n8n's insert, same event, two rows).
 
                 // Update sidebar preview
-                supabaseClient.from('conversations').update({
-                    last_message: previewText,
-                    last_message_time: sentNow
-                }).eq('phone', currentChat.phone).then();
-
                 const chatObj = chats.find(c => c.phone === currentChat.phone);
 
                 if (chatObj) {
@@ -9569,11 +9645,11 @@ ${referralHtml}${bodyHtml}
 
                     chats.unshift(chatObj);
 
-                    renderChats(activeFilter);
+                    // Update only this existing sidebar row.
+                    // The n8n message INSERT + Supabase Realtime will handle
+                    // the permanent message and conversations-table update.
+                    updateSingleConversationUI(chatObj);
                 }
-
-                // Reload from Supabase so the message stays permanently
-                await fetchMessagesForChat();
 
                 showToast('Template sent successfully!', 'success');
             } else {
@@ -10066,14 +10142,41 @@ ${referralHtml}${bodyHtml}
                 } else {
                     failed++;
                 }
-                supabaseClient.from('template_sends').insert({
-                    phone,
-                    template_name: selectedTemplate.name,
-                    broadcast_id: broadcastId,
-                    wamid: result.wamid || null,
-                    status,
-                    sent_at: sentAt
-                }).then();
+                try {
+                    const templateLogRes = await fetch(
+                        META_WORKER_BASE + '/supabase-template-send-insert',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Channels-Key': META_CHANNELS_API_KEY
+                            },
+                            body: JSON.stringify({
+                                phone,
+                                template_name: selectedTemplate.name,
+                                broadcast_id: broadcastId,
+                                wamid: result.wamid || null,
+                                status,
+                                sent_at: sentAt
+                            })
+                        }
+                    );
+
+                    const templateLogJson = await templateLogRes.json();
+
+                    if (!templateLogRes.ok || !templateLogJson.ok) {
+                        console.error(
+                            'Broadcast template log failed:',
+                            templateLogJson
+                        );
+                    }
+
+                } catch (e) {
+                    console.error(
+                        'Broadcast template log failed:',
+                        e
+                    );
+                }
             }
 
             btn.disabled = false;
@@ -10093,17 +10196,6 @@ ${referralHtml}${bodyHtml}
 
         let tmgrButtonCount = 0;
         let tmgrCachedAll = []; // all templates from Meta (all statuses)
-
-        function saveMetaToken() {
-            const val = document.getElementById('settingsTokenInput').value.trim();
-            if (!val) return;
-            META_TOKEN = val;
-            localStorage.setItem('meta_token', val);
-            showToast('Meta token saved', 'success');
-            if (document.getElementById('tmgrOverlay').classList.contains('show')) {
-                fetchTemplatesFromMeta();
-            }
-        }
 
         function saveAgentName() {
             const val = document.getElementById('settingsAgentNameInput').value.trim();
@@ -10167,7 +10259,6 @@ ${referralHtml}${bodyHtml}
         ========================================================= */
 
         function openSettings() {
-            document.getElementById('settingsTokenInput').value = META_TOKEN;
             document.getElementById('settingsAgentNameInput').value = agentName;
             document.getElementById('settingsSupabaseKeyInput').value = SUPABASE_KEY;
             document.getElementById('settingsOverlay').classList.add('show');
@@ -10208,6 +10299,37 @@ ${referralHtml}${bodyHtml}
             "instagram_manage_messages",
             "business_management",
         ].join(",");
+
+        async function metaApi(method, path, body = undefined) {
+
+            const res = await fetch(
+                META_WORKER_BASE + '/meta-api',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Channels-Key': META_CHANNELS_API_KEY
+                    },
+                    body: JSON.stringify({
+                        method,
+                        path,
+                        body
+                    })
+                }
+            );
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(
+                    data?.error?.message ||
+                    data?.error ||
+                    `Meta API error ${res.status}`
+                );
+            }
+
+            return data;
+        }
 
         let _metaConnectState = null;
 
@@ -10865,13 +10987,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
         function openTemplateManager() {
             document.getElementById('tmgrOverlay').classList.add('show');
-            if (META_TOKEN) {
-                fetchTemplatesFromMeta();
-            } else {
-                document.getElementById('tmgrTableWrap').innerHTML =
-                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
-                document.getElementById('tmgrCountLabel').textContent = '—';
-            }
+            fetchTemplatesFromMeta();
         }
 
         function closeTemplateManager() {
@@ -10894,19 +11010,16 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         /* ── Fetch from Meta ─────────────────────────────── */
 
         async function fetchTemplatesFromMeta() {
-            if (!META_TOKEN) {
-                document.getElementById('tmgrTableWrap').innerHTML =
-                    '<div class="tmgr-empty">Set your Meta token in <a href="#" onclick="openSettings();return false;">Settings</a> to load templates.</div>';
-                document.getElementById('tmgrCountLabel').textContent = '—';
-                return;
-            }
+
             document.getElementById('tmgrCountLabel').textContent = 'Loading…';
-            document.getElementById('tmgrTableWrap').innerHTML = '<div class="tmgr-empty">Fetching templates from Meta…</div>';
+            document.getElementById('tmgrTableWrap').innerHTML =
+                '<div class="tmgr-empty">Fetching templates from Meta…</div>';
 
             try {
-                const url = `${META_GRAPH_URL}/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100&access_token=${META_TOKEN}`;
-                const res = await fetch(url);
-                const data = await res.json();
+                const data = await metaApi(
+                    'GET',
+                    `/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100`
+                );
 
                 if (data.error) throw new Error(data.error.message);
 
@@ -10985,9 +11098,10 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             if (!t) return;
             if (!confirm(`Delete template "${t.name}"? This cannot be undone.`)) return;
             try {
-                const url = `${META_GRAPH_URL}/${META_WABA_ID}/message_templates?name=${encodeURIComponent(t.name)}&access_token=${META_TOKEN}`;
-                const res = await fetch(url, { method: 'DELETE' });
-                const data = await res.json();
+                const data = await metaApi(
+                    'DELETE',
+                    `/${META_WABA_ID}/message_templates?name=${encodeURIComponent(t.name)}`
+                );
                 if (!data.success) throw new Error(data.error?.message || 'Delete failed');
                 tmgrCachedAll.splice(idx, 1);
                 templates = templates.filter(tp => tp.name !== t.name);
@@ -11106,11 +11220,6 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         }
 
         async function submitCreateTemplate() {
-            if (!META_TOKEN) {
-                openSettings();
-                showTmgrMsg('Please save your Meta token first in Settings.', 'error');
-                return;
-            }
 
             const name = document.getElementById('tmgrName').value.trim();
             const lang = document.getElementById('tmgrLang').value;
@@ -11170,12 +11279,16 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
 
             try {
-                const res = await fetch(`${META_GRAPH_URL}/${META_WABA_ID}/message_templates`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, language: lang, category, components, access_token: META_TOKEN })
-                });
-                const result = await res.json();
+                const result = await metaApi(
+                    'POST',
+                    `/${META_WABA_ID}/message_templates`,
+                    {
+                        name,
+                        language: lang,
+                        category,
+                        components
+                    }
+                );
                 if (result.error) throw new Error(result.error.message);
 
                 showTmgrMsg(`✅ Template "${name}" submitted! Status: ${result.status || 'PENDING'}`, 'success');
