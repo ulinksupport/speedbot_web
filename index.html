@@ -10290,6 +10290,10 @@ ${referralHtml}${bodyHtml}
         // Must match CHANNELS_API_KEY in the Cloudflare Worker's env vars — gates
         // /channels/list and /channels/disconnect (see cloudflare-worker.js header).
         const META_CHANNELS_API_KEY = "fT-0o0rmujKqqtYCrpcSZk8ftblsLdoN";
+        // Facebook Login for Business: the app only offers FLfB, which ignores `scope=` and instead takes a
+        // Configuration (assets + permissions) created in the Meta app dashboard. Keep META_OAUTH_SCOPES below
+        // as documentation of what that configuration must grant.
+        const META_LOGIN_CONFIG_ID = "2625400417889838";
         const META_OAUTH_SCOPES = [
             "pages_show_list",
             "pages_manage_metadata",
@@ -10358,7 +10362,8 @@ ${referralHtml}${bodyHtml}
                     + "&redirect_uri=" + encodeURIComponent(META_OAUTH_REDIRECT_URI)
                     + "&state=" + encodeURIComponent(_metaConnectState)
                     + "&response_type=code"
-                    + "&scope=" + encodeURIComponent(META_OAUTH_SCOPES);
+                    + "&override_default_response_type=true"
+                    + "&config_id=" + encodeURIComponent(META_LOGIN_CONFIG_ID);
                 popup.location.href = authUrl;
             } catch (e) {
                 popup.close();
