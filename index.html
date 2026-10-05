@@ -5344,7 +5344,7 @@
 
                 }
             );
-                sendOk = sendResp.ok;
+                sendOk = await sendWebhookSucceeded(sendResp, currentChat.platformType);
             } catch (e) {
                 sendOk = false;
             }
@@ -5354,6 +5354,20 @@
             // even though nothing was delivered.
             if (!sendOk) markBubbleSendFailed(optimisticBubble);
 
+        }
+
+        // The human-send-message webhook answers HTTP 200 with an EMPTY body when the
+        // workflow fails after the point it can respond (e.g. Facebook rejected the send),
+        // and a JSON row only when everything worked. For Messenger/Instagram a send counts
+        // as delivered only if that row came back. WhatsApp keeps the plain res.ok check.
+        async function sendWebhookSucceeded(resp, platform) {
+            if (!resp || !resp.ok) return false;
+            if (platform !== 'messenger' && platform !== 'instagram') return true;
+            try {
+                return (await resp.text()).trim().length > 2;
+            } catch (e) {
+                return false;
+            }
         }
 
         function markBubbleSendFailed(bubble) {
@@ -5602,7 +5616,7 @@
                             media_type: mediaType
                         })
                     });
-                    if (!metaMediaResp.ok) {
+                    if (!(await sendWebhookSucceeded(metaMediaResp, currentChat.platformType))) {
                         showToast('Media was not delivered. Please try again.', 'error', 6000);
                     }
                 } else {
@@ -10104,7 +10118,7 @@ ${referralHtml}${bodyHtml}
                                 meta_psid: chat?.meta_psid || null
                             })
                         });
-                        if (resp.ok) success++; else failed++;
+                        if (await sendWebhookSucceeded(resp, chat?.platformType)) success++; else failed++;
                     } catch { failed++; }
                 }
                 btn.disabled = false;
