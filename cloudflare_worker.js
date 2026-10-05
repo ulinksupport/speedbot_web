@@ -669,10 +669,20 @@ async function handleDisconnect(req, env) {
       let unsubData = null;
       try { unsubData = await unsubRes.json(); } catch {}
       if (!unsubRes.ok || unsubData?.success !== true) {
-        console.error(`[Worker] unsubscribe failed for page ${pageId}: ${unsubRes.status} — ${JSON.stringify(unsubData)}`);
-        return new Response(JSON.stringify({ ok: false, error: 'Could not confirm Meta unsubscribe — try again.' }), {
-          status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': DASHBOARD_ORIGIN },
-        });
+        // A token Meta itself calls invalid/expired/revoked (OAuthException 190/102, e.g. after the app
+        // was replaced or the user's session was invalidated) can never unsubscribe anything, so retrying
+        // would fail forever and the row could never be removed. Treat that case as "already
+        // disconnected" and delete the row; every other failure still keeps the row for a retry.
+        const e = unsubData?.error || {};
+        const tokenDead = e.code === 190 || e.code === 102
+          || /session has been invalidated|error validating access token|has expired|invalid oauth access token/i.test(e.message || '');
+        if (!tokenDead) {
+          console.error(`[Worker] unsubscribe failed for page ${pageId}: ${unsubRes.status} — ${JSON.stringify(unsubData)}`);
+          return new Response(JSON.stringify({ ok: false, error: 'Could not confirm Meta unsubscribe — try again.' }), {
+            status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': DASHBOARD_ORIGIN },
+          });
+        }
+        console.warn(`[Worker] disconnect page ${pageId}: stored token is dead (${e.code}) — removing the row without a Meta unsubscribe.`);
       }
     } catch (e) {
       console.error('[Worker] unsubscribe request failed:', e.message);

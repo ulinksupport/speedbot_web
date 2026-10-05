@@ -3152,6 +3152,14 @@
 
             </div>
 
+            <div style="margin-top:18px;text-align:center;font-size:12px;opacity:0.75;">
+                <a href="privacy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Privacy Policy</a>
+                &middot;
+                <a href="terms.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Terms</a>
+                &middot;
+                <a href="data-deletion.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Data Deletion</a>
+            </div>
+
         </div>
 
     </div>
@@ -5298,7 +5306,7 @@
                 agent_name: agentName || null
             };
 
-            appendMessage(optimisticMessage);
+            const optimisticBubble = appendMessage(optimisticMessage);
 
             applyLatestMessageMetadata(
                 currentChat,
@@ -5307,7 +5315,9 @@
 
             updateSingleConversationUI(currentChat);
 
-            await fetch(
+            let sendOk = false;
+            try {
+                const sendResp = await fetch(
                 N8N_BASE + '/human-send-message',
                 {
                     method: 'POST',
@@ -5334,7 +5344,27 @@
 
                 }
             );
+                sendOk = sendResp.ok;
+            } catch (e) {
+                sendOk = false;
+            }
 
+            // The reply workflow answers non-2xx when Facebook/Instagram/WhatsApp
+            // rejects the send. Without this the optimistic bubble looked "sent"
+            // even though nothing was delivered.
+            if (!sendOk) markBubbleSendFailed(optimisticBubble);
+
+        }
+
+        function markBubbleSendFailed(bubble) {
+            if (bubble) {
+                const t = bubble.querySelector('.message-time');
+                if (t && !t.querySelector('.msg-status-failed')) {
+                    t.insertAdjacentHTML('beforeend',
+                        '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>');
+                }
+            }
+            showToast('Message was not delivered. Please try again.', 'error', 6000);
         }
 
         /* =========================================================
@@ -5558,7 +5588,7 @@
                 const permanentUrl = storageJson.public_url;
                 if (isMetaPlatform) {
                     // FB/IG: send via human-send-message webhook (platform-aware, uses Graph API attachment)
-                    await fetch(N8N_BASE + '/human-send-message', {
+                    const metaMediaResp = await fetch(N8N_BASE + '/human-send-message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -5572,6 +5602,9 @@
                             media_type: mediaType
                         })
                     });
+                    if (!metaMediaResp.ok) {
+                        showToast('Media was not delivered. Please try again.', 'error', 6000);
+                    }
                 } else {
                     // WhatsApp: upload to WA Media API then send
                     const formData = new FormData();
@@ -8793,6 +8826,8 @@ ${referralHtml}${bodyHtml}
                     updateScrollRecentButton();
                 }
             }
+
+            return div;
 
         }
 
