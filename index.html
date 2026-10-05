@@ -5655,34 +5655,39 @@
                     );
                 }
 
-                // Save outgoing media message through Cloudflare Worker
-                const messageInsertRes = await fetch(
-                    META_WORKER_BASE + '/supabase-message-insert',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Channels-Key': META_CHANNELS_API_KEY
-                        },
-                        body: JSON.stringify({
-                            phone: currentChat.phone,
-                            message: caption,
-                            conversation_id: currentChat.id,
-                            media_url: permanentUrl,
-                            media_type: mediaType,
-                            created_at_sgt: sgtNow,
-                            agent_name: agentName || null
-                        })
-                    }
-                );
-
-                const messageInsertJson = await messageInsertRes.json();
-
-                if (!messageInsertRes.ok || !messageInsertJson.ok) {
-                    throw new Error(
-                        'Message save failed: ' +
-                        JSON.stringify(messageInsertJson)
+                // WhatsApp only: the browser sends the media itself, so it also records the row.
+                // For Facebook/Instagram the human-send-message workflow sends AND saves the row
+                // (picture + caption), so saving here too would create a duplicate bubble.
+                if (!isMetaPlatform) {
+                    // Save outgoing media message through Cloudflare Worker
+                    const messageInsertRes = await fetch(
+                        META_WORKER_BASE + '/supabase-message-insert',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Channels-Key': META_CHANNELS_API_KEY
+                            },
+                            body: JSON.stringify({
+                                phone: currentChat.phone,
+                                message: caption,
+                                conversation_id: currentChat.id,
+                                media_url: permanentUrl,
+                                media_type: mediaType,
+                                created_at_sgt: sgtNow,
+                                agent_name: agentName || null
+                            })
+                        }
                     );
+
+                    const messageInsertJson = await messageInsertRes.json();
+
+                    if (!messageInsertRes.ok || !messageInsertJson.ok) {
+                        throw new Error(
+                            'Message save failed: ' +
+                            JSON.stringify(messageInsertJson)
+                        );
+                    }
                 }
 
                 // 5. Backup human-agent outgoing file to OneDrive through n8n
