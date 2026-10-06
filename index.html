@@ -10537,6 +10537,16 @@ ${referralHtml}${bodyHtml}
                 if (data.ok) {
                     showToast("Disconnected.", "success");
                     loadChannelConnections();
+                    // A reviewer-connected Page's chats were just purged server-side:
+                    // refresh now instead of waiting for the 30s poll, and close the
+                    // open chat if it was one of the deleted ones.
+                    await loadConversations();
+                    if (currentChat && !chats.some(c => c.id === currentChat.id)) {
+                        currentChat = null;
+                        document.getElementById('chatWindow').style.display = 'none';
+                        document.getElementById('welcomeScreen').style.display = 'flex';
+                    }
+                    if (typeof updateSidebarCounts === 'function') updateSidebarCounts();
                 } else {
                     showToast(data.error || "Failed to disconnect.", "error");
                 }
