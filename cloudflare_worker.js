@@ -56,6 +56,10 @@ function getCorsOrigin(req) {
     ? origin
     : DASHBOARD_ORIGIN;
 }
+// Pages Ulink runs in production. Any OTHER Page connected through the dashboard is a
+// Meta App Review reviewer's own test Page: it is flagged is_review (reviewer login can
+// see its conversations) and its chats are purged when it is disconnected.
+const PRODUCTION_PAGE_IDS = ['770139519793130', '1296573596876623'];
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes to complete the Facebook consent screen
 
 export default {
@@ -593,6 +597,7 @@ async function upsertChannelConnection(page, webhookSubscribed, env) {
     ig_business_account_id:   page.instagram_business_account?.id || null,
     ig_username:              page.instagram_business_account?.username || null,
     webhook_subscribed:       webhookSubscribed,
+    is_review:                !PRODUCTION_PAGE_IDS.includes(String(page.id)),
     updated_at:                new Date().toISOString(),
   };
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/channel_connections?on_conflict=page_id`, {
@@ -617,7 +622,7 @@ async function upsertChannelConnection(page, webhookSubscribed, env) {
 // this table is only ever read/written from the Worker, server-side.
 async function handleChannelsList(req, env) {
   const url = `${env.SUPABASE_URL}/rest/v1/channel_connections`
-    + `?select=page_id,page_name,ig_business_account_id,ig_username,webhook_subscribed,connected_at&order=connected_at.desc`;
+    + `?select=page_id,page_name,ig_business_account_id,ig_username,webhook_subscribed,is_review,connected_at&order=connected_at.desc`;
   const res  = await fetch(url, {
     headers: { 'apikey': env.SUPABASE_KEY, 'Authorization': `Bearer ${env.SUPABASE_KEY}` },
   });
@@ -646,7 +651,7 @@ async function handleDisconnect(req, env) {
   }
 
   const lookup = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/channel_connections?page_id=eq.${encodeURIComponent(pageId)}&select=id,page_access_token&limit=1`,
+    `${env.SUPABASE_URL}/rest/v1/channel_connections?page_id=eq.${encodeURIComponent(pageId)}&select=id,page_access_token,is_review,ig_business_account_id&limit=1`,
     { headers: { 'apikey': env.SUPABASE_KEY, 'Authorization': `Bearer ${env.SUPABASE_KEY}` } }
   );
   if (!lookup.ok) {
@@ -727,10 +732,31 @@ async function handleDisconnect(req, env) {
     });
   }
 
+  if (row.is_review) {
+    try { await purgeReviewConversations(pageId, row.ig_business_account_id, env); }
+    catch (e) { console.error('[Worker] review chat purge failed:', e.message); }
+  }
+
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': DASHBOARD_ORIGIN },
   });
+}
+
+// Removes every conversation (and its messages/comments) that belongs to a
+// reviewer-connected Page. Only ever called for is_review connections.
+async function purgeReviewConversations(pageId, igId, env) {
+  const h = { 'apikey': env.SUPABASE_KEY, 'Authorization': `Bearer ${env.SUPABASE_KEY}` };
+  const ids = [pageId, igId].filter(Boolean).map(encodeURIComponent).join(',');
+  const convRes = await fetch(`${env.SUPABASE_URL}/rest/v1/conversations?meta_recipient_id=in.(${ids})&select=id`, { headers: h });
+  if (!convRes.ok) throw new Error(`conversation lookup ${convRes.status}`);
+  const convIds = (await convRes.json()).map(r => r.id);
+  if (!convIds.length) return;
+  const list = convIds.join(',');
+  for (const [table, col] of [['messages', 'conversation_id'], ['conversation_comments', 'conversation_id'], ['conversations', 'id']]) {
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${col}=in.(${list})`, { method: 'DELETE', headers: h });
+    if (!r.ok) throw new Error(`delete ${table} ${r.status}`);
+  }
 }
 
 function oauthResultPage({ ok, error, warning, state, pages }) {

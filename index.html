@@ -3052,8 +3052,7 @@
 
     <style>
         /* Reviewer (Meta App Review) session: no key entry, no disconnecting production Pages */
-        body.reviewer-mode div:has(> #settingsSupabaseKeyInput),
-        body.reviewer-mode .channel-disconnect-btn { display: none !important; }
+        body.reviewer-mode div:has(> #settingsSupabaseKeyInput) { display: none !important; }
     </style>
 </head>
 
@@ -10490,7 +10489,9 @@ ${referralHtml}${bodyHtml}
                     headers: { "X-Channels-Key": META_CHANNELS_API_KEY },
                 });
                 if (!res.ok) throw new Error("HTTP " + res.status);
-                const rows = await res.json();
+                let rows = await res.json();
+                // Reviewer sessions only see (and can disconnect) Pages they connected themselves.
+                if (REVIEWER_MODE && Array.isArray(rows)) rows = rows.filter(r => r.is_review);
                 if (!Array.isArray(rows) || !rows.length) {
                     listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;">No Pages connected yet.</div>';
                     return;
