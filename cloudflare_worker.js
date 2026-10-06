@@ -63,6 +63,12 @@ export default {
     const url = new URL(req.url);
     const corsOrigin = getCorsOrigin(req);
 
+    // Dashboard login (server-verified). Admin -> {role:'admin'}; reviewer ->
+    // {role:'reviewer', token: <short-lived Supabase JWT>} for Meta App Review.
+    if (url.pathname === '/auth/login') {
+      return handleAuthLogin(req, env, corsOrigin);
+    }
+
     // Central Meta WABA token API
     if (url.pathname === '/meta-api') {
         return handleMetaApi(req, env);
@@ -1593,4 +1599,71 @@ async function handleSupabaseTemplateSendInsert(req, env) {
       }
     );
   }
+}
+
+
+// ── Dashboard login + reviewer JWT ───────────────────────────────────────────
+//  Secrets: ADMIN_PASSWORD, REVIEWER_PASSWORD, SUPABASE_JWT_SECRET (Supabase →
+//  Settings → API → JWT Secret). The reviewer JWT is signed with the project's
+//  JWT secret so PostgREST/Realtime accept it; RLS policies key on
+//  auth.jwt()->>'app_role' = 'reviewer' (see supabase-reviewer-rls.sql).
+const REVIEWER_TOKEN_TTL_S = 8 * 3600;
+const REVIEWER_SUB = '00000000-0000-0000-0000-00000000ee01';
+
+function b64url(bytes) {
+  let str = '';
+  for (const b of new Uint8Array(bytes)) str += String.fromCharCode(b);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function signJwtHS256(payload, secret) {
+  const enc = new TextEncoder();
+  const head = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const body = b64url(enc.encode(JSON.stringify(payload)));
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${head}.${body}`));
+  return `${head}.${body}.${b64url(sig)}`;
+}
+
+async function safeEqual(a, b) {
+  // Compare SHA-256 digests so length/timing do not leak the secret.
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(String(a))),
+    crypto.subtle.digest('SHA-256', enc.encode(String(b))),
+  ]);
+  const x = new Uint8Array(da), y = new Uint8Array(db);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+async function handleAuthLogin(req, env, corsOrigin) {
+  const cors = {
+    'Access-Control-Allow-Origin':  corsOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  const reply = (status, obj) => new Response(JSON.stringify(obj), {
+    status, headers: { 'Content-Type': 'application/json', ...cors },
+  });
+  if (req.method !== 'POST') return reply(405, { error: 'Method not allowed' });
+
+  let password;
+  try { password = (await req.json())?.password; } catch { return reply(400, { error: 'Bad request' }); }
+  if (typeof password !== 'string' || !password) return reply(401, { error: 'Invalid password' });
+
+  if (env.ADMIN_PASSWORD && await safeEqual(password, env.ADMIN_PASSWORD)) {
+    return reply(200, { role: 'admin' });
+  }
+  if (env.REVIEWER_PASSWORD && env.SUPABASE_JWT_SECRET && await safeEqual(password, env.REVIEWER_PASSWORD)) {
+    const now = Math.floor(Date.now() / 1000);
+    const token = await signJwtHS256({
+      aud: 'authenticated', role: 'authenticated', sub: REVIEWER_SUB,
+      app_role: 'reviewer', iat: now, exp: now + REVIEWER_TOKEN_TTL_S,
+    }, env.SUPABASE_JWT_SECRET);
+    return reply(200, { role: 'reviewer', token, expires_in: REVIEWER_TOKEN_TTL_S });
+  }
+  return reply(401, { error: 'Invalid password' });
 }

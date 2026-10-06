@@ -3050,6 +3050,11 @@
         }
     </style>
 
+    <style>
+        /* Reviewer (Meta App Review) session: no key entry, no disconnecting production Pages */
+        body.reviewer-mode div:has(> #settingsSupabaseKeyInput),
+        body.reviewer-mode .channel-disconnect-btn { display: none !important; }
+    </style>
 </head>
 
 <body>
@@ -4740,33 +4745,56 @@
         LOGIN
         ========================================================= */
 
-        const ADMIN_PASSWORD = "admin123";
+        // Passwords are verified server-side by the worker's /auth/login (secrets
+        // ADMIN_PASSWORD / REVIEWER_PASSWORD) - nothing secret lives in this file.
+        // The reviewer (Meta App Review) session gets a short-lived Supabase JWT
+        // with app_role=reviewer; Postgres RLS limits it to review_visible
+        // conversations. SUPABASE_ANON_KEY is the project's public anon key.
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MzE3MzEsImV4cCI6MjA5NDEwNzczMX0.1F_xDvl4cmbdxNfxwebusWPok7ASuEvMpLktaH0Jdvg";
+        let REVIEWER_MODE = false;
+        let REVIEWER_TOKEN = "";
 
-        function login() {
+        let _loginInFlight = false;
+        async function login() {
 
-            const password =
-                document.getElementById(
-                    "password"
-                ).value;
+            if (_loginInFlight) return;
+            const password = document.getElementById("password").value;
+            const errEl = document.getElementById("loginError");
+            _loginInFlight = true;
+            errEl.style.display = "none";
 
-            if (password === ADMIN_PASSWORD) {
+            let result = null;
+            try {
+                const res = await fetch(META_WORKER_BASE + "/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password })
+                });
+                if (res.ok) result = await res.json();
+            } catch (e) {
+                console.error("Login request failed:", e);
+            }
+            _loginInFlight = false;
 
-                document.getElementById(
-                    "loginScreen"
-                ).style.display = "none";
+            if (!result || !result.role) {
+                errEl.style.display = "block";
+                return;
+            }
 
-                if (SUPABASE_KEY) {
-                    init();
-                } else {
-                    promptForSupabaseKey();
-                }
+            document.getElementById("loginScreen").style.display = "none";
 
+            if (result.role === "reviewer") {
+                REVIEWER_MODE = true;
+                REVIEWER_TOKEN = result.token;
+                document.body.classList.add("reviewer-mode");
+                init();
+                return;
+            }
+
+            if (SUPABASE_KEY) {
+                init();
             } else {
-
-                document.getElementById(
-                    "loginError"
-                ).style.display = "block";
-
+                promptForSupabaseKey();
             }
 
         }
@@ -9131,7 +9159,14 @@ ${referralHtml}${bodyHtml}
             if (_appInitialized) return;
             _appInitialized = true;
 
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            if (REVIEWER_MODE) {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    global: { headers: { Authorization: "Bearer " + REVIEWER_TOKEN } }
+                });
+                supabaseClient.realtime.setAuth(REVIEWER_TOKEN);
+            } else {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
 
             loadTemplates();
             loadConversations();
