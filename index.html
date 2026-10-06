@@ -8454,7 +8454,19 @@
                                 !(msg.id && document.querySelector(`.message[data-msg-id="${CSS.escape(String(msg.id))}"]`))
                             ) {
 
-                                appendMessage(msg);
+                                // An agent's just-sent message is first drawn as an optimistic
+                                // bubble with no data-msg-id. When its saved row arrives here,
+                                // reload the thread from the DB so the real row REPLACES that
+                                // bubble - appending would show the reply twice (and the early
+                                // `_lastMsgPollTime = msg.id` above stops the 3s poller from
+                                // ever cleaning it up).
+                                const hasOptimisticBubble = msg.sender !== 'incoming'
+                                    && document.querySelector('#messages .message:not([data-msg-id])');
+                                if (hasOptimisticBubble) {
+                                    fetchMessagesForChat();
+                                } else {
+                                    appendMessage(msg);
+                                }
 
                             }
 
