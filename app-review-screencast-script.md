@@ -66,6 +66,17 @@ Caption "Admin can disconnect; customers can request deletion". Show Privacy, Te
 3. Send a message to the Page on Messenger and a DM to the linked Instagram account; reply from the dashboard.
 (Add whichever of these steps applies once the open item below is decided.)
 
+## Final videos (C:\Users\devin\Videos\, annotated with captions + callouts, no audio)
+| Video file | What it shows | Upload for permission |
+|---|---|---|
+| SegmentA_annotated_v4.mp4 (164 s) | Public legal pages, reviewer login, Settings > Connect, Facebook Login for Business consent (Pages, Business, Instagram, review of access request), Page connected | pages_show_list, business_management, pages_manage_metadata (and public_profile) |
+| SegmentB_annotated_final.mp4 (72 s) | Customer messages the Page in Messenger, message arrives in dashboard, agent replies, customer receives reply | pages_messaging, pages_read_engagement |
+| SegmentC_annotated.mp4 (57 s) | Page linked to Instagram @johnautest, customer DMs it, DM arrives in dashboard, agent replies, customer receives reply in Instagram | instagram_basic, instagram_manage_messages |
+| SegmentD_annotated_v2.mp4 (43 s) | Disconnect a Page (its chats are deleted), sign out, Data Deletion page | Supporting video for data handling; can be attached to any permission that asks about data deletion |
+
+Write a DIFFERENT description for each permission (see "Written descriptions" above); never paste the same text twice.
+WhatsApp items shown in Meta's consent dialog are captioned "reserved for future use, not part of this review".
+
 ## Status / open items (updated 2026-10-06)
 - Done: reviewer login (server-verified, RLS-limited), reviewer-connected Pages visible + purged on disconnect (worker + SQL live, dashboard pushed 9d6fb55), legal pages, Connect flow, Messenger+IG send/receive, failed-send indicator, API-call counters non-zero (42/42/28/12/11), submission list correct: pages_show_list, pages_manage_metadata, pages_messaging, business_management, instagram_manage_messages, pages_read_engagement, instagram_basic (+ public_profile, automatic).
 - TODO: run reviewer end-to-end check (admin login; reviewer login shows only test threads; reviewer connects a throwaway Page, messages it, sees chat; Disconnect purges it).
