@@ -66,10 +66,10 @@ Caption "Admin can disconnect; customers can request deletion". Show Privacy, Te
 3. Send a message to the Page on Messenger and a DM to the linked Instagram account; reply from the dashboard.
 (Add whichever of these steps applies once the open item below is decided.)
 
-## Status / open items
-- Done: reviewer login (server-verified, RLS-limited to test conversations 8549 and 8550), legal pages, Connect flow, Messenger+IG send/receive pipeline, failed-send indicator.
-- OPEN, reviewer replication gap: if a reviewer connects THEIR OWN Page, their new conversations are not flagged `review_visible`, so the reviewer login will not display them (it only shows the two test threads). Needs a rule that marks conversations from non-Ulink Pages visible to reviewers (the conversations table has no page id column, so this needs a small schema addition).
-- OPEN: API-call counters were 0 on 2026-10-05; recheck before "Request advanced access".
-- OPEN: Business Verification (business 3648591925309896 / partner Ulink Assist 716739041811723).
-- Remove instagram_business_* permissions from the submission; do not request Human Agent; leave WhatsApp out of the video.
-- Rotate Page access tokens (they were readable with the public anon key until RLS was enabled on channel_connections 2026-10-06); re-Connect before recording.
+## Status / open items (updated 2026-10-06)
+- Done: reviewer login (server-verified, RLS-limited), reviewer-connected Pages visible + purged on disconnect (worker + SQL live, dashboard pushed 9d6fb55), legal pages, Connect flow, Messenger+IG send/receive, failed-send indicator, API-call counters non-zero (42/42/28/12/11), submission list correct: pages_show_list, pages_manage_metadata, pages_messaging, business_management, instagram_manage_messages, pages_read_engagement, instagram_basic (+ public_profile, automatic).
+- TODO: run reviewer end-to-end check (admin login; reviewer login shows only test threads; reviewer connects a throwaway Page, messages it, sees chat; Disconnect purges it).
+- TODO: reconnect Pages to rotate tokens (they were readable with the public anon key until RLS was enabled 2026-10-06), then record Segments A, B, C.
+- TODO: confirm Business Verification (business 3648591925309896 / partner Ulink Assist 716739041811723).
+- Do not request Human Agent; leave WhatsApp and instagram_business_* out. If a third production Page is added, add its ID to PRODUCTION_PAGE_IDS in the worker.
+- Later hardening: authenticate the n8n send webhooks and the /channels/* routes; lock down canned_responses (open to anon).
