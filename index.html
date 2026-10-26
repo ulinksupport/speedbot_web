@@ -954,6 +954,21 @@
         }
 
         /* Small platform logo at the bottom-right corner of each avatar */
+        .account-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.5;
+            color: #7c3aed;
+            background: rgba(124, 58, 237, 0.12);
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
         .avatar-platform-icon {
             position: absolute;
             right: -3px;
@@ -7203,7 +7218,33 @@
         let selectedChatIds = new Set();
         let _analyticsCache = null;
 
+        // Connected Instagram/Facebook accounts, keyed by the id Meta puts in
+        // `recipient` (IG business account id, or Page id). Lets chats show WHICH of
+        // our accounts the customer messaged. Selects no tokens.
+        let channelAccountNames = {};
+        async function loadChannelAccountNames() {
+            try {
+                const { data } = await supabaseClient
+                    .from('channel_connections')
+                    .select('page_id,page_name,ig_business_account_id,ig_username');
+                const m = {};
+                (data || []).forEach(r => {
+                    if (r.ig_business_account_id && r.ig_username) m[String(r.ig_business_account_id)] = '@' + r.ig_username;
+                    if (r.page_id && r.page_name) m[String(r.page_id)] = r.page_name;
+                });
+                channelAccountNames = m;
+            } catch (e) { console.warn('channel account names unavailable:', e); }
+        }
+        function getAccountName(recipientId) {
+            return recipientId ? (channelAccountNames[String(recipientId)] || null) : null;
+        }
+        function accountBadgeHtml(chat) {
+            if (!chat || !chat.account) return '';
+            return `<span class="account-badge" title="Received on ${escHtml(chat.account)}">${escHtml(chat.account)}</span>`;
+        }
+
         async function loadConversations() {
+            await loadChannelAccountNames();
             // Supabase REST API hard-caps any single request at 1000 rows
             // regardless of .limit() — page through with .range() to fetch
             // every conversation instead of silently truncating at 1000.
@@ -7281,7 +7322,8 @@
                     status: conv.status || 'open',
                     completed_at: conv.completed_at || null,
                     agent_name: conv.agent_name || null,
-                    meta_psid: conv.meta_psid || null
+                    meta_psid: conv.meta_psid || null,
+                    account: getAccountName(conv.meta_recipient_id)
                 };
             });
 
@@ -7831,6 +7873,7 @@
 
         <div class="chat-name">
             ${chat.name}
+            ${accountBadgeHtml(chat)}
 
             ${chat.escalate ? `
                 <span
@@ -8150,7 +8193,7 @@
             updateSpamButton();
 
             document.querySelector(".chat-user h3").innerText = chat.name;
-            document.querySelector(".chat-user p").innerText = chat.platform;
+            document.querySelector(".chat-user p").innerText = chat.account ? `${chat.platform} · ${chat.account}` : chat.platform;
             document.querySelector(".chat-user img").src = chat.avatar;
 
             document.querySelector(".profile-top img").src = chat.avatar;
@@ -9107,7 +9150,8 @@ ${referralHtml}${bodyHtml}
                 follow_up: data.follow_up || false,
                 follow_up_stage: data.follow_up_stage || 0,
                 opted_out: data.opted_out || false,
-                meta_psid: data.meta_psid || null
+                meta_psid: data.meta_psid || null,
+                account: getAccountName(data.meta_recipient_id) || chats.find(c => c.phone === data.phone)?.account || null
 
             };
 
