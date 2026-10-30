@@ -8713,7 +8713,8 @@
             if (senderClass !== 'outgoing-bot' && senderClass !== 'outgoing-human') return '';
             const st = msg.status || null;
             if (st === 'failed') {
-                return '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>';
+                const why = msg.failure_message ? ': ' + msg.failure_message : '';
+                return `<span class="msg-status msg-status-failed" title="${escHtml('Failed — message not delivered' + why)}">Failed</span>`;
             } else if (st === 'read') {
                 const t = msg.read_at ? 'Read ' + formatSGT(msg.read_at) : 'Read';
                 return `<span class="msg-status msg-status-read" title="${t}">Read</span>`;
