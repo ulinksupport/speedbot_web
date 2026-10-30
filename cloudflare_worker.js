@@ -318,6 +318,18 @@ async function handleMeta(body, entry, env) {
       console.log('[Worker] Duplicate Meta delivery ignored, mid:', messaging.message.mid);
       return;
     }
+    // A new customer can send two DIFFERENT messages within a second (e.g. both
+    // ad buttons). n8n would then run twice at once, both runs see "no
+    // conversation yet" and both send the first auto-reply. So when this sender
+    // already messaged in the last 30s, hold this one until the first run has
+    // created the conversation — n8n then takes the existing-chat path.
+    const senderId = messaging.sender?.id;
+    if (senderId && !messaging.message.is_echo) {
+      const contactKey = (body?.object === 'instagram' ? 'ig_' : 'fb_') + senderId;
+      if (!(await claimMetaWindow('psid:' + senderId, 30, env))) {
+        await waitForConversation(contactKey, env);
+      }
+    }
     return fetch(env.META_N8N_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -361,6 +373,50 @@ async function isDuplicateMetaMessage(mid, env) {
   } catch (e) {
     console.error('[Worker] dedupe check error — processing anyway:', e.message);
     return false;
+  }
+}
+
+// True when `key` had no claim in the last `windowSecs` seconds (atomic, via the
+// claim_meta_window SQL function). Fails open: on any error returns true so the
+// message is forwarded immediately.
+async function claimMetaWindow(key, windowSecs, env) {
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/claim_meta_window`, {
+      method:  'POST',
+      headers: {
+        'apikey':        env.SUPABASE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ p_key: key, p_window_s: windowSecs }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return true;
+    return (await res.json()) !== false;
+  } catch (e) {
+    console.error('[Worker] window claim error — forwarding anyway:', e.message);
+    return true;
+  }
+}
+
+// Polls (hard cap 12s, 3s per request) until a conversation exists for this contact. Never throws;
+// on timeout or error it just returns and the message is forwarded anyway.
+async function waitForConversation(contactKey, env) {
+  const url = `${env.SUPABASE_URL}/rest/v1/conversations`
+            + `?contact_key=eq.${encodeURIComponent(contactKey)}&select=id&limit=1`;
+  const headers = { 'apikey': env.SUPABASE_KEY, 'Authorization': `Bearer ${env.SUPABASE_KEY}` };
+  try {
+    const deadline = Date.now() + 12000;
+    while (Date.now() < deadline) {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return;
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length) return;
+      await new Promise(r => setTimeout(r, 750));
+    }
+    console.log('[Worker] waitForConversation timed out for', contactKey);
+  } catch (e) {
+    console.error('[Worker] waitForConversation error:', e.message);
   }
 }
 
