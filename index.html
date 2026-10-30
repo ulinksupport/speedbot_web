@@ -7222,17 +7222,25 @@
         // `recipient` (IG business account id, or Page id). Lets chats show WHICH of
         // our accounts the customer messaged. Selects no tokens.
         let channelAccountNames = {};
+        let channelAccountFull = {}; // recipient id -> real account name (label is shown, this is the tooltip)
         async function loadChannelAccountNames() {
             try {
                 const { data } = await supabaseClient
                     .from('channel_connections')
-                    .select('page_id,page_name,ig_business_account_id,ig_username');
-                const m = {};
+                    .select('page_id,page_name,label,ig_business_account_id,ig_username,ig_label');
+                const m = {}, full = {};
                 (data || []).forEach(r => {
-                    if (r.ig_business_account_id && r.ig_username) m[String(r.ig_business_account_id)] = '@' + r.ig_username;
-                    if (r.page_id && r.page_name) m[String(r.page_id)] = r.page_name;
+                    if (r.ig_business_account_id && r.ig_username) {
+                        m[String(r.ig_business_account_id)] = r.ig_label || '@' + r.ig_username;
+                        full[String(r.ig_business_account_id)] = '@' + r.ig_username;
+                    }
+                    if (r.page_id && r.page_name) {
+                        m[String(r.page_id)] = r.label || r.page_name;
+                        full[String(r.page_id)] = r.page_name;
+                    }
                 });
                 channelAccountNames = m;
+                channelAccountFull = full;
             } catch (e) { console.warn('channel account names unavailable:', e); }
         }
         function getAccountName(recipientId) {
@@ -7240,7 +7248,8 @@
         }
         function accountBadgeHtml(chat) {
             if (!chat || !chat.account) return '';
-            return `<span class="account-badge" title="Received on ${escHtml(chat.account)}">${escHtml(chat.account)}</span>`;
+            const full = chat.accountFull && chat.accountFull !== chat.account ? chat.accountFull : chat.account;
+            return `<span class="account-badge" title="Received on ${escHtml(full)}">${escHtml(chat.account)}</span>`;
         }
 
         async function loadConversations() {
@@ -7323,7 +7332,8 @@
                     completed_at: conv.completed_at || null,
                     agent_name: conv.agent_name || null,
                     meta_psid: conv.meta_psid || null,
-                    account: getAccountName(conv.meta_recipient_id)
+                    account: getAccountName(conv.meta_recipient_id),
+                    accountFull: channelAccountFull[String(conv.meta_recipient_id)] || null
                 };
             });
 
@@ -8193,7 +8203,7 @@
             updateSpamButton();
 
             document.querySelector(".chat-user h3").innerText = chat.name;
-            document.querySelector(".chat-user p").innerText = chat.account ? `${chat.platform} · ${chat.account}` : chat.platform;
+            document.querySelector(".chat-user p").innerText = chat.account ? `${chat.platform} · ${chat.account}${chat.accountFull && chat.accountFull !== chat.account ? ' (' + chat.accountFull + ')' : ''}` : chat.platform;
             document.querySelector(".chat-user img").src = chat.avatar;
 
             document.querySelector(".profile-top img").src = chat.avatar;
@@ -9151,7 +9161,8 @@ ${referralHtml}${bodyHtml}
                 follow_up_stage: data.follow_up_stage || 0,
                 opted_out: data.opted_out || false,
                 meta_psid: data.meta_psid || null,
-                account: getAccountName(data.meta_recipient_id) || chats.find(c => c.phone === data.phone)?.account || null
+                account: getAccountName(data.meta_recipient_id) || chats.find(c => c.phone === data.phone)?.account || null,
+                accountFull: channelAccountFull[String(data.meta_recipient_id)] || chats.find(c => c.phone === data.phone)?.accountFull || null
 
             };
 

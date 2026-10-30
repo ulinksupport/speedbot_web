@@ -311,6 +311,13 @@ async function handleMeta(body, entry, env) {
   // (matches `Normalize Meta Message`'s `$json.body.entry[0].messaging[0]` /
   // `$json.body.object` parsing — n8n's Webhook node wraps our raw POST as `$json.body`)
   if (messaging.message) {
+    // Meta can deliver the same event more than once (seen ~80ms apart), and each
+    // copy made n8n send its own reply. Claim the message id first; only the
+    // first delivery goes on to n8n.
+    if (await isDuplicateMetaMessage(messaging.message.mid, env)) {
+      console.log('[Worker] Duplicate Meta delivery ignored, mid:', messaging.message.mid);
+      return;
+    }
     return fetch(env.META_N8N_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -321,15 +328,58 @@ async function handleMeta(body, entry, env) {
   // Postbacks / other event types — ignore for now
 }
 
+// Atomically claims a Messenger/Instagram message id in Supabase
+// (meta_event_dedupe, primary key = mid). Returns true only when the id was
+// already claimed. Fails OPEN: any error means "not a duplicate", so a
+// Supabase hiccup can never swallow a real customer message.
+async function isDuplicateMetaMessage(mid, env) {
+  if (!mid) return false;
+  try {
+    const headers = {
+      'apikey':        env.SUPABASE_KEY,
+      'Authorization': `Bearer ${env.SUPABASE_KEY}`,
+      'Content-Type':  'application/json',
+    };
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/meta_event_dedupe?on_conflict=mid`, {
+      method:  'POST',
+      headers: { ...headers, 'Prefer': 'resolution=ignore-duplicates,return=representation' },
+      body:    JSON.stringify({ mid }),
+    });
+    if (!res.ok) {
+      console.error(`[Worker] dedupe claim failed (${res.status}) — processing anyway`);
+      return false;
+    }
+    const claimed = await res.json();
+    // Occasional housekeeping: ids only matter for seconds, keep a day.
+    if (Math.random() < 0.02) {
+      const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      fetch(`${env.SUPABASE_URL}/rest/v1/meta_event_dedupe?created_at=lt.${encodeURIComponent(cutoff)}`, {
+        method: 'DELETE', headers,
+      }).catch(() => {});
+    }
+    return Array.isArray(claimed) && claimed.length === 0;
+  } catch (e) {
+    console.error('[Worker] dedupe check error — processing anyway:', e.message);
+    return false;
+  }
+}
+
 async function handleMetaReceipt(messaging, env) {
   const senderId  = messaging.sender?.id;
   if (!senderId) return;
 
   const isRead     = !!messaging.read;
-  const watermarkMs = Number(messaging.read?.watermark ?? messaging.delivery?.watermark);
+  // Messenger sends read.watermark / delivery.watermark. Instagram's messaging_seen
+  // event has no watermark - only read.mid plus the event's own `timestamp` - so fall
+  // back to that (everything we sent before the customer opened the thread is read).
+  const watermarkMs = Number(
+    messaging.read?.watermark ?? messaging.delivery?.watermark ?? messaging.timestamp
+  );
   if (!watermarkMs) return;
 
-  const watermarkIso = new Date(watermarkMs).toISOString();
+  // Dashboard saves each outgoing message's created_at ~0.5s AFTER Meta accepts
+  // it, so a strict <= watermark compare misses the newest message by one event.
+  const watermarkIso = new Date(watermarkMs + 5000).toISOString();
   const nowIso       = new Date().toISOString();
 
   // Find the conversation for this PSID
