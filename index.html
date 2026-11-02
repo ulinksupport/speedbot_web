@@ -7287,36 +7287,51 @@
             // Supabase REST API hard-caps any single request at 1000 rows
             // regardless of .limit() — page through with .range() to fetch
             // every conversation instead of silently truncating at 1000.
-            const PAGE_SIZE = 100;
+            const PAGE_SIZE = 1000;
             let data = [];
-            let from = 0;
-            while (true) {
-                const { data: page, error } = await supabaseClient
-                    .from('conversations')
-                    .select('*')
-                    .order('last_message_time', { ascending: false, nullsFirst: false })
-                    .order('created_at', { ascending: false })
-                    .order('id', { ascending: false })
-                    .range(from, from + PAGE_SIZE - 1);
+            const fetchConvPage = (from) => supabaseClient
+                .from('conversations')
+                .select('*', from === 0 ? { count: 'exact' } : undefined)
+                .order('last_message_time', { ascending: false, nullsFirst: false })
+                .order('created_at', { ascending: false })
+                .order('id', { ascending: false })
+                .range(from, from + PAGE_SIZE - 1);
 
-                if (error) {
-                    console.error('Error loading conversations:', error);
-                    if (data.length === 0) {
-                        // Nothing loaded at all on what's usually the very
-                        // first Supabase call after boot — most likely cause
-                        // is a revoked/wrong Supabase key, which would
-                        // otherwise fail completely silently (console-only)
-                        // and leave whoever's logged in staring at a blank,
-                        // unexplained dashboard with no clue how to fix it.
-                        showToast('Could not load conversations — your Supabase key may be invalid or revoked. Open Settings to update it.', 'error', 8000);
-                        return;
-                    }
-                    break;
+            // Latest-message lookup doesn't depend on the conversations, so start it now
+            // instead of after every conversation page has loaded.
+            const recentMsgsPromise = supabaseClient
+                .from('messages')
+                .select(`
+                    phone,
+                    message,
+                    media_type,
+                    created_at,
+                    created_at_sgt,
+                    sender,
+                    sender_type
+                `)
+                .order('created_at', { ascending: false, nullsFirst: false })
+                .limit(5000);
+
+            const first = await fetchConvPage(0);
+            if (first.error) {
+                console.error('Error loading conversations:', first.error);
+                // Usually the very first Supabase call after boot — most likely cause
+                // is a revoked/wrong Supabase key, which would otherwise fail silently.
+                showToast('Could not load conversations — your Supabase key may be invalid or revoked. Open Settings to update it.', 'error', 8000);
+                return;
+            }
+            data = first.data || [];
+            if (data.length === PAGE_SIZE) {
+                // Remaining pages in parallel (was ~30 sequential 100-row requests).
+                const total = first.count || 0;
+                const offsets = [];
+                for (let f = PAGE_SIZE; f < total; f += PAGE_SIZE) offsets.push(f);
+                const rest = await Promise.all(offsets.map(fetchConvPage));
+                for (const r of rest) {
+                    if (r.error) { console.error('Error loading conversations:', r.error); break; }
+                    data = data.concat(r.data || []);
                 }
-                if (!page || page.length === 0) break;
-                data = data.concat(page);
-                if (page.length < PAGE_SIZE) break;
-                from += PAGE_SIZE;
             }
 
             chats = data.map(conv => {
@@ -7371,19 +7386,7 @@
 
             // Override stale conversations.last_message with actual latest from messages table
             // n8n only writes incoming messages to conversations.last_message — bot replies are messages-table-only
-            const { data: recentMsgs } = await supabaseClient
-                .from('messages')
-                .select(`
-                    phone,
-                    message,
-                    media_type,
-                    created_at,
-                    created_at_sgt,
-                    sender,
-                    sender_type
-                `)
-                .order('created_at', { ascending: false, nullsFirst: false })
-                .limit(5000);
+            const { data: recentMsgs } = await recentMsgsPromise;
             if (recentMsgs && recentMsgs.length > 0) {
                 const latestByPhone = {};
                 const latestIncomingByPhone = {};
@@ -8134,25 +8137,14 @@
             if (!chat) return;
             currentChat = chat;
             updateProfilePanel(currentChat);
-            await loadLastProgressComment();
-            await supabaseClient
-                .from('conversations')
-                .update({
-                    unread_count: 0
-                })
-                .eq('id', chat.id);
+            // Fire-and-forget: none of these need to finish before the messages load.
+            loadLastProgressComment();
+            supabaseClient.from('conversations').update({ unread_count: 0 }).eq('phone', currentChat.phone).then(() => { });
             currentChat.unread_count = 0;
-
-            await supabaseClient
-                .from('conversations')
-                .update({ unread_count: 0 })
-                .eq('phone', currentChat.phone);
 
             updateUnreadBadges();
             _lastMsgPollTime = null; // reset so poll doesn't misfire on first check
 
-            // Reset in database so it persists across reloads
-            supabaseClient.from('conversations').update({ unread_count: 0 }).eq('id', chat.id).then(() => { });
 
             // Remove unread badge in place — no full re-render needed
             const chatEl = element || document.querySelector(`[data-chat-id="${id}"]`);
@@ -9286,8 +9278,11 @@ ${referralHtml}${bodyHtml}${failHtml}
             });
 
             // Periodic conversation refresh every 30s as fallback
-            setInterval(() => {
-                if (!document.hidden) loadConversations();
+            let _convRefreshing = false;
+            setInterval(async () => {
+                if (document.hidden || _convRefreshing) return;
+                _convRefreshing = true;
+                try { await loadConversations(); } finally { _convRefreshing = false; }
             }, 30000);
 
         }
