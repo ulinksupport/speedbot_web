@@ -8271,6 +8271,10 @@
         // or the detected language is Bahasa Indonesia (covers FB/IG users,
         // whose "phone" is an fb_/ig_ id with no country prefix).
         function isIndonesiaChat(chat) {
+            // The account label ("fb-id", "ig-non-id", ...) is the source of truth
+            const acct = String(chat.account || '').toLowerCase();
+            if (/non/.test(acct)) return false;
+            if (/(^|[^a-z])id([^a-z]|$)/.test(acct)) return true;
             if (String(chat.country || '').toLowerCase() === 'indonesia') return true;
             if (/^\+?62\d/.test(String(chat.phone || ''))) return true;
             return String(chat.language || '').toLowerCase().includes('indonesia');
