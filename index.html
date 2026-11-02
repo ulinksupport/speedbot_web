@@ -1382,6 +1382,25 @@
             opacity: 1;
         }
 
+        .message.msg-failed {
+            background: #b91c1c;
+            color: white;
+        }
+
+        .msg-fail-reason {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .message.msg-failed .msg-status-failed {
+            color: #fff;
+            font-weight: 800;
+        }
+
         /* =========================================================
         Floating - Go to latest message
         ========================================================= */
@@ -5420,6 +5439,11 @@
 
         function markBubbleSendFailed(bubble) {
             if (bubble) {
+                if (!bubble.classList.contains('msg-failed')) {
+                    bubble.classList.add('msg-failed');
+                    const t0 = bubble.querySelector('.message-time');
+                    if (t0) t0.insertAdjacentHTML('beforebegin', '<div class="msg-fail-reason">⚠ Not delivered: ' + escHtml(lastSendError || 'No reason given') + '</div>');
+                }
                 const t = bubble.querySelector('.message-time');
                 if (t && !t.querySelector('.msg-status-failed')) {
                     t.insertAdjacentHTML('beforeend',
@@ -8911,11 +8935,17 @@
                 } catch (e) { }
             }
 
+            let failHtml = '';
+            if (msg.status === 'failed' && senderClass !== 'incoming') {
+                div.classList.add('msg-failed');
+                failHtml = `<div class="msg-fail-reason">⚠ Not delivered: ${escHtml(msg.failure_message || 'No reason given')}</div>`;
+            }
+
             div.innerHTML = `
 <div style="font-size:10px;font-weight:700;opacity:0.7;margin-bottom:6px;letter-spacing:0.5px;">
 ${label}
 </div>
-${referralHtml}${bodyHtml}
+${referralHtml}${bodyHtml}${failHtml}
 <div class="message-time"><span>${time}</span>${statusHtml}</div>
 `;
 
