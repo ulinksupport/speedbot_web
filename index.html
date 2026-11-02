@@ -3085,6 +3085,14 @@
     </style>
 
     <style>
+        /* Embedded in the Ulink Hub shell: the hub sidebar replaces dashboard switching */
+        .hub-embedded .social-item[title="Open WhatsApp Dashboard"],
+        .hub-embedded .social-item[title="WhatsApp"],
+        .hub-embedded .social-item[title="Messenger"],
+        .hub-embedded .social-item[title="Instagram"] { display: none !important; }
+    </style>
+
+    <style>
         /* Reviewer (Meta App Review) session: no key entry, no disconnecting production Pages */
         body.reviewer-mode div:has(> #settingsSupabaseKeyInput) { display: none !important; }
     </style>
@@ -7607,6 +7615,7 @@
 
             document.getElementById('allMessageBadge').innerText =
                 totalUnread;
+            reportSegmentCountsToHub();
 
             document.title =
                 totalUnread > 0
@@ -7817,6 +7826,8 @@
                         currentPlatform !== "all" &&
                         chat.platformType !== currentPlatform
                     ) return;
+
+                    if (currentRegion !== "all" && !chatMatchesSegment(chat, "all", currentRegion)) return;
 
                     // Unread / Bot / Human dynamic filter
                     if (activeUnreadModeFilter.unread) {
@@ -8250,6 +8261,58 @@
         ========================================================= */
 
         let currentPlatform = "all";
+        let currentRegion = "all"; // "all" | "id" (Indonesia) | "nonid" — driven by the Ulink Hub sidebar
+
+        /* =========================================================
+        ULINK HUB INTEGRATION (embedded in the combined shell)
+        ========================================================= */
+
+        // Indonesia = country field says so, phone starts with 62 (WhatsApp),
+        // or the detected language is Bahasa Indonesia (covers FB/IG users,
+        // whose "phone" is an fb_/ig_ id with no country prefix).
+        function isIndonesiaChat(chat) {
+            if (String(chat.country || '').toLowerCase() === 'indonesia') return true;
+            if (/^\+?62\d/.test(String(chat.phone || ''))) return true;
+            return String(chat.language || '').toLowerCase().includes('indonesia');
+        }
+
+        function chatMatchesSegment(chat, platform, region) {
+            if (platform !== 'all' && chat.platformType !== platform) return false;
+            if (region === 'id') return isIndonesiaChat(chat);
+            if (region === 'nonid') return !isIndonesiaChat(chat);
+            return true;
+        }
+
+        function reportSegmentCountsToHub() {
+            if (window.parent === window) return;
+            const counts = {};
+            const base = chats.filter(c => !c.is_spam);
+            for (const platform of ['whatsapp', 'messenger', 'instagram']) {
+                for (const region of ['id', 'nonid']) {
+                    counts[platform + ':' + region] = base.reduce(
+                        (n, c) => n + (chatMatchesSegment(c, platform, region) ? Number(c.unread_count || 0) : 0), 0);
+                }
+            }
+            window.parent.postMessage({ type: 'ulink-hub-counts', counts }, '*');
+        }
+
+        if (new URLSearchParams(location.search).get('embed') === '1') {
+            document.documentElement.classList.add('hub-embedded');
+        }
+
+        window.addEventListener('message', function (event) {
+            const d = event.data;
+            if (!d || d.type !== 'ulink-hub-filter') return;
+            if (event.source !== window.parent) return;
+            currentPlatform = ['all', 'whatsapp', 'messenger', 'instagram'].includes(d.platform) ? d.platform : 'all';
+            currentRegion = ['id', 'nonid'].includes(d.region) ? d.region : 'all';
+            document.querySelectorAll('.social-item').forEach(item => item.classList.remove('active'));
+            const idx = { all: 0, whatsapp: 1, messenger: 2, instagram: 3 }[currentPlatform];
+            const items = document.querySelectorAll('#socialSidebar .social-item');
+            if (items[idx]) items[idx].classList.add('active');
+            selectedChatIds.clear();
+            renderChats(activeFilter);
+        });
 
         function filterPlatform(platform, element) {
             if (platform === 'analytics') {
