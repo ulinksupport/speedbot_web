@@ -5402,8 +5402,14 @@
         // workflow fails after the point it can respond (e.g. Facebook rejected the send),
         // and a JSON row only when everything worked. For Messenger/Instagram a send counts
         // as delivered only if that row came back. WhatsApp keeps the plain res.ok check.
+        let lastSendError = '';
         async function sendWebhookSucceeded(resp, platform) {
-            if (!resp || !resp.ok) return false;
+            lastSendError = '';
+            if (!resp || !resp.ok) {
+                // Reply workflow answers 502 {error:"<Meta's message>"} when the send is rejected.
+                try { lastSendError = (JSON.parse(await resp.text()).error || '').toString().slice(0, 300); } catch (e) {}
+                return false;
+            }
             if (platform !== 'messenger' && platform !== 'instagram') return true;
             try {
                 return (await resp.text()).trim().length > 2;
@@ -5417,10 +5423,10 @@
                 const t = bubble.querySelector('.message-time');
                 if (t && !t.querySelector('.msg-status-failed')) {
                     t.insertAdjacentHTML('beforeend',
-                        '<span class="msg-status msg-status-failed" title="Failed — message not delivered">Failed</span>');
+                        '<span class="msg-status msg-status-failed" title="' + escHtml('Failed — message not delivered' + (lastSendError ? ': ' + lastSendError : '')) + '">Failed</span>');
                 }
             }
-            showToast('Message was not delivered. Please try again.', 'error', 6000);
+            showToast(lastSendError ? 'Not delivered: ' + lastSendError : 'Message was not delivered. Please try again.', 'error', 8000);
         }
 
         /* =========================================================
