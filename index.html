@@ -4197,12 +4197,29 @@
                 <textarea id="cannedMessageInput" placeholder="Type the message to save..."
                     style="width:100%;min-height:130px;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px;font-size:14px;resize:vertical;outline:none;margin-bottom:12px;"></textarea>
 
-                <button class="modal-btn-primary" onclick="saveCannedResponse()"
-                    style="width:100%;justify-content:center;margin-bottom:18px;">
-                    <i class="fa-solid fa-save"></i> Save
-                </button>
+                <span class="modal-label">Language</span>
+                <select class="modal-input" id="cannedLanguageInput">
+                    <option value="en">English</option>
+                    <option value="id">Indonesian</option>
+                </select>
+
+                <div style="display:flex;gap:8px;margin-bottom:18px;">
+                    <button class="modal-btn-primary" id="cannedSaveBtn" onclick="saveCannedResponse()"
+                        style="flex:1;justify-content:center;">
+                        <i class="fa-solid fa-save"></i> Save
+                    </button>
+                    <button class="modal-btn-secondary" id="cannedCancelBtn" onclick="resetCannedForm()"
+                        style="display:none;">
+                        Cancel
+                    </button>
+                </div>
 
                 <span class="modal-label">Saved Canned Responses</span>
+
+                <div id="cannedLangTabs" style="display:flex;gap:8px;margin-bottom:10px;"></div>
+
+                <input type="text" class="modal-input" id="cannedSearchInput"
+                    placeholder="Search title or message..." oninput="renderCannedResponses()">
 
                 <div class="template-list" id="cannedResponseList">
                     <!-- filled by renderCannedResponses() -->
@@ -5126,6 +5143,37 @@
         ========================================================= */
 
         let cannedResponsesCache = [];
+        let cannedLangFilter = 'all';
+        let editingCannedId = null;
+
+        function resetCannedForm() {
+            editingCannedId = null;
+            document.getElementById('cannedTitleInput').value = '';
+            document.getElementById('cannedMessageInput').value = '';
+            document.getElementById('cannedLanguageInput').value = 'en';
+            document.getElementById('cannedSaveBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save';
+            document.getElementById('cannedCancelBtn').style.display = 'none';
+        }
+
+        function setCannedLangFilter(lang) {
+            cannedLangFilter = lang;
+            renderCannedResponses();
+        }
+
+        function editCannedResponse(id) {
+            const item = findCannedResponse(id);
+            if (!item) return;
+
+            editingCannedId = id;
+            document.getElementById('cannedTitleInput').value = item.title || '';
+            document.getElementById('cannedMessageInput').value = item.message || '';
+            document.getElementById('cannedLanguageInput').value = item.language === 'id' ? 'id' : 'en';
+            document.getElementById('cannedSaveBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update';
+            document.getElementById('cannedCancelBtn').style.display = '';
+
+            document.querySelector('#cannedResponseOverlay .modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('cannedTitleInput').focus({ preventScroll: true });
+        }
 
         async function loadCannedResponses() {
             const { data, error } = await supabaseClient
@@ -5151,8 +5199,10 @@
                 return;
             }
 
-            document.getElementById('cannedTitleInput').value = '';
-            document.getElementById('cannedMessageInput').value = '';
+            resetCannedForm();
+            cannedLangFilter = 'all';
+            document.getElementById('cannedSearchInput').value = '';
+            document.getElementById('cannedLangTabs').innerHTML = '';
 
             document.getElementById('cannedResponseList').innerHTML = `
         <div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px;">
@@ -5168,11 +5218,13 @@
 
         function closeCannedResponseModal() {
             document.getElementById('cannedResponseOverlay').classList.remove('show');
+            resetCannedForm();
         }
 
         async function saveCannedResponse() {
             const title = document.getElementById('cannedTitleInput').value.trim();
             const message = document.getElementById('cannedMessageInput').value.trim();
+            const language = document.getElementById('cannedLanguageInput').value === 'id' ? 'id' : 'en';
 
             if (!title) {
                 alert('Please enter a title.');
@@ -5184,11 +5236,40 @@
                 return;
             }
 
+            if (editingCannedId) {
+                const id = editingCannedId;
+
+                const { data, error } = await supabaseClient
+                    .from('canned_responses')
+                    .update({
+                        title: title,
+                        message: message,
+                        language: language,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', id)
+                    .select();
+
+                if (error || !data || data.length === 0) {
+                    console.error('Failed to update canned response:', error || 'No rows updated');
+                    showToast('Update failed — the canned response was not changed. Please reload and try again.', 'error');
+                    return;
+                }
+
+                resetCannedForm();
+                await loadCannedResponses();
+                renderCannedResponses();
+
+                showToast('Canned response updated.', 'success');
+                return;
+            }
+
             const { error } = await supabaseClient
                 .from('canned_responses')
                 .insert({
                     title: title,
                     message: message,
+                    language: language,
                     created_by: agentName || null
                 });
 
@@ -5198,8 +5279,7 @@
                 return;
             }
 
-            document.getElementById('cannedTitleInput').value = '';
-            document.getElementById('cannedMessageInput').value = '';
+            resetCannedForm();
 
             await loadCannedResponses();
             renderCannedResponses();
@@ -5211,12 +5291,49 @@
             const wrap = document.getElementById('cannedResponseList');
             if (!wrap) return;
 
-            const list = cannedResponsesCache || [];
+            const all = cannedResponsesCache || [];
+
+            if (editingCannedId && !all.some(item => item.id === editingCannedId)) {
+                resetCannedForm();
+            }
+
+            const tabsWrap = document.getElementById('cannedLangTabs');
+            if (tabsWrap) {
+                const tabs = [
+                    ['all', 'All', all.length],
+                    ['en', 'English', all.filter(item => item.language === 'en').length],
+                    ['id', 'Indonesian', all.filter(item => item.language === 'id').length]
+                ];
+                tabsWrap.innerHTML = tabs.map(([key, label, count]) => `
+            <button class="${cannedLangFilter === key ? 'modal-btn-primary' : 'modal-btn-secondary'}"
+                style="height:36px;padding:0 12px;font-size:12px;"
+                onclick="setCannedLangFilter('${key}')">
+                ${label} (${count})
+            </button>
+        `).join('');
+            }
+
+            if (!all.length) {
+                wrap.innerHTML = `
+            <div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px;border:1px dashed #d1d5db;border-radius:14px;">
+                No canned responses saved yet.
+            </div>
+        `;
+                return;
+            }
+
+            const q = (document.getElementById('cannedSearchInput')?.value || '').trim().toLowerCase();
+            const list = all.filter(item =>
+                (cannedLangFilter === 'all' || item.language === cannedLangFilter) &&
+                (!q ||
+                    (item.title || '').toLowerCase().includes(q) ||
+                    (item.message || '').toLowerCase().includes(q))
+            );
 
             if (!list.length) {
                 wrap.innerHTML = `
             <div style="padding:18px;text-align:center;color:#9ca3af;font-size:13px;border:1px dashed #d1d5db;border-radius:14px;">
-                No canned responses saved yet.
+                No canned responses found.
             </div>
         `;
                 return;
@@ -5243,6 +5360,12 @@
                     style="height:36px;padding:0 12px;font-size:12px;"
                     onclick="sendCannedResponse('${item.id}')">
                     Send
+                </button>
+
+                <button class="modal-btn-secondary"
+                    style="height:36px;padding:0 12px;font-size:12px;"
+                    onclick="editCannedResponse('${item.id}')">
+                    Edit
                 </button>
 
                 <button class="modal-btn-secondary"
