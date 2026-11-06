@@ -1,0 +1,480 @@
+{
+ "updatedAt": "2026-11-05T05:06:55.114Z",
+ "createdAt": "2026-07-17T05:18:42.129Z",
+ "id": "hQpurZwz1YJ73JES",
+ "name": "Speedbot Socials Dashboard - Send WhatsApp Template Message",
+ "description": null,
+ "active": true,
+ "isArchived": false,
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "send-template-message",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2.1,
+   "position": [
+    0,
+    0
+   ],
+   "id": "c6784854-8ca4-4c94-85ee-a7901c638618",
+   "name": "Webhook",
+   "webhookId": "a1b2c3d4-0001-0001-0001-000000000002"
+  },
+  {
+   "parameters": {
+    "jsCode": "const body = $input.first().json.body;\nconst variables = Array.isArray(body.variables) ? body.variables : [];\n\nconst components = [];\nif (variables.length > 0) {\n  components.push({\n    type: 'body',\n    parameters: variables.map(v => ({ type: 'text', text: String(v) }))\n  });\n}\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  to: body.phone.replace(/[^0-9]/g, ''),\n  type: 'template',\n  template: {\n    name: body.template_name,\n    language: { code: body.language_code || 'en' },\n    components: components\n  }\n};\n\nreturn [{\n  json: {\n    phone: body.phone,\n    template_name: body.template_name,\n    raw_payload: JSON.stringify(payload)\n  }\n}];"
+   },
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    0
+   ],
+   "id": "f11e93e4-04ea-448c-b1fb-803695e26fc6",
+   "name": "Build Template Payload"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://graph.facebook.com/v23.0/1286180077917309/messages",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "Authorization",
+       "value": "Bearer EAAM5Q4ev0nQBSoGBZCtISlrz11HJrIPqXdPU0ZCtvMXsQh9RVt1Qv8aBSKZAMAAnTPWdsst1ZCN0jjZATGCxE5I2eX81Ne2X4GFGzb9ZCzMkeMzbtF6WZC1eC9FFbxeurc1oZAdlJJ5ZC8SP8fiJ8J0kgA6V4S8kZCmPWkMYPu413tZBgZAihREV9JbvVxGR9oBFJO1zJQZDZD"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ $json.raw_payload }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    480,
+    0
+   ],
+   "id": "b2085870-8f3f-4b8f-9af7-bd1f1676d9f6",
+   "name": "Send Template via Meta API"
+  },
+  {
+   "parameters": {
+    "tableId": "messages",
+    "fieldsUi": {
+     "fieldValues": [
+      {
+       "fieldId": "phone",
+       "fieldValue": "={{ $('Build Template Payload').item.json.phone }}"
+      },
+      {
+       "fieldId": "message",
+       "fieldValue": "={{ '[Template: ' + $('Build Template Payload').item.json.template_name + ']' }}"
+      },
+      {
+       "fieldId": "sender",
+       "fieldValue": "outgoing"
+      },
+      {
+       "fieldId": "sender_type",
+       "fieldValue": "human"
+      },
+      {
+       "fieldId": "created_at_sgt",
+       "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date()) }}"
+      },
+      {
+       "fieldId": "conversation_id",
+       "fieldValue": "={{ $('Webhook').item.json.body.conversation_id || null }}"
+      },
+      {
+       "fieldId": "wamid",
+       "fieldValue": "={{ $('Send Template via Meta API').item.json.messages?.[0]?.id ?? null }}"
+      },
+      {
+       "fieldId": "agent_name",
+       "fieldValue": "={{ $('Webhook').item.json.body.agent_name || null }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    720,
+    0
+   ],
+   "id": "6be5ec91-717e-4366-b25c-cf284ccf0c78",
+   "name": "Log to Messages",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify($('Send Template via Meta API').item.json) }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.5,
+   "position": [
+    960,
+    0
+   ],
+   "id": "28709845-a4b6-4692-98b8-7c146e875417",
+   "name": "Respond to Webhook"
+  }
+ ],
+ "connections": {
+  "Webhook": {
+   "main": [
+    [
+     {
+      "node": "Build Template Payload",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Build Template Payload": {
+   "main": [
+    [
+     {
+      "node": "Send Template via Meta API",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send Template via Meta API": {
+   "main": [
+    [
+     {
+      "node": "Log to Messages",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Log to Messages": {
+   "main": [
+    [
+     {
+      "node": "Respond to Webhook",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "binaryMode": "separate",
+  "availableInMCP": true
+ },
+ "staticData": null,
+ "meta": {
+  "templateCredsSetupCompleted": true
+ },
+ "nodeGroups": [],
+ "pinData": {
+  "Webhook": [
+   {
+    "json": {
+     "headers": {
+      "host": "guest-annie-oxygen-pal.trycloudflare.com",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "content-length": "176",
+      "accept": "*/*",
+      "accept-encoding": "gzip",
+      "accept-language": "en-US,en;q=0.9",
+      "cdn-loop": "cloudflare; loops=1; subreqs=1",
+      "cf-connecting-ip": "128.106.76.222",
+      "cf-ew-via": "15",
+      "cf-ipcountry": "SG",
+      "cf-ray": "a221e348cbe4696d-SIN",
+      "cf-visitor": "{\"scheme\":\"https\"}",
+      "cf-warp-tag-id": "d12ef986-5596-4dba-9280-ac3384338d3e",
+      "cf-worker": "trycloudflare.com",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "origin": "https://ulink-social-media-platform.vercel.app",
+      "priority": "u=1, i",
+      "referer": "https://ulink-social-media-platform.vercel.app/",
+      "sec-ch-ua": "\"Not;A=Brand\";v=\"8\", \"Chromium\";v=\"150\", \"Google Chrome\";v=\"150\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
+      "x-forwarded-for": "128.106.76.222",
+      "x-forwarded-proto": "https"
+     },
+     "params": {},
+     "query": {},
+     "body": {
+      "phone": "+6587829433",
+      "template_name": "hello_test",
+      "language_code": "en",
+      "variables": [
+       "miffy"
+      ],
+      "conversation_id": 81,
+      "platform": "whatsapp",
+      "meta_psid": null,
+      "agent_name": "adele"
+     },
+     "webhookUrl": "https://guest-annie-oxygen-pal.trycloudflare.com/webhook/send-template-message",
+     "executionMode": "production"
+    },
+    "pairedItem": {
+     "item": 0
+    }
+   }
+  ]
+ },
+ "versionId": "72e7a2a5-23f0-44f7-8704-183eded5646b",
+ "activeVersionId": "72e7a2a5-23f0-44f7-8704-183eded5646b",
+ "versionCounter": 15,
+ "triggerCount": 1,
+ "sourceWorkflowId": null,
+ "shared": [
+  {
+   "updatedAt": "2026-07-17T05:18:42.130Z",
+   "createdAt": "2026-07-17T05:18:42.130Z",
+   "role": "workflow:owner",
+   "workflowId": "hQpurZwz1YJ73JES",
+   "projectId": "6ooBKTGPpDbCiAOC",
+   "project": {
+    "updatedAt": "2026-07-16T04:36:03.518Z",
+    "createdAt": "2026-07-16T04:26:21.376Z",
+    "id": "6ooBKTGPpDbCiAOC",
+    "name": "Ulink Ltd <supportdesk@ulinkassist.com>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  }
+ ],
+ "tags": [],
+ "activeVersion": {
+  "updatedAt": "2026-09-21T04:38:15.000Z",
+  "createdAt": "2026-09-21T04:37:47.519Z",
+  "versionId": "72e7a2a5-23f0-44f7-8704-183eded5646b",
+  "workflowId": "hQpurZwz1YJ73JES",
+  "nodes": [
+   {
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "send-template-message",
+     "responseMode": "responseNode",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2.1,
+    "position": [
+     0,
+     0
+    ],
+    "id": "c6784854-8ca4-4c94-85ee-a7901c638618",
+    "name": "Webhook",
+    "webhookId": "a1b2c3d4-0001-0001-0001-000000000002"
+   },
+   {
+    "parameters": {
+     "jsCode": "const body = $input.first().json.body;\nconst variables = Array.isArray(body.variables) ? body.variables : [];\n\nconst components = [];\nif (variables.length > 0) {\n  components.push({\n    type: 'body',\n    parameters: variables.map(v => ({ type: 'text', text: String(v) }))\n  });\n}\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  to: body.phone.replace(/[^0-9]/g, ''),\n  type: 'template',\n  template: {\n    name: body.template_name,\n    language: { code: body.language_code || 'en' },\n    components: components\n  }\n};\n\nreturn [{\n  json: {\n    phone: body.phone,\n    template_name: body.template_name,\n    raw_payload: JSON.stringify(payload)\n  }\n}];"
+    },
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     240,
+     0
+    ],
+    "id": "f11e93e4-04ea-448c-b1fb-803695e26fc6",
+    "name": "Build Template Payload"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "https://graph.facebook.com/v23.0/1286180077917309/messages",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "Authorization",
+        "value": "Bearer EAAM5Q4ev0nQBSoGBZCtISlrz11HJrIPqXdPU0ZCtvMXsQh9RVt1Qv8aBSKZAMAAnTPWdsst1ZCN0jjZATGCxE5I2eX81Ne2X4GFGzb9ZCzMkeMzbtF6WZC1eC9FFbxeurc1oZAdlJJ5ZC8SP8fiJ8J0kgA6V4S8kZCmPWkMYPu413tZBgZAihREV9JbvVxGR9oBFJO1zJQZDZD"
+       },
+       {
+        "name": "Content-Type",
+        "value": "application/json"
+       }
+      ]
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ $json.raw_payload }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     480,
+     0
+    ],
+    "id": "b2085870-8f3f-4b8f-9af7-bd1f1676d9f6",
+    "name": "Send Template via Meta API"
+   },
+   {
+    "parameters": {
+     "tableId": "messages",
+     "fieldsUi": {
+      "fieldValues": [
+       {
+        "fieldId": "phone",
+        "fieldValue": "={{ $('Build Template Payload').item.json.phone }}"
+       },
+       {
+        "fieldId": "message",
+        "fieldValue": "={{ '[Template: ' + $('Build Template Payload').item.json.template_name + ']' }}"
+       },
+       {
+        "fieldId": "sender",
+        "fieldValue": "outgoing"
+       },
+       {
+        "fieldId": "sender_type",
+        "fieldValue": "human"
+       },
+       {
+        "fieldId": "created_at_sgt",
+        "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date()) }}"
+       },
+       {
+        "fieldId": "conversation_id",
+        "fieldValue": "={{ $('Webhook').item.json.body.conversation_id || null }}"
+       },
+       {
+        "fieldId": "wamid",
+        "fieldValue": "={{ $('Send Template via Meta API').item.json.messages?.[0]?.id ?? null }}"
+       },
+       {
+        "fieldId": "agent_name",
+        "fieldValue": "={{ $('Webhook').item.json.body.agent_name || null }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     720,
+     0
+    ],
+    "id": "6be5ec91-717e-4366-b25c-cf284ccf0c78",
+    "name": "Log to Messages",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($('Send Template via Meta API').item.json) }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.5,
+    "position": [
+     960,
+     0
+    ],
+    "id": "28709845-a4b6-4692-98b8-7c146e875417",
+    "name": "Respond to Webhook"
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Build Template Payload",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Build Template Payload": {
+    "main": [
+     [
+      {
+       "node": "Send Template via Meta API",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send Template via Meta API": {
+    "main": [
+     [
+      {
+       "node": "Log to Messages",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Log to Messages": {
+    "main": [
+     [
+      {
+       "node": "Respond to Webhook",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "Ulink Ltd",
+  "name": "Send Template via Meta API node updated for Indonesian toursim socials",
+  "description": "",
+  "autosaved": true,
+  "workflowPublishHistory": [
+   {
+    "createdAt": "2026-09-21T04:38:15.244Z",
+    "id": 887,
+    "workflowId": "hQpurZwz1YJ73JES",
+    "versionId": "72e7a2a5-23f0-44f7-8704-183eded5646b",
+    "event": "activated",
+    "userId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  ]
+ }
+}

@@ -969,6 +969,29 @@
             white-space: nowrap;
         }
 
+        /* WhatsApp number tag (SG / ID) */
+        .wa-ch-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.5;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .wa-ch-badge.sg { color: #7c3aed; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(124, 58, 237, 0.3); }
+        .wa-ch-badge.id { color: #15803d; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.35); }
+        .wa-ch-pills { display: flex; gap: 8px; margin: 6px 0 12px; flex-wrap: wrap; align-items: center; }
+        .wa-ch-pill {
+            padding: 6px 14px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff;
+            font-size: 12px; font-weight: 600; color: #374151; cursor: pointer;
+        }
+        .wa-ch-pill.active.sg { background: rgba(124, 58, 237, 0.12); border-color: #7c3aed; color: #6d28d9; }
+        .wa-ch-pill.active.id { background: rgba(34, 197, 94, 0.14); border-color: #16a34a; color: #15803d; }
+        .wa-ch-hint { font-size: 11px; color: #6b7280; }
+
         .avatar-platform-icon {
             position: absolute;
             right: -3px;
@@ -4138,6 +4161,8 @@
 
             <div class="modal-body">
 
+                <div class="wa-ch-hint" id="templateChannelTag" style="margin-bottom:8px;"></div>
+
                 <span class="modal-label">Select a template</span>
 
                 <div class="template-list" id="templateList">
@@ -4255,8 +4280,11 @@
 
             <div class="modal-body">
 
+                <span class="modal-label">Send from</span>
+                <div class="wa-ch-pills" id="newChatChannelPills"></div>
+
                 <span class="modal-label">Phone Number <span style="color:#ef4444;">*</span></span>
-                <input type="text" class="modal-input" id="newChatPhone"
+                <input type="text" class="modal-input" id="newChatPhone" oninput="onNewChatPhoneInput()"
                     placeholder="+628123456789 (include country code)">
 
                 <span class="modal-label">Contact Name (optional)</span>
@@ -4342,7 +4370,10 @@
 
                 <!-- Template section -->
                 <div id="broadcastTemplateSection">
-                    <span class="modal-label">1. Select Template</span>
+                    <span class="modal-label">1. Send from</span>
+                    <div class="wa-ch-pills" id="broadcastChannelPills"></div>
+
+                    <span class="modal-label">2. Select Template</span>
 
                     <div class="template-list" id="broadcastTemplateList">
                         <!-- filled by renderTemplateCards() -->
@@ -4427,6 +4458,8 @@
                 <h3><i class="fa-solid fa-file-lines" style="color:#2563eb;"></i> Template Manager</h3>
                 <button onclick="closeTemplateManager()"><i class="fa-solid fa-xmark"></i></button>
             </div>
+
+            <div class="wa-ch-pills" id="tmgrChannelPills" style="padding:10px 20px 0;margin:0;"></div>
 
             <div class="tmgr-tabs">
                 <button class="tmgr-tab active" onclick="switchTmgrTab('list', this)">My Templates</button>
@@ -4735,6 +4768,30 @@
         // const META_PHONE_ID = "1292684077252611";
         const META_WABA_ID = "1633971881650214";
         const META_PHONE_ID = "1286180077917309";
+
+        /* Two WhatsApp numbers for medical tourism. Replies always go out from the number the
+           customer last messaged (conversations.wa_channel, stamped by the n8n Chat Flow). */
+        const WA_CHANNELS = {
+            id: { label: 'ID', title: 'Indonesia number', waba: '1633971881650214', phone: '1286180077917309' },
+            sg: { label: 'SG', title: 'Singapore number +65 8867 7725', waba: '1703106731243453', phone: '1378048008729327' }
+        };
+        function waChannelForPhone(p) {
+            return String(p || '').replace(/\D/g, '').startsWith('62') ? 'id' : 'sg';
+        }
+        function getChatChannel(chat) {
+            const c = String(chat?.wa_channel || '').toLowerCase();
+            return WA_CHANNELS[c] ? c : 'id';
+        }
+        function waChannelBadgeHtml(chat) {
+            if (!chat || chat.platformType !== 'whatsapp') return '';
+            const c = getChatChannel(chat);
+            return `<span class="wa-ch-badge ${c}" title="${WA_CHANNELS[c].title}">${WA_CHANNELS[c].label}</span>`;
+        }
+        function waChannelPillsHtml(active, onclickFn) {
+            return ['id', 'sg'].map(c =>
+                `<button type="button" class="wa-ch-pill ${c}${c === active ? ' active' : ''}" onclick="${onclickFn}('${c}')">${WA_CHANNELS[c].label} · ${WA_CHANNELS[c].title}</button>`
+            ).join('');
+        }
         const META_GRAPH_URL = "https://graph.facebook.com/v23.0";
         let agentName = localStorage.getItem("cfg_agent_name") || "";
 
@@ -5524,6 +5581,8 @@
 
                         platform: currentChat.platformType || 'whatsapp',
 
+                        wa_channel: getChatChannel(currentChat),
+
                         meta_psid: currentChat.meta_psid || null
 
                     })
@@ -5822,7 +5881,7 @@
 
                     formData.append('file', file, file.name);
                     formData.append('type', file.type);
-                    formData.append('phone_id', META_PHONE_ID);
+                    formData.append('phone_id', WA_CHANNELS[getChatChannel(currentChat)].phone);
 
                     const waUpload = await fetch(
                         META_WORKER_BASE + '/meta-media-upload',
@@ -5856,7 +5915,7 @@
 
                     await metaApi(
                         'POST',
-                        `/${META_PHONE_ID}/messages`,
+                        `/${WA_CHANNELS[getChatChannel(currentChat)].phone}/messages`,
                         {
                             messaging_product: 'whatsapp',
                             to: currentChat.phone.replace('+', ''),
@@ -7483,6 +7542,7 @@
                         ),
                     platform: conv.platform || "WhatsApp",
                     platformType: normalisePlatform(conv.platform),
+                    wa_channel: conv.wa_channel || null,
                     phone: conv.phone,
                     email: conv.email || "N/A",
                     country: conv.country || "Unknown",
@@ -8046,6 +8106,7 @@
         <div class="chat-name">
             ${chat.name}
             ${accountBadgeHtml(chat)}
+            ${waChannelBadgeHtml(chat)}
 
             ${chat.escalate ? `
                 <span
@@ -8353,7 +8414,7 @@
             updateCompletedButton();
             updateSpamButton();
 
-            document.querySelector(".chat-user h3").innerText = chat.name;
+            document.querySelector(".chat-user h3").innerHTML = escHtml(chat.name) + waChannelBadgeHtml(chat);
             document.querySelector(".chat-user p").innerText = chat.account ? `${chat.platform} · ${chat.account}${chat.accountFull && chat.accountFull !== chat.account ? ' (' + chat.accountFull + ')' : ''}` : chat.platform;
             document.querySelector(".chat-user img").src = chat.avatar;
 
@@ -9372,6 +9433,8 @@ ${referralHtml}${bodyHtml}${failHtml}
                 platformType:
                     (data.platform || "").toLowerCase(),
 
+                wa_channel: data.wa_channel || null,
+
                 phone: data.phone,
 
                 email: data.email || "N/A",
@@ -9701,11 +9764,15 @@ ${referralHtml}${bodyHtml}${failHtml}
         let selectedTemplate = null;
         let templateContext = null;
 
-        async function loadTemplates() {
+        let templatesChannel = 'id';
+        async function loadTemplates(channel) {
+            channel = WA_CHANNELS[channel] ? channel : 'id';
+            templatesChannel = channel;
+            templates = [];
             try {
                 const data = await metaApi(
                     'GET',
-                    `/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100`
+                    `/${WA_CHANNELS[channel].waba}/message_templates?fields=id,name,status,language,category,components&limit=100`
                 );
                 const approved = (data.data || []).filter(t => t.status === 'APPROVED');
                 templates = approved.map(t => {
@@ -9736,6 +9803,9 @@ ${referralHtml}${bodyHtml}${failHtml}
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
+            if (!templates.length) {
+                container.innerHTML = `<div class="wa-ch-hint" style="padding:10px;">No approved templates on the ${WA_CHANNELS[templatesChannel].label} number yet. Create one in Template Manager (choose ${WA_CHANNELS[templatesChannel].label}).</div>`;
+            }
             templates.forEach((t, i) => {
                 const card = document.createElement('div');
                 card.className = 'template-card';
@@ -9829,7 +9899,7 @@ ${referralHtml}${bodyHtml}${failHtml}
         }
 
         /* Call the n8n template-send webhook — returns { ok, wamid, error } */
-        async function callTemplateSendWebhook(phone, template, variables, conversationId) {
+        async function callTemplateSendWebhook(phone, template, variables, conversationId, channel) {
             let cleanPhone = String(phone || '').replace(/\s/g, '').trim();
 
             if (cleanPhone && !cleanPhone.startsWith('+')) {
@@ -9844,7 +9914,8 @@ ${referralHtml}${bodyHtml}${failHtml}
                 conversation_id: conversationId || null,
                 platform: currentChat?.platformType || 'whatsapp',
                 meta_psid: currentChat?.meta_psid || null,
-                agent_name: agentName || null
+                agent_name: agentName || null,
+                wa_channel: WA_CHANNELS[channel] ? channel : (currentChat ? getChatChannel(currentChat) : waChannelForPhone(cleanPhone))
             };
 
             try {
@@ -9914,15 +9985,20 @@ ${referralHtml}${bodyHtml}${failHtml}
         TEMPLATE PICKER (in active chat)
         ========================================================= */
 
-        function openTemplatePicker() {
+        async function openTemplatePicker() {
             if (!currentChat) {
                 alert('Please select a conversation first.');
                 return;
             }
             selectedTemplate = null;
             document.getElementById('templateVariables').style.display = 'none';
-            renderTemplateCards('templateList', 'picker');
+            const ch = getChatChannel(currentChat);
+            const tag = document.getElementById('templateChannelTag');
+            if (tag) tag.innerHTML = `Sending from the <span class="wa-ch-badge ${ch}" style="margin-left:2px;">${WA_CHANNELS[ch].label}</span> number (${WA_CHANNELS[ch].title}) — the number this customer messaged.`;
+            document.getElementById('templateList').innerHTML = '<div class="wa-ch-hint" style="padding:10px;">Loading templates…</div>';
             document.getElementById('templateOverlay').classList.add('show');
+            await loadTemplates(ch);
+            renderTemplateCards('templateList', 'picker');
         }
 
         function closeTemplatePicker() {
@@ -9950,7 +10026,8 @@ ${referralHtml}${bodyHtml}${failHtml}
                     currentChat.phone,
                     templateToSend,
                     vars,
-                    currentChat?.id
+                    currentChat?.id,
+                    getChatChannel(currentChat)
                 );
             } catch (e) {
                 result = {
@@ -10058,13 +10135,37 @@ ${referralHtml}${bodyHtml}${failHtml}
         NEW CHAT MODAL
         ========================================================= */
 
+        let newChatChannel = 'id';
+        let newChatChannelManual = false;
+        async function setNewChatChannel(ch, manual) {
+            newChatChannel = WA_CHANNELS[ch] ? ch : 'id';
+            if (manual) newChatChannelManual = true;
+            document.getElementById('newChatChannelPills').innerHTML =
+                waChannelPillsHtml(newChatChannel, 'pickNewChatChannel') +
+                `<span class="wa-ch-hint">Auto-selected from the country code; tap to override.</span>`;
+            selectedTemplate = null;
+            document.getElementById('newChatVariables').style.display = 'none';
+            document.getElementById('newChatTemplateList').innerHTML = '<div class="wa-ch-hint" style="padding:10px;">Loading templates…</div>';
+            const mine = newChatChannel;
+            await loadTemplates(mine);
+            if (mine === newChatChannel) renderTemplateCards('newChatTemplateList', 'newchat');
+        }
+        function pickNewChatChannel(ch) { setNewChatChannel(ch, true); }
+        function onNewChatPhoneInput() {
+            if (newChatChannelManual) return;
+            const v = document.getElementById('newChatPhone').value;
+            if (String(v).replace(/\D/g, '').length < 2) return;
+            const ch = waChannelForPhone(v);
+            if (ch !== newChatChannel) setNewChatChannel(ch, false);
+        }
         function openNewChatModal() {
             selectedTemplate = null;
+            newChatChannelManual = false;
             document.getElementById('newChatPhone').value = '';
             document.getElementById('newChatName').value = '';
             document.getElementById('newChatVariables').style.display = 'none';
-            renderTemplateCards('newChatTemplateList', 'newchat');
             document.getElementById('newChatOverlay').classList.add('show');
+            setNewChatChannel('id', false);
         }
 
         function closeNewChatModal() {
@@ -10106,6 +10207,7 @@ ${referralHtml}${bodyHtml}${failHtml}
                         name: name,
                         platform: 'whatsapp',
                         status: 'open',
+                        wa_channel: newChatChannel,
                         bot_enabled: false,
                         last_message: `[Template: ${selectedTemplate.display_name}]`,
                         last_message_time: new Date().toISOString()
@@ -10117,7 +10219,7 @@ ${referralHtml}${bodyHtml}${failHtml}
 
             // Send template via n8n
             const vars = getVariableValues('newChatVariableInputs', selectedTemplate.variables.length);
-            const result = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId);
+            const result = await callTemplateSendWebhook(phone, selectedTemplate, vars, newChatConvId, newChatChannel);
 
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-comment-dots"></i> Start Chat';
@@ -10308,6 +10410,20 @@ ${referralHtml}${bodyHtml}${failHtml}
             languageSelect.value = currentLanguage;
         }
 
+        let broadcastChannel = 'id';
+        async function setBroadcastChannel(ch) {
+            broadcastChannel = WA_CHANNELS[ch] ? ch : 'id';
+            document.getElementById('broadcastChannelPills').innerHTML =
+                waChannelPillsHtml(broadcastChannel, 'setBroadcastChannel') +
+                `<span class="wa-ch-hint">Every recipient in this broadcast is messaged from this number.</span>`;
+            selectedTemplate = null;
+            document.getElementById('broadcastVariables').style.display = 'none';
+            document.getElementById('broadcastTemplateList').innerHTML = '<div class="wa-ch-hint" style="padding:10px;">Loading templates…</div>';
+            const mine = broadcastChannel;
+            await loadTemplates(mine);
+            if (mine === broadcastChannel) renderTemplateCards('broadcastTemplateList', 'broadcast');
+        }
+
         function openBroadcastModal() {
             selectedTemplate = null;
             broadcastUseImportedOnly = false;
@@ -10325,7 +10441,7 @@ ${referralHtml}${bodyHtml}${failHtml}
             document.getElementById('broadcastLanguageFilter').value = '';
             populateBroadcastFilters();
             document.getElementById('broadcastPlainText').value = '';
-            renderTemplateCards('broadcastTemplateList', 'broadcast');
+            setBroadcastChannel('id');
             renderBroadcastContacts();
             document.getElementById('broadcastOverlay').classList.add('show');
         }
@@ -10454,6 +10570,7 @@ ${referralHtml}${bodyHtml}${failHtml}
                                 conversation_id: chat?.id || null,
                                 agent_name: agentName || null,
                                 platform: chat?.platformType || 'whatsapp',
+                                wa_channel: getChatChannel(chat),
                                 meta_psid: chat?.meta_psid || null
                             })
                         });
@@ -10512,7 +10629,7 @@ ${referralHtml}${bodyHtml}${failHtml}
 
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending ${i + 1} / ${selected.length}...`;
                 const resolvedVars = resolveMergeTags(vars, contactMap[phone], phone);
-                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars, contactMap[phone]?.id || null);
+                const result = await callTemplateSendWebhook(phone, selectedTemplate, resolvedVars, contactMap[phone]?.id || null, broadcastChannel);
                 const status = result.ok ? 'sent' : 'failed';
                 if (result.ok) {
                     success++;
@@ -11395,8 +11512,21 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             }
         }
 
+        let tmgrChannel = 'id';
+        function tmgrWaba() { return WA_CHANNELS[tmgrChannel].waba; }
+        function renderTmgrChannelPills() {
+            document.getElementById('tmgrChannelPills').innerHTML =
+                waChannelPillsHtml(tmgrChannel, 'setTmgrChannel') +
+                `<span class="wa-ch-hint">Templates are separate per number — create the same template on both if you need it on both.</span>`;
+        }
+        function setTmgrChannel(ch) {
+            tmgrChannel = WA_CHANNELS[ch] ? ch : 'id';
+            renderTmgrChannelPills();
+            fetchTemplatesFromMeta();
+        }
         function openTemplateManager() {
             document.getElementById('tmgrOverlay').classList.add('show');
+            renderTmgrChannelPills();
             fetchTemplatesFromMeta();
         }
 
@@ -11428,7 +11558,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             try {
                 const data = await metaApi(
                     'GET',
-                    `/${META_WABA_ID}/message_templates?fields=id,name,status,language,category,components&limit=100`
+                    `/${tmgrWaba()}/message_templates?fields=id,name,status,language,category,components&limit=100`
                 );
 
                 if (data.error) throw new Error(data.error.message);
@@ -11436,6 +11566,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                 tmgrCachedAll = data.data || [];
 
                 // Also update the send-picker list with approved ones
+                templatesChannel = tmgrChannel;
                 templates = tmgrCachedAll
                     .filter(t => t.status === 'APPROVED')
                     .map(t => {
@@ -11510,7 +11641,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             try {
                 const data = await metaApi(
                     'DELETE',
-                    `/${META_WABA_ID}/message_templates?name=${encodeURIComponent(t.name)}`
+                    `/${tmgrWaba()}/message_templates?name=${encodeURIComponent(t.name)}`
                 );
                 if (!data.success) throw new Error(data.error?.message || 'Delete failed');
                 tmgrCachedAll.splice(idx, 1);
@@ -11691,7 +11822,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
             try {
                 const result = await metaApi(
                     'POST',
-                    `/${META_WABA_ID}/message_templates`,
+                    `/${tmgrWaba()}/message_templates`,
                     {
                         name,
                         language: lang,

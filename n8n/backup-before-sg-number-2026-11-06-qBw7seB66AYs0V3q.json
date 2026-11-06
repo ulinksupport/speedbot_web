@@ -1,0 +1,2341 @@
+{
+ "updatedAt": "2026-11-05T05:06:07.862Z",
+ "createdAt": "2026-07-21T07:43:09.983Z",
+ "id": "qBw7seB66AYs0V3q",
+ "name": "Speedbot Socials - Human Whatsapp Reply",
+ "description": null,
+ "active": true,
+ "isArchived": false,
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "human-send-message",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2.1,
+   "position": [
+    -672,
+    480
+   ],
+   "id": "3c8c4aa1-5106-4995-b463-1f1ebffe9035",
+   "name": "Webhook",
+   "webhookId": "070985e2-1d3d-4042-a240-702dd5c9c83d"
+  },
+  {
+   "parameters": {
+    "rules": {
+     "values": [
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 3
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.body.platform }}",
+          "rightValue": "messenger",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          },
+          "id": "c1254cbd-efeb-42a5-b0d9-e47809547f9e"
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "messenger"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 3
+        },
+        "conditions": [
+         {
+          "leftValue": "={{ $json.body.platform }}",
+          "rightValue": "instagram",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          },
+          "id": "eac3b0e5-a05b-40e4-ad5a-a4ededcad6e8"
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "instagram"
+      }
+     ]
+    },
+    "options": {
+     "fallbackOutput": "extra"
+    }
+   },
+   "type": "n8n-nodes-base.switch",
+   "typeVersion": 3.4,
+   "position": [
+    -448,
+    464
+   ],
+   "id": "b2072eb4-43d4-4810-8e73-3440e37e7b20",
+   "name": "Route Send Platform"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "leftValue": "={{ $('Webhook').item.json.body.media_url }}",
+       "rightValue": "",
+       "operator": {
+        "type": "string",
+        "operation": "exists"
+       },
+       "id": "aaa10001-0001-0001-0001-000000000001"
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    -224,
+    96
+   ],
+   "id": "a15fed0c-1228-43a1-a4b4-6996b88e4941",
+   "name": "IF Media Messenger"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={\"recipient\":{\"id\":\"{{ $('Webhook').item.json.body.meta_psid }}\"},\"message\":{\"attachment\":{\"type\":\"{{ $('Webhook').item.json.body.media_type === 'document' ? 'file' : 'image' }}\",\"payload\":{\"url\":\"{{ $('Webhook').item.json.body.media_url }}\",\"is_reusable\":true}}}}",
+    "options": {},
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    0,
+    0
+   ],
+   "id": "3d1a9826-2b8d-4416-8679-e1778c10237d",
+   "name": "Messenger Media Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+    "options": {},
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    0,
+    192
+   ],
+   "id": "707f701a-31db-4947-b337-aa53298478e3",
+   "name": "Messenger Text Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "leftValue": "={{ $('Webhook').item.json.body.media_url }}",
+       "rightValue": "",
+       "operator": {
+        "type": "string",
+        "operation": "exists"
+       },
+       "id": "aaa10002-0001-0001-0001-000000000001"
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    -16,
+    480
+   ],
+   "id": "565d0eb8-0fd8-4dcc-90d5-af4729e622d0",
+   "name": "IF Media Instagram"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={\"recipient\":{\"id\":\"{{ $('Webhook').item.json.body.meta_psid }}\"},\"message\":{\"attachment\":{\"type\":\"{{ $('Webhook').item.json.body.media_type === 'document' ? 'file' : 'image' }}\",\"payload\":{\"url\":\"{{ $('Webhook').item.json.body.media_url }}\",\"is_reusable\":true}}}}",
+    "options": {},
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    208,
+    384
+   ],
+   "id": "ce5b4bff-de6f-4914-9dea-dc5272372aee",
+   "name": "Instagram Media Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+    "options": {},
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    208,
+    576
+   ],
+   "id": "67c0233f-7b02-4207-a101-867defaf7d0d",
+   "name": "Instagram Text Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "operation": "send",
+    "phoneNumberId": "1286180077917309",
+    "recipientPhoneNumber": "={{ $json.body.phone }}",
+    "textBody": "={{ $json.body.message }}",
+    "additionalFields": {}
+   },
+   "type": "n8n-nodes-base.whatsApp",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    768
+   ],
+   "id": "540df630-cf29-4dfc-bcee-139105d399af",
+   "name": "Reply Node",
+   "webhookId": "8e8625db-9514-49da-91b0-3189839f0055",
+   "credentials": {
+    "whatsAppApi": {
+     "id": "tVhP8PffYwfnK4XR",
+     "name": "Speedbot - Indonesia New Number 14/09"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "tableId": "messages",
+    "fieldsUi": {
+     "fieldValues": [
+      {
+       "fieldId": "phone",
+       "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+      },
+      {
+       "fieldId": "message",
+       "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+      },
+      {
+       "fieldId": "sender",
+       "fieldValue": "outgoing"
+      },
+      {
+       "fieldId": "sender_type",
+       "fieldValue": "human"
+      },
+      {
+       "fieldId": "created_at_sgt",
+       "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+      },
+      {
+       "fieldId": "agent_name",
+       "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+      },
+      {
+       "fieldId": "wamid",
+       "fieldValue": "={{ $('Reply Node').isExecuted ? ($('Reply Node').item.json.messages?.[0]?.id ?? null) : null }}"
+      },
+      {
+       "fieldId": "conversation_id",
+       "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+      },
+      {
+       "fieldId": "media_url",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+      },
+      {
+       "fieldId": "media_type",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    432,
+    384
+   ],
+   "id": "c23afc7d-38ad-4508-89ac-ed5822de9e0d",
+   "name": "Create outgoing message row",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "options": {}
+   },
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.5,
+   "position": [
+    656,
+    384
+   ],
+   "id": "05c6c87a-a309-43ae-ae90-23d1ca70aba5",
+   "name": "Respond to Webhook"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+     },
+     "conditions": [
+      {
+       "id": "629dd241-b71a-42ef-9f95-1d19a06df839",
+       "leftValue": "={{ [\n  '+628213106840',\n  '+6285287854356',\n  '+6281297914411'\n].includes(\n  String($json.body.phone || '').trim()\n) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.3,
+   "position": [
+    -240,
+    784
+   ],
+   "id": "6dee2f1d-13b0-4f0a-ad06-3a46b8885a67",
+   "name": "If"
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "conversations",
+    "limit": 1,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "id",
+       "condition": "eq",
+       "keyValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    -448,
+    -120
+   ],
+   "id": "a5350c73-23de-4b4f-92e5-f9ab734b0e8b",
+   "name": "FB Get Conversation",
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "channel_connections",
+    "limit": 1,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "page_id",
+       "condition": "eq",
+       "keyValue": "={{ $json.meta_recipient_id }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    -336,
+    -120
+   ],
+   "id": "5d8eb266-9045-4e64-8e1c-0267d76fbf04",
+   "name": "FB Get Channel",
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "conversations",
+    "limit": 1,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "id",
+       "condition": "eq",
+       "keyValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    -448,
+    780
+   ],
+   "id": "5a8564d5-517d-4e67-ba9b-f2f390e589a8",
+   "name": "IG Get Conversation",
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "channel_connections",
+    "limit": 1,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "ig_business_account_id",
+       "condition": "eq",
+       "keyValue": "={{ $json.meta_recipient_id }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    -336,
+    780
+   ],
+   "id": "d91a015a-5d0c-4336-a310-eb7e270ebd5c",
+   "name": "IG Get Channel",
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "803a6c97-b3da-40ce-9c8a-21f6a3d74e8d",
+       "leftValue": "={{ String($('Webhook').item.json.body.message || '').trim() }}",
+       "rightValue": "",
+       "operator": {
+        "type": "string",
+        "operation": "notEmpty",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    220,
+    0
+   ],
+   "id": "9d632be7-fe27-4cd8-953d-fd1e2ee7510d",
+   "name": "FB Has Caption?"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    440,
+    -60
+   ],
+   "id": "6a94e743-ab81-4b49-900b-11c8dbe09ed5",
+   "name": "Messenger Caption Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "e687b123-28a3-4158-ac7d-2cd9c93d5de0",
+       "leftValue": "={{ String($('Webhook').item.json.body.message || '').trim() }}",
+       "rightValue": "",
+       "operator": {
+        "type": "string",
+        "operation": "notEmpty",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    428,
+    384
+   ],
+   "id": "55ae3360-6218-4b4c-8065-d7adc09cc0e4",
+   "name": "IG Has Caption?"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+    "authentication": "none",
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "access_token",
+       "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    648,
+    324
+   ],
+   "id": "4532d8d2-fd7c-449f-a42f-5e75043fc160",
+   "name": "Instagram Caption Send",
+   "onError": "continueErrorOutput"
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify({ error: $json.failure_message || 'Send failed' }) }}",
+    "options": {
+     "responseCode": 502
+    }
+   },
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.5,
+   "position": [
+    656,
+    640
+   ],
+   "id": "e1c0a5d2-7a11-4b1e-9c3a-5e2f6b7d8a01",
+   "name": "Respond Send Error"
+  },
+  {
+   "parameters": {
+    "tableId": "messages",
+    "fieldsUi": {
+     "fieldValues": [
+      {
+       "fieldId": "phone",
+       "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+      },
+      {
+       "fieldId": "message",
+       "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+      },
+      {
+       "fieldId": "sender",
+       "fieldValue": "outgoing"
+      },
+      {
+       "fieldId": "sender_type",
+       "fieldValue": "human"
+      },
+      {
+       "fieldId": "created_at_sgt",
+       "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+      },
+      {
+       "fieldId": "agent_name",
+       "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+      },
+      {
+       "fieldId": "conversation_id",
+       "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+      },
+      {
+       "fieldId": "media_url",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+      },
+      {
+       "fieldId": "media_type",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+      },
+      {
+       "fieldId": "status",
+       "fieldValue": "failed"
+      },
+      {
+       "fieldId": "failure_message",
+       "fieldValue": "={{ (() => { const raw = typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.error?.description || ''); const m = raw.match(/message[\\\\\"]+\\s*:\\s*[\\\\\"]+(.+?)[\\\\\"]+\\s*,/); return (m ? m[1] : raw) || 'Send failed'; })() }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    432,
+    640
+   ],
+   "id": "f2b7c1d4-3a55-4c0e-8d19-7a6e5b4c3d02",
+   "name": "Create failed outgoing row",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   },
+   "onError": "continueRegularOutput"
+  },
+  {
+   "parameters": {
+    "tableId": "messages",
+    "fieldsUi": {
+     "fieldValues": [
+      {
+       "fieldId": "phone",
+       "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+      },
+      {
+       "fieldId": "message",
+       "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+      },
+      {
+       "fieldId": "sender",
+       "fieldValue": "outgoing"
+      },
+      {
+       "fieldId": "sender_type",
+       "fieldValue": "human"
+      },
+      {
+       "fieldId": "created_at_sgt",
+       "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+      },
+      {
+       "fieldId": "agent_name",
+       "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+      },
+      {
+       "fieldId": "conversation_id",
+       "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+      },
+      {
+       "fieldId": "media_url",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+      },
+      {
+       "fieldId": "media_type",
+       "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+      },
+      {
+       "fieldId": "status",
+       "fieldValue": "failed"
+      },
+      {
+       "fieldId": "failure_message",
+       "fieldValue": "={{ 'Image was sent, but its caption failed: ' + (() => { const raw = typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.error?.description || ''); const m = raw.match(/message[\\\\\"]+\\s*:\\s*[\\\\\"]+(.+?)[\\\\\"]+\\s*,/); return (m ? m[1] : raw) || 'Send failed'; })() }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    432,
+    832
+   ],
+   "id": "a9c3e5f7-1b2d-4e6f-8a0b-3c5d7e9f1a03",
+   "name": "Create failed caption row",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   },
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Webhook": {
+   "main": [
+    [
+     {
+      "node": "Route Send Platform",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Route Send Platform": {
+   "main": [
+    [
+     {
+      "node": "FB Get Conversation",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "IG Get Conversation",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Reply Node",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "IF Media Messenger": {
+   "main": [
+    [
+     {
+      "node": "Messenger Media Send",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Messenger Text Send",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "IF Media Instagram": {
+   "main": [
+    [
+     {
+      "node": "Instagram Media Send",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Instagram Text Send",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Messenger Media Send": {
+   "main": [
+    [
+     {
+      "node": "FB Has Caption?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed outgoing row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Messenger Text Send": {
+   "main": [
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed outgoing row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Instagram Media Send": {
+   "main": [
+    [
+     {
+      "node": "IG Has Caption?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed outgoing row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Instagram Text Send": {
+   "main": [
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed outgoing row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Reply Node": {
+   "main": [
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Create outgoing message row": {
+   "main": [
+    [
+     {
+      "node": "Respond to Webhook",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "If": {
+   "main": [
+    [
+     {
+      "node": "Reply Node",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Respond to Webhook",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "FB Get Conversation": {
+   "main": [
+    [
+     {
+      "node": "FB Get Channel",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "FB Get Channel": {
+   "main": [
+    [
+     {
+      "node": "IF Media Messenger",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "IG Get Conversation": {
+   "main": [
+    [
+     {
+      "node": "IG Get Channel",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "IG Get Channel": {
+   "main": [
+    [
+     {
+      "node": "IF Media Instagram",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "FB Has Caption?": {
+   "main": [
+    [
+     {
+      "node": "Messenger Caption Send",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Messenger Caption Send": {
+   "main": [
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed caption row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "IG Has Caption?": {
+   "main": [
+    [
+     {
+      "node": "Instagram Caption Send",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Instagram Caption Send": {
+   "main": [
+    [
+     {
+      "node": "Create outgoing message row",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Create failed caption row",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Create failed outgoing row": {
+   "main": [
+    [
+     {
+      "node": "Respond Send Error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Create failed caption row": {
+   "main": [
+    [
+     {
+      "node": "Respond Send Error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "binaryMode": "separate",
+  "availableInMCP": true
+ },
+ "staticData": null,
+ "meta": {
+  "templateCredsSetupCompleted": true
+ },
+ "nodeGroups": [],
+ "pinData": {},
+ "versionId": "4977c24d-8eba-476d-9c55-98202da16bd5",
+ "activeVersionId": "4977c24d-8eba-476d-9c55-98202da16bd5",
+ "versionCounter": 53,
+ "triggerCount": 1,
+ "sourceWorkflowId": null,
+ "shared": [
+  {
+   "updatedAt": "2026-07-21T07:43:09.984Z",
+   "createdAt": "2026-07-21T07:43:09.984Z",
+   "role": "workflow:owner",
+   "workflowId": "qBw7seB66AYs0V3q",
+   "projectId": "6ooBKTGPpDbCiAOC",
+   "project": {
+    "updatedAt": "2026-07-16T04:36:03.518Z",
+    "createdAt": "2026-07-16T04:26:21.376Z",
+    "id": "6ooBKTGPpDbCiAOC",
+    "name": "Ulink Ltd <supportdesk@ulinkassist.com>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  }
+ ],
+ "tags": [],
+ "activeVersion": {
+  "updatedAt": "2026-11-02T00:53:01.502Z",
+  "createdAt": "2026-11-02T00:53:01.502Z",
+  "versionId": "4977c24d-8eba-476d-9c55-98202da16bd5",
+  "workflowId": "qBw7seB66AYs0V3q",
+  "nodes": [
+   {
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "human-send-message",
+     "responseMode": "responseNode",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2.1,
+    "position": [
+     -672,
+     480
+    ],
+    "id": "3c8c4aa1-5106-4995-b463-1f1ebffe9035",
+    "name": "Webhook",
+    "webhookId": "070985e2-1d3d-4042-a240-702dd5c9c83d"
+   },
+   {
+    "parameters": {
+     "rules": {
+      "values": [
+       {
+        "conditions": {
+         "options": {
+          "caseSensitive": true,
+          "leftValue": "",
+          "typeValidation": "strict",
+          "version": 3
+         },
+         "conditions": [
+          {
+           "leftValue": "={{ $json.body.platform }}",
+           "rightValue": "messenger",
+           "operator": {
+            "type": "string",
+            "operation": "equals"
+           },
+           "id": "c1254cbd-efeb-42a5-b0d9-e47809547f9e"
+          }
+         ],
+         "combinator": "and"
+        },
+        "renameOutput": true,
+        "outputKey": "messenger"
+       },
+       {
+        "conditions": {
+         "options": {
+          "caseSensitive": true,
+          "leftValue": "",
+          "typeValidation": "strict",
+          "version": 3
+         },
+         "conditions": [
+          {
+           "leftValue": "={{ $json.body.platform }}",
+           "rightValue": "instagram",
+           "operator": {
+            "type": "string",
+            "operation": "equals"
+           },
+           "id": "eac3b0e5-a05b-40e4-ad5a-a4ededcad6e8"
+          }
+         ],
+         "combinator": "and"
+        },
+        "renameOutput": true,
+        "outputKey": "instagram"
+       }
+      ]
+     },
+     "options": {
+      "fallbackOutput": "extra"
+     }
+    },
+    "type": "n8n-nodes-base.switch",
+    "typeVersion": 3.4,
+    "position": [
+     -448,
+     464
+    ],
+    "id": "b2072eb4-43d4-4810-8e73-3440e37e7b20",
+    "name": "Route Send Platform"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "leftValue": "={{ $('Webhook').item.json.body.media_url }}",
+        "rightValue": "",
+        "operator": {
+         "type": "string",
+         "operation": "exists"
+        },
+        "id": "aaa10001-0001-0001-0001-000000000001"
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     -224,
+     96
+    ],
+    "id": "a15fed0c-1228-43a1-a4b4-6996b88e4941",
+    "name": "IF Media Messenger"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={\"recipient\":{\"id\":\"{{ $('Webhook').item.json.body.meta_psid }}\"},\"message\":{\"attachment\":{\"type\":\"{{ $('Webhook').item.json.body.media_type === 'document' ? 'file' : 'image' }}\",\"payload\":{\"url\":\"{{ $('Webhook').item.json.body.media_url }}\",\"is_reusable\":true}}}}",
+     "options": {},
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     0,
+     0
+    ],
+    "id": "3d1a9826-2b8d-4416-8679-e1778c10237d",
+    "name": "Messenger Media Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+     "options": {},
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     0,
+     192
+    ],
+    "id": "707f701a-31db-4947-b337-aa53298478e3",
+    "name": "Messenger Text Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "leftValue": "={{ $('Webhook').item.json.body.media_url }}",
+        "rightValue": "",
+        "operator": {
+         "type": "string",
+         "operation": "exists"
+        },
+        "id": "aaa10002-0001-0001-0001-000000000001"
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     -16,
+     480
+    ],
+    "id": "565d0eb8-0fd8-4dcc-90d5-af4729e622d0",
+    "name": "IF Media Instagram"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={\"recipient\":{\"id\":\"{{ $('Webhook').item.json.body.meta_psid }}\"},\"message\":{\"attachment\":{\"type\":\"{{ $('Webhook').item.json.body.media_type === 'document' ? 'file' : 'image' }}\",\"payload\":{\"url\":\"{{ $('Webhook').item.json.body.media_url }}\",\"is_reusable\":true}}}}",
+     "options": {},
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     208,
+     384
+    ],
+    "id": "ce5b4bff-de6f-4914-9dea-dc5272372aee",
+    "name": "Instagram Media Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+     "options": {},
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     208,
+     576
+    ],
+    "id": "67c0233f-7b02-4207-a101-867defaf7d0d",
+    "name": "Instagram Text Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "operation": "send",
+     "phoneNumberId": "1286180077917309",
+     "recipientPhoneNumber": "={{ $json.body.phone }}",
+     "textBody": "={{ $json.body.message }}",
+     "additionalFields": {}
+    },
+    "type": "n8n-nodes-base.whatsApp",
+    "typeVersion": 1.1,
+    "position": [
+     0,
+     768
+    ],
+    "id": "540df630-cf29-4dfc-bcee-139105d399af",
+    "name": "Reply Node",
+    "webhookId": "8e8625db-9514-49da-91b0-3189839f0055",
+    "credentials": {
+     "whatsAppApi": {
+      "id": "tVhP8PffYwfnK4XR",
+      "name": "Speedbot - Indonesia New Number 14/09"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "tableId": "messages",
+     "fieldsUi": {
+      "fieldValues": [
+       {
+        "fieldId": "phone",
+        "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+       },
+       {
+        "fieldId": "message",
+        "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+       },
+       {
+        "fieldId": "sender",
+        "fieldValue": "outgoing"
+       },
+       {
+        "fieldId": "sender_type",
+        "fieldValue": "human"
+       },
+       {
+        "fieldId": "created_at_sgt",
+        "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+       },
+       {
+        "fieldId": "agent_name",
+        "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+       },
+       {
+        "fieldId": "wamid",
+        "fieldValue": "={{ $('Reply Node').isExecuted ? ($('Reply Node').item.json.messages?.[0]?.id ?? null) : null }}"
+       },
+       {
+        "fieldId": "conversation_id",
+        "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+       },
+       {
+        "fieldId": "media_url",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+       },
+       {
+        "fieldId": "media_type",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     432,
+     384
+    ],
+    "id": "c23afc7d-38ad-4508-89ac-ed5822de9e0d",
+    "name": "Create outgoing message row",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "options": {}
+    },
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.5,
+    "position": [
+     656,
+     384
+    ],
+    "id": "05c6c87a-a309-43ae-ae90-23d1ca70aba5",
+    "name": "Respond to Webhook"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 3
+      },
+      "conditions": [
+       {
+        "id": "629dd241-b71a-42ef-9f95-1d19a06df839",
+        "leftValue": "={{ [\n  '+628213106840',\n  '+6285287854356',\n  '+6281297914411'\n].includes(\n  String($json.body.phone || '').trim()\n) }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.3,
+    "position": [
+     -240,
+     784
+    ],
+    "id": "6dee2f1d-13b0-4f0a-ad06-3a46b8885a67",
+    "name": "If"
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "conversations",
+     "limit": 1,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "id",
+        "condition": "eq",
+        "keyValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     -448,
+     -120
+    ],
+    "id": "a5350c73-23de-4b4f-92e5-f9ab734b0e8b",
+    "name": "FB Get Conversation",
+    "alwaysOutputData": true,
+    "onError": "continueRegularOutput",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "channel_connections",
+     "limit": 1,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "page_id",
+        "condition": "eq",
+        "keyValue": "={{ $json.meta_recipient_id }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     -336,
+     -120
+    ],
+    "id": "5d8eb266-9045-4e64-8e1c-0267d76fbf04",
+    "name": "FB Get Channel",
+    "alwaysOutputData": true,
+    "onError": "continueRegularOutput",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "conversations",
+     "limit": 1,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "id",
+        "condition": "eq",
+        "keyValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     -448,
+     780
+    ],
+    "id": "5a8564d5-517d-4e67-ba9b-f2f390e589a8",
+    "name": "IG Get Conversation",
+    "alwaysOutputData": true,
+    "onError": "continueRegularOutput",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "channel_connections",
+     "limit": 1,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "ig_business_account_id",
+        "condition": "eq",
+        "keyValue": "={{ $json.meta_recipient_id }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     -336,
+     780
+    ],
+    "id": "d91a015a-5d0c-4336-a310-eb7e270ebd5c",
+    "name": "IG Get Channel",
+    "alwaysOutputData": true,
+    "onError": "continueRegularOutput",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "loose",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "803a6c97-b3da-40ce-9c8a-21f6a3d74e8d",
+        "leftValue": "={{ String($('Webhook').item.json.body.message || '').trim() }}",
+        "rightValue": "",
+        "operator": {
+         "type": "string",
+         "operation": "notEmpty",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     220,
+     0
+    ],
+    "id": "9d632be7-fe27-4cd8-953d-fd1e2ee7510d",
+    "name": "FB Has Caption?"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('FB Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('FB Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     440,
+     -60
+    ],
+    "id": "6a94e743-ab81-4b49-900b-11c8dbe09ed5",
+    "name": "Messenger Caption Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "loose",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "e687b123-28a3-4158-ac7d-2cd9c93d5de0",
+        "leftValue": "={{ String($('Webhook').item.json.body.message || '').trim() }}",
+        "rightValue": "",
+        "operator": {
+         "type": "string",
+         "operation": "notEmpty",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     428,
+     384
+    ],
+    "id": "55ae3360-6218-4b4c-8065-d7adc09cc0e4",
+    "name": "IG Has Caption?"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "=https://graph.facebook.com/v23.0/{{ $('IG Get Channel').item.json.page_id }}/messages",
+     "authentication": "none",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "access_token",
+        "value": "={{ $('IG Get Channel').item.json.page_access_token }}"
+       }
+      ]
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ recipient: { id: $('Webhook').item.json.body.meta_psid }, message: { text: String($('Webhook').item.json.body.message) } }) }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     648,
+     324
+    ],
+    "id": "4532d8d2-fd7c-449f-a42f-5e75043fc160",
+    "name": "Instagram Caption Send",
+    "onError": "continueErrorOutput"
+   },
+   {
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify({ error: $json.failure_message || 'Send failed' }) }}",
+     "options": {
+      "responseCode": 502
+     }
+    },
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.5,
+    "position": [
+     656,
+     640
+    ],
+    "id": "e1c0a5d2-7a11-4b1e-9c3a-5e2f6b7d8a01",
+    "name": "Respond Send Error"
+   },
+   {
+    "parameters": {
+     "tableId": "messages",
+     "fieldsUi": {
+      "fieldValues": [
+       {
+        "fieldId": "phone",
+        "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+       },
+       {
+        "fieldId": "message",
+        "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+       },
+       {
+        "fieldId": "sender",
+        "fieldValue": "outgoing"
+       },
+       {
+        "fieldId": "sender_type",
+        "fieldValue": "human"
+       },
+       {
+        "fieldId": "created_at_sgt",
+        "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+       },
+       {
+        "fieldId": "agent_name",
+        "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+       },
+       {
+        "fieldId": "conversation_id",
+        "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+       },
+       {
+        "fieldId": "media_url",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+       },
+       {
+        "fieldId": "media_type",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+       },
+       {
+        "fieldId": "status",
+        "fieldValue": "failed"
+       },
+       {
+        "fieldId": "failure_message",
+        "fieldValue": "={{ (() => { const raw = typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.error?.description || ''); const m = raw.match(/message[\\\\\"]+\\s*:\\s*[\\\\\"]+(.+?)[\\\\\"]+\\s*,/); return (m ? m[1] : raw) || 'Send failed'; })() }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     432,
+     640
+    ],
+    "id": "f2b7c1d4-3a55-4c0e-8d19-7a6e5b4c3d02",
+    "name": "Create failed outgoing row",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    },
+    "onError": "continueRegularOutput"
+   },
+   {
+    "parameters": {
+     "tableId": "messages",
+     "fieldsUi": {
+      "fieldValues": [
+       {
+        "fieldId": "phone",
+        "fieldValue": "={{ $('Webhook').item.json.body.phone }}"
+       },
+       {
+        "fieldId": "message",
+        "fieldValue": "={{ $('Webhook').item.json.body.message }}"
+       },
+       {
+        "fieldId": "sender",
+        "fieldValue": "outgoing"
+       },
+       {
+        "fieldId": "sender_type",
+        "fieldValue": "human"
+       },
+       {
+        "fieldId": "created_at_sgt",
+        "fieldValue": "={{ new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(new Date()) }}"
+       },
+       {
+        "fieldId": "agent_name",
+        "fieldValue": "={{ $('Webhook').item.json.body.agent_name }}"
+       },
+       {
+        "fieldId": "conversation_id",
+        "fieldValue": "={{ $('Webhook').item.json.body.conversation_id }}"
+       },
+       {
+        "fieldId": "media_url",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_url || null }}"
+       },
+       {
+        "fieldId": "media_type",
+        "fieldValue": "={{ $('Webhook').item.json.body.media_type || null }}"
+       },
+       {
+        "fieldId": "status",
+        "fieldValue": "failed"
+       },
+       {
+        "fieldId": "failure_message",
+        "fieldValue": "={{ 'Image was sent, but its caption failed: ' + (() => { const raw = typeof $json.error === 'string' ? $json.error : ($json.error?.message || $json.error?.description || ''); const m = raw.match(/message[\\\\\"]+\\s*:\\s*[\\\\\"]+(.+?)[\\\\\"]+\\s*,/); return (m ? m[1] : raw) || 'Send failed'; })() }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     432,
+     832
+    ],
+    "id": "a9c3e5f7-1b2d-4e6f-8a0b-3c5d7e9f1a03",
+    "name": "Create failed caption row",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    },
+    "onError": "continueRegularOutput"
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Route Send Platform",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Route Send Platform": {
+    "main": [
+     [
+      {
+       "node": "FB Get Conversation",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "IG Get Conversation",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Reply Node",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "IF Media Messenger": {
+    "main": [
+     [
+      {
+       "node": "Messenger Media Send",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Messenger Text Send",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "IF Media Instagram": {
+    "main": [
+     [
+      {
+       "node": "Instagram Media Send",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Instagram Text Send",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Messenger Media Send": {
+    "main": [
+     [
+      {
+       "node": "FB Has Caption?",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed outgoing row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Messenger Text Send": {
+    "main": [
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed outgoing row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Instagram Media Send": {
+    "main": [
+     [
+      {
+       "node": "IG Has Caption?",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed outgoing row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Instagram Text Send": {
+    "main": [
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed outgoing row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Reply Node": {
+    "main": [
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Create outgoing message row": {
+    "main": [
+     [
+      {
+       "node": "Respond to Webhook",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "If": {
+    "main": [
+     [
+      {
+       "node": "Reply Node",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Respond to Webhook",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "FB Get Conversation": {
+    "main": [
+     [
+      {
+       "node": "FB Get Channel",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "FB Get Channel": {
+    "main": [
+     [
+      {
+       "node": "IF Media Messenger",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "IG Get Conversation": {
+    "main": [
+     [
+      {
+       "node": "IG Get Channel",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "IG Get Channel": {
+    "main": [
+     [
+      {
+       "node": "IF Media Instagram",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "FB Has Caption?": {
+    "main": [
+     [
+      {
+       "node": "Messenger Caption Send",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Messenger Caption Send": {
+    "main": [
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed caption row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "IG Has Caption?": {
+    "main": [
+     [
+      {
+       "node": "Instagram Caption Send",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Instagram Caption Send": {
+    "main": [
+     [
+      {
+       "node": "Create outgoing message row",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Create failed caption row",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Create failed outgoing row": {
+    "main": [
+     [
+      {
+       "node": "Respond Send Error",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Create failed caption row": {
+    "main": [
+     [
+      {
+       "node": "Respond Send Error",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "Ulink Ltd",
+  "name": null,
+  "description": null,
+  "autosaved": false,
+  "workflowPublishHistory": [
+   {
+    "createdAt": "2026-11-02T00:53:01.653Z",
+    "id": 1129,
+    "workflowId": "qBw7seB66AYs0V3q",
+    "versionId": "4977c24d-8eba-476d-9c55-98202da16bd5",
+    "event": "deactivated",
+    "userId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   },
+   {
+    "createdAt": "2026-11-02T00:53:01.699Z",
+    "id": 1130,
+    "workflowId": "qBw7seB66AYs0V3q",
+    "versionId": "4977c24d-8eba-476d-9c55-98202da16bd5",
+    "event": "activated",
+    "userId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  ]
+ }
+}

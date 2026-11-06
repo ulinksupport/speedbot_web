@@ -1,0 +1,1432 @@
+{
+ "updatedAt": "2026-11-05T05:06:35.495Z",
+ "createdAt": "2026-08-03T05:44:06.736Z",
+ "id": "RWthi8a2tmXBWwyi",
+ "name": "Speedbot Socials Dashboard - Follow-up v3 - template with a 48-hour rule only",
+ "description": null,
+ "active": true,
+ "isArchived": false,
+ "nodes": [
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "hours"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.3,
+   "position": [
+    -64,
+    208
+   ],
+   "id": "f998e453-5ded-4fee-b9d4-326e8be9edab",
+   "name": "Check Follow-up"
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "conversations",
+    "returnAll": true,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "follow_up_stage",
+       "condition": "eq",
+       "keyValue": "0"
+      },
+      {
+       "keyName": "status",
+       "condition": "neq",
+       "keyValue": "completed"
+      },
+      {
+       "keyName": "opted_out",
+       "condition": "eq",
+       "keyValue": "false"
+      },
+      {
+       "keyName": "status",
+       "condition": "neq",
+       "keyValue": "inactive"
+      },
+      {
+       "keyName": "follow_up",
+       "condition": "eq",
+       "keyValue": "true"
+      },
+      {
+       "keyName": "last_incoming_at",
+       "condition": "gt",
+       "keyValue": "2026-09-25T00:00:00+08:00"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    144,
+    208
+   ],
+   "id": "b7939eb3-f2ec-41b4-8066-145c3bfaf2b6",
+   "name": "Get Eligible Conversations",
+   "alwaysOutputData": true,
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "url": "=https://ehhynoowqlsgmcfyqofh.supabase.co/rest/v1/messages?conversation_id=eq.{{ $json.id }}&sender=eq.outgoing&order=created_at.desc&limit=1",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "apikey",
+       "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+      },
+      {
+       "name": "Authorization",
+       "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    912,
+    144
+   ],
+   "id": "8fb53520-0c90-455a-b1f9-34e14aff53da",
+   "name": "Get Latest Message",
+   "alwaysOutputData": true,
+   "continueOnFail": true
+  },
+  {
+   "parameters": {
+    "jsCode": "const conv = $('Loop Over Items').item.json;\nconst lastMsg = $input.item.json;\nconst now = new Date();\n\nconst lastIncoming = conv.last_incoming_at\n  ? new Date(conv.last_incoming_at)\n  : null;\n\nconst lastOutgoing = lastMsg.created_at\n  ? new Date(lastMsg.created_at)\n  : null;\n\nconst stage = Number(conv.follow_up_stage || 0);\n\nconst phone = conv.phone || '';\nconst conversationId = conv.id || '';\nconst name = conv.name || 'there';\n\nconst lang = String(conv.lang || conv.language || 'id')\n  .trim()\n  .toLowerCase();\n\nconst isEnglish =\n  ['en', 'eng', 'english'].includes(lang);\n\nconst langCode = isEnglish ? 'en' : 'id';\n\nconst templateName = isEnglish\n  ? 'followup_eng_48hr'\n  : 'followup_indo_48hrs';\n\n/*\n * Do not send if the user has already received\n * the Version 3 follow-up.\n */\nif (stage !== 0) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      reason: 'Follow-up already sent',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\n/*\n * A valid outgoing message is required because\n * the 48-hour countdown starts from that message.\n */\nif (!lastOutgoing) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      reason: 'No outgoing message found',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\n/*\n * Do not follow up if the customer replied after\n * the most recent outgoing message.\n */\nif (\n  lastIncoming &&\n  lastIncoming > lastOutgoing\n) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      customerReplied: true,\n      reason: 'Customer already replied',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\nconst hoursSinceOutgoing =\n  (now - lastOutgoing) / (1000 * 60 * 60);\n\nconst sendFollowUp =\n  hoursSinceOutgoing >= 0.1;\n\nreturn [{\n  json: {\n    sendFollowUp,\n    customerReplied: false,\n    reason: sendFollowUp\n      ? '48-hour follow-up due'\n      : 'Waiting for 48 hours',\n    templateNum: 1,\n    templateName,\n    langCode,\n    newStage: 1,\n    hoursSinceOutgoing,\n    phone,\n    conversationId,\n    name\n  }\n}];"
+   },
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1136,
+    144
+   ],
+   "id": "a61882c3-804c-4db6-9d0d-cdc3a5734a63",
+   "name": "Check Follow-Up Logic"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+     },
+     "conditions": [
+      {
+       "id": "send-check-001",
+       "leftValue": "={{ $json.sendFollowUp }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.3,
+   "position": [
+    1360,
+    144
+   ],
+   "id": "798b87f5-3094-4364-b6c2-6ec89fc2f0c9",
+   "name": "If: Should Send?"
+  },
+  {
+   "parameters": {
+    "jsCode": "const d = $input.item.json;\nconst now = new Date();\n\nconst sgtTime = new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(now);\n\nconst TEMPLATE_BODIES = {\n  followup_eng_48hr:\n    \"Hello {{1}}, we'd like to follow up on your previous message. 😊 \" +\n    \"Do you still need help finding a doctor, a hospital, or scheduling an in-person appointment in Singapore/Malaysia? \" +\n    \"If there’s anything else we can do to help, feel free to reply to this message.\",\n\n  followup_indo_48hrs:\n    \"Halo {{1}}, kami ingin follow up terkait pesan Anda sebelumnya. 😊 \" +\n    \"Apakah Anda masih membutuhkan bantuan untuk mencari dokter, rumah sakit, atau mengatur janji temu di Singapura dan Malaysia? \" +\n    \"Jika masih ada yang bisa kami bantu, silakan balas pesan ini.\"\n};\n\nconst bodyTemplate = TEMPLATE_BODIES[d.templateName];\n\nconst renderedText = bodyTemplate\n  ? bodyTemplate.replaceAll('{{1}}', d.name || 'there')\n  : `[Template: ${d.templateName}]`;\n\nconst updatePayload = {\n  follow_up_stage: 1,\n  follow_up_1_sent_at: now.toISOString(),\n  follow_up: false,\n  last_message: renderedText,\n  last_message_time: now.toISOString(),\n  last_message_time_sgt: sgtTime\n};\n\nreturn [{\n  json: {\n    ...d,\n    updatePayload,\n    sgtTime,\n    renderedText\n  }\n}];"
+   },
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1584,
+    128
+   ],
+   "id": "4508138e-58dc-42c3-8d0f-57e9da4dfddf",
+   "name": "Build Update Payload"
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://graph.facebook.com/v23.0/1286180077917309/messages",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "Authorization",
+       "value": "Bearer EAAM5Q4ev0nQBSoGBZCtISlrz11HJrIPqXdPU0ZCtvMXsQh9RVt1Qv8aBSKZAMAAnTPWdsst1ZCN0jjZATGCxE5I2eX81Ne2X4GFGzb9ZCzMkeMzbtF6WZC1eC9FFbxeurc1oZAdlJJ5ZC8SP8fiJ8J0kgA6V4S8kZCmPWkMYPu413tZBgZAihREV9JbvVxGR9oBFJO1zJQZDZD"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({\n  messaging_product: 'whatsapp',\n  to: $('Build Update Payload').item.json.phone.replace('+',''),\n  type: 'template',\n  template: {\n    name: $('Build Update Payload').item.json.templateName,\n    language: {\n      code: $('Build Update Payload').item.json.langCode\n    },\n    components: [{\n      type: 'body',\n      parameters: [{\n        type: 'text',\n        text: $('Build Update Payload').item.json.name\n      }]\n    }]\n  }\n}) }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2240,
+    112
+   ],
+   "id": "4d5dd806-62f5-4916-b0b8-45d041687c1b",
+   "name": "Send WA Template",
+   "continueOnFail": true
+  },
+  {
+   "parameters": {
+    "tableId": "messages",
+    "fieldsUi": {
+     "fieldValues": [
+      {
+       "fieldId": "conversation_id",
+       "fieldValue": "={{ $('Build Update Payload').item.json.conversationId }}"
+      },
+      {
+       "fieldId": "phone",
+       "fieldValue": "={{ $('Build Update Payload').item.json.phone }}"
+      },
+      {
+       "fieldId": "message",
+       "fieldValue": "={{ $('Render Dashboard Message').item.json.renderedText }}"
+      },
+      {
+       "fieldId": "sender",
+       "fieldValue": "outgoing"
+      },
+      {
+       "fieldId": "sender_type",
+       "fieldValue": "bot"
+      },
+      {
+       "fieldId": "created_at_sgt",
+       "fieldValue": "={{ $('Build Update Payload').item.json.sgtTime }}"
+      },
+      {
+       "fieldId": "wamid",
+       "fieldValue": "={{ $('Send WA Template').item.json.messages?.[0]?.id ?? null }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    2896,
+    96
+   ],
+   "id": "cc883c60-bc5b-42d9-9668-fd78a667fb56",
+   "name": "Log FU Message",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "method": "PATCH",
+    "url": "={{ 'https://ehhynoowqlsgmcfyqofh.supabase.co/rest/v1/conversations?id=eq.' + $('Build Update Payload').item.json.conversationId }}",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "apikey",
+       "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+      },
+      {
+       "name": "Authorization",
+       "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      },
+      {
+       "name": "Prefer",
+       "value": "return=minimal"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($('Build Update Payload').item.json.updatePayload) }}",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    3104,
+    208
+   ],
+   "id": "40145626-509f-4c66-92cf-95f0494568c7",
+   "name": "Update Conversation",
+   "continueOnFail": true
+  },
+  {
+   "parameters": {
+    "options": {}
+   },
+   "type": "n8n-nodes-base.splitInBatches",
+   "typeVersion": 3,
+   "position": [
+    688,
+    128
+   ],
+   "id": "bb6dcea5-20fe-4644-92de-df3d952f613a",
+   "name": "Loop Over Items"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+     },
+     "conditions": [
+      {
+       "id": "165c2e5c-a709-43d1-9ec8-30453b56a631",
+       "leftValue": "={{ $json.phone }}",
+       "rightValue": "+96569391860",
+       "operator": {
+        "type": "string",
+        "operation": "equals",
+        "name": "filter.operator.equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.3,
+   "position": [
+    480,
+    -32
+   ],
+   "id": "1d0902ff-5c93-424a-8309-115a458374a5",
+   "name": "If"
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+     },
+     "conditions": [
+      {
+       "id": "cfdafd43-f269-4cfc-8d2d-c1faf0fb990e",
+       "leftValue": "={{ Boolean($json.messages?.[0]?.id) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.3,
+   "position": [
+    2448,
+    112
+   ],
+   "id": "087a93dd-9182-469d-9bb9-736ae7214d4f",
+   "name": "IF WAMID exists"
+  },
+  {
+   "parameters": {
+    "jsCode": "const d = $('Build Update Payload').item.json;\n\nconst TEMPLATE_CONTENT = {\n  followup_eng_48hr: {\n    body:\n      \"Hello {{1}}, we'd like to follow up on your previous message. 😊 \" +\n      \"Do you still need help finding a doctor, a hospital, or scheduling an in-person appointment in Singapore/Malaysia? \" +\n      \"If there’s anything else we can do to help, feel free to reply to this message.\"\n  },\n\n  followup_indo_48hrs: {\n    body:\n      \"Halo {{1}}, kami ingin follow up terkait pesan Anda sebelumnya. 😊 \" +\n      \"Apakah Anda masih membutuhkan bantuan untuk mencari dokter, rumah sakit, atau mengatur janji temu di Singapura dan Malaysia? \" +\n      \"Jika masih ada yang bisa kami bantu, silakan balas pesan ini.\"\n  }\n};\n\nconst template = TEMPLATE_CONTENT[d.templateName];\n\nconst renderedText = template\n  ? template.body.replaceAll('{{1}}', d.name || 'there')\n  : `[Template: ${d.templateName}]`;\n\nreturn [{\n  json: {\n    ...d,\n    renderedText\n  }\n}];"
+   },
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2672,
+    96
+   ],
+   "id": "90ffcc38-f4ca-4060-bbdf-839eb3f35e73",
+   "name": "Render Dashboard Message"
+  },
+  {
+   "parameters": {
+    "jsCode": "const ROLLOUT_DATE = new Date('2026-09-24T16:00:00.000Z');\n// 25 Sep 2026, 00:00 Singapore time\n\nreturn $input.all().filter(item => {\n  const c = item.json;\n\n  const lastIncoming = c.last_incoming_at\n    ? new Date(c.last_incoming_at)\n    : null;\n\n  return (\n    c.follow_up === true &&\n    c.opted_out !== true &&\n    Number(c.follow_up_stage || 0) === 0 &&\n    c.status !== 'completed' &&\n    c.status !== 'inactive' &&\n    lastIncoming &&\n    lastIncoming >= ROLLOUT_DATE\n  );\n});"
+   },
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    352,
+    208
+   ],
+   "id": "f33772bc-841b-42a9-bb24-25b5620aa184",
+   "name": "Apply Follow-up Safety Filter"
+  },
+  {
+   "parameters": {
+    "operation": "getAll",
+    "tableId": "conversations",
+    "limit": 1,
+    "filters": {
+     "conditions": [
+      {
+       "keyName": "id",
+       "condition": "eq",
+       "keyValue": "={{ $('Build Update Payload').item.json.conversationId || $('Build Update Payload').item.json.id }}"
+      }
+     ]
+    }
+   },
+   "type": "n8n-nodes-base.supabase",
+   "typeVersion": 1,
+   "position": [
+    1792,
+    128
+   ],
+   "id": "341993d2-0df2-45b2-bfed-c8fb189e9f51",
+   "name": "Get Current Conversation Before Send",
+   "credentials": {
+    "supabaseApi": {
+     "id": "iSU3bVcu100vjCg4",
+     "name": "Socials Speedbot"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 3
+     },
+     "conditions": [
+      {
+       "id": "731c40ee-3b2f-42cc-9eee-8286b6ba7f43",
+       "leftValue": "={{ $json.opted_out }}",
+       "rightValue": "false",
+       "operator": {
+        "type": "boolean",
+        "operation": "false",
+        "singleValue": true
+       }
+      },
+      {
+       "id": "8727a37e-558a-4bfc-958d-a8132a7e8623",
+       "leftValue": "={{ $json.follow_up }}",
+       "rightValue": "true",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      },
+      {
+       "id": "1cc1fbdf-9965-4d75-ab13-c7bfc200b8f8",
+       "leftValue": "={{ $json.follow_up_stage }}",
+       "rightValue": 0,
+       "operator": {
+        "type": "number",
+        "operation": "equals"
+       }
+      },
+      {
+       "id": "92d1441d-514a-4ecd-816f-c7fa587339bf",
+       "leftValue": "={{ $json.status }}",
+       "rightValue": "inactive",
+       "operator": {
+        "type": "string",
+        "operation": "notEquals"
+       }
+      },
+      {
+       "id": "245837cf-5ce4-4140-80c6-92e0a4ed442e",
+       "leftValue": "={{ $json.status }}",
+       "rightValue": "completed",
+       "operator": {
+        "type": "string",
+        "operation": "notEquals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.3,
+   "position": [
+    2000,
+    128
+   ],
+   "id": "08169c39-49ac-4f4b-a63d-b32a880d9183",
+   "name": "Final Follow-up Safety Check"
+  }
+ ],
+ "connections": {
+  "Check Follow-up": {
+   "main": [
+    []
+   ]
+  },
+  "Get Eligible Conversations": {
+   "main": [
+    [
+     {
+      "node": "Apply Follow-up Safety Filter",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Get Latest Message": {
+   "main": [
+    [
+     {
+      "node": "Check Follow-Up Logic",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Check Follow-Up Logic": {
+   "main": [
+    [
+     {
+      "node": "If: Should Send?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "If: Should Send?": {
+   "main": [
+    [
+     {
+      "node": "Build Update Payload",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Loop Over Items",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Build Update Payload": {
+   "main": [
+    [
+     {
+      "node": "Get Current Conversation Before Send",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send WA Template": {
+   "main": [
+    [
+     {
+      "node": "IF WAMID exists",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Log FU Message": {
+   "main": [
+    [
+     {
+      "node": "Update Conversation",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Loop Over Items": {
+   "main": [
+    [],
+    [
+     {
+      "node": "Get Latest Message",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Update Conversation": {
+   "main": [
+    [
+     {
+      "node": "Loop Over Items",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "If": {
+   "main": [
+    [
+     {
+      "node": "Loop Over Items",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  },
+  "IF WAMID exists": {
+   "main": [
+    [
+     {
+      "node": "Render Dashboard Message",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Render Dashboard Message": {
+   "main": [
+    [
+     {
+      "node": "Log FU Message",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Apply Follow-up Safety Filter": {
+   "main": [
+    [
+     {
+      "node": "Loop Over Items",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Get Current Conversation Before Send": {
+   "main": [
+    [
+     {
+      "node": "Final Follow-up Safety Check",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Final Follow-up Safety Check": {
+   "main": [
+    [
+     {
+      "node": "Send WA Template",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1",
+  "binaryMode": "separate",
+  "availableInMCP": true
+ },
+ "staticData": {
+  "node:Check Follow-up": {
+   "recurrenceRules": [
+    null
+   ],
+   "recurrenceRuleSignatures": [
+    null
+   ]
+  }
+ },
+ "meta": {
+  "templateCredsSetupCompleted": true
+ },
+ "nodeGroups": [],
+ "pinData": {},
+ "versionId": "c562a338-b0c8-40af-92f2-85abc19fc54d",
+ "activeVersionId": "c562a338-b0c8-40af-92f2-85abc19fc54d",
+ "versionCounter": 198,
+ "triggerCount": 1,
+ "sourceWorkflowId": null,
+ "shared": [
+  {
+   "updatedAt": "2026-08-03T05:44:06.743Z",
+   "createdAt": "2026-08-03T05:44:06.743Z",
+   "role": "workflow:owner",
+   "workflowId": "RWthi8a2tmXBWwyi",
+   "projectId": "6ooBKTGPpDbCiAOC",
+   "project": {
+    "updatedAt": "2026-07-16T04:36:03.518Z",
+    "createdAt": "2026-07-16T04:26:21.376Z",
+    "id": "6ooBKTGPpDbCiAOC",
+    "name": "Ulink Ltd <supportdesk@ulinkassist.com>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  }
+ ],
+ "tags": [],
+ "activeVersion": {
+  "updatedAt": "2026-10-02T09:26:40.121Z",
+  "createdAt": "2026-10-02T09:26:37.032Z",
+  "versionId": "c562a338-b0c8-40af-92f2-85abc19fc54d",
+  "workflowId": "RWthi8a2tmXBWwyi",
+  "nodes": [
+   {
+    "parameters": {
+     "rule": {
+      "interval": [
+       {
+        "field": "hours"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.scheduleTrigger",
+    "typeVersion": 1.3,
+    "position": [
+     -64,
+     208
+    ],
+    "id": "f998e453-5ded-4fee-b9d4-326e8be9edab",
+    "name": "Check Follow-up"
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "conversations",
+     "returnAll": true,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "follow_up_stage",
+        "condition": "eq",
+        "keyValue": "0"
+       },
+       {
+        "keyName": "status",
+        "condition": "neq",
+        "keyValue": "completed"
+       },
+       {
+        "keyName": "opted_out",
+        "condition": "eq",
+        "keyValue": "false"
+       },
+       {
+        "keyName": "status",
+        "condition": "neq",
+        "keyValue": "inactive"
+       },
+       {
+        "keyName": "follow_up",
+        "condition": "eq",
+        "keyValue": "true"
+       },
+       {
+        "keyName": "last_incoming_at",
+        "condition": "gt",
+        "keyValue": "2026-09-25T00:00:00+08:00"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     144,
+     208
+    ],
+    "id": "b7939eb3-f2ec-41b4-8066-145c3bfaf2b6",
+    "name": "Get Eligible Conversations",
+    "alwaysOutputData": true,
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "url": "=https://ehhynoowqlsgmcfyqofh.supabase.co/rest/v1/messages?conversation_id=eq.{{ $json.id }}&sender=eq.outgoing&order=created_at.desc&limit=1",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "apikey",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+       },
+       {
+        "name": "Authorization",
+        "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+       }
+      ]
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     912,
+     144
+    ],
+    "id": "8fb53520-0c90-455a-b1f9-34e14aff53da",
+    "name": "Get Latest Message",
+    "alwaysOutputData": true,
+    "continueOnFail": true
+   },
+   {
+    "parameters": {
+     "jsCode": "const conv = $('Loop Over Items').item.json;\nconst lastMsg = $input.item.json;\nconst now = new Date();\n\nconst lastIncoming = conv.last_incoming_at\n  ? new Date(conv.last_incoming_at)\n  : null;\n\nconst lastOutgoing = lastMsg.created_at\n  ? new Date(lastMsg.created_at)\n  : null;\n\nconst stage = Number(conv.follow_up_stage || 0);\n\nconst phone = conv.phone || '';\nconst conversationId = conv.id || '';\nconst name = conv.name || 'there';\n\nconst lang = String(conv.lang || conv.language || 'id')\n  .trim()\n  .toLowerCase();\n\nconst isEnglish =\n  ['en', 'eng', 'english'].includes(lang);\n\nconst langCode = isEnglish ? 'en' : 'id';\n\nconst templateName = isEnglish\n  ? 'followup_eng_48hr'\n  : 'followup_indo_48hrs';\n\n/*\n * Do not send if the user has already received\n * the Version 3 follow-up.\n */\nif (stage !== 0) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      reason: 'Follow-up already sent',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\n/*\n * A valid outgoing message is required because\n * the 48-hour countdown starts from that message.\n */\nif (!lastOutgoing) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      reason: 'No outgoing message found',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\n/*\n * Do not follow up if the customer replied after\n * the most recent outgoing message.\n */\nif (\n  lastIncoming &&\n  lastIncoming > lastOutgoing\n) {\n  return [{\n    json: {\n      sendFollowUp: false,\n      customerReplied: true,\n      reason: 'Customer already replied',\n      stage,\n      phone,\n      conversationId,\n      name\n    }\n  }];\n}\n\nconst hoursSinceOutgoing =\n  (now - lastOutgoing) / (1000 * 60 * 60);\n\nconst sendFollowUp =\n  hoursSinceOutgoing >= 0.1;\n\nreturn [{\n  json: {\n    sendFollowUp,\n    customerReplied: false,\n    reason: sendFollowUp\n      ? '48-hour follow-up due'\n      : 'Waiting for 48 hours',\n    templateNum: 1,\n    templateName,\n    langCode,\n    newStage: 1,\n    hoursSinceOutgoing,\n    phone,\n    conversationId,\n    name\n  }\n}];"
+    },
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1136,
+     144
+    ],
+    "id": "a61882c3-804c-4db6-9d0d-cdc3a5734a63",
+    "name": "Check Follow-Up Logic"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 3
+      },
+      "conditions": [
+       {
+        "id": "send-check-001",
+        "leftValue": "={{ $json.sendFollowUp }}",
+        "rightValue": true,
+        "operator": {
+         "type": "boolean",
+         "operation": "equals"
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.3,
+    "position": [
+     1360,
+     144
+    ],
+    "id": "798b87f5-3094-4364-b6c2-6ec89fc2f0c9",
+    "name": "If: Should Send?"
+   },
+   {
+    "parameters": {
+     "jsCode": "const d = $input.item.json;\nconst now = new Date();\n\nconst sgtTime = new Intl.DateTimeFormat('en-SG', {\n  timeZone: 'Asia/Singapore',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(now);\n\nconst TEMPLATE_BODIES = {\n  followup_eng_48hr:\n    \"Hello {{1}}, we'd like to follow up on your previous message. 😊 \" +\n    \"Do you still need help finding a doctor, a hospital, or scheduling an in-person appointment in Singapore/Malaysia? \" +\n    \"If there’s anything else we can do to help, feel free to reply to this message.\",\n\n  followup_indo_48hrs:\n    \"Halo {{1}}, kami ingin follow up terkait pesan Anda sebelumnya. 😊 \" +\n    \"Apakah Anda masih membutuhkan bantuan untuk mencari dokter, rumah sakit, atau mengatur janji temu di Singapura dan Malaysia? \" +\n    \"Jika masih ada yang bisa kami bantu, silakan balas pesan ini.\"\n};\n\nconst bodyTemplate = TEMPLATE_BODIES[d.templateName];\n\nconst renderedText = bodyTemplate\n  ? bodyTemplate.replaceAll('{{1}}', d.name || 'there')\n  : `[Template: ${d.templateName}]`;\n\nconst updatePayload = {\n  follow_up_stage: 1,\n  follow_up_1_sent_at: now.toISOString(),\n  follow_up: false,\n  last_message: renderedText,\n  last_message_time: now.toISOString(),\n  last_message_time_sgt: sgtTime\n};\n\nreturn [{\n  json: {\n    ...d,\n    updatePayload,\n    sgtTime,\n    renderedText\n  }\n}];"
+    },
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1584,
+     128
+    ],
+    "id": "4508138e-58dc-42c3-8d0f-57e9da4dfddf",
+    "name": "Build Update Payload"
+   },
+   {
+    "parameters": {
+     "method": "POST",
+     "url": "https://graph.facebook.com/v23.0/1286180077917309/messages",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "Authorization",
+        "value": "Bearer EAAM5Q4ev0nQBSoGBZCtISlrz11HJrIPqXdPU0ZCtvMXsQh9RVt1Qv8aBSKZAMAAnTPWdsst1ZCN0jjZATGCxE5I2eX81Ne2X4GFGzb9ZCzMkeMzbtF6WZC1eC9FFbxeurc1oZAdlJJ5ZC8SP8fiJ8J0kgA6V4S8kZCmPWkMYPu413tZBgZAihREV9JbvVxGR9oBFJO1zJQZDZD"
+       },
+       {
+        "name": "Content-Type",
+        "value": "application/json"
+       }
+      ]
+     },
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({\n  messaging_product: 'whatsapp',\n  to: $('Build Update Payload').item.json.phone.replace('+',''),\n  type: 'template',\n  template: {\n    name: $('Build Update Payload').item.json.templateName,\n    language: {\n      code: $('Build Update Payload').item.json.langCode\n    },\n    components: [{\n      type: 'body',\n      parameters: [{\n        type: 'text',\n        text: $('Build Update Payload').item.json.name\n      }]\n    }]\n  }\n}) }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     2240,
+     112
+    ],
+    "id": "4d5dd806-62f5-4916-b0b8-45d041687c1b",
+    "name": "Send WA Template",
+    "continueOnFail": true
+   },
+   {
+    "parameters": {
+     "tableId": "messages",
+     "fieldsUi": {
+      "fieldValues": [
+       {
+        "fieldId": "conversation_id",
+        "fieldValue": "={{ $('Build Update Payload').item.json.conversationId }}"
+       },
+       {
+        "fieldId": "phone",
+        "fieldValue": "={{ $('Build Update Payload').item.json.phone }}"
+       },
+       {
+        "fieldId": "message",
+        "fieldValue": "={{ $('Render Dashboard Message').item.json.renderedText }}"
+       },
+       {
+        "fieldId": "sender",
+        "fieldValue": "outgoing"
+       },
+       {
+        "fieldId": "sender_type",
+        "fieldValue": "bot"
+       },
+       {
+        "fieldId": "created_at_sgt",
+        "fieldValue": "={{ $('Build Update Payload').item.json.sgtTime }}"
+       },
+       {
+        "fieldId": "wamid",
+        "fieldValue": "={{ $('Send WA Template').item.json.messages?.[0]?.id ?? null }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     2896,
+     96
+    ],
+    "id": "cc883c60-bc5b-42d9-9668-fd78a667fb56",
+    "name": "Log FU Message",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "method": "PATCH",
+     "url": "={{ 'https://ehhynoowqlsgmcfyqofh.supabase.co/rest/v1/conversations?id=eq.' + $('Build Update Payload').item.json.conversationId }}",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "apikey",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+       },
+       {
+        "name": "Authorization",
+        "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoaHlub293cWxzZ21jZnlxb2ZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODUzMTczMSwiZXhwIjoyMDk0MTA3NzMxfQ.h58QyBHkqgAIVGe-TgpDWwGIAGWYpnnmvthlp0QmRt4"
+       },
+       {
+        "name": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "name": "Prefer",
+        "value": "return=minimal"
+       }
+      ]
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify($('Build Update Payload').item.json.updatePayload) }}",
+     "options": {}
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     3104,
+     208
+    ],
+    "id": "40145626-509f-4c66-92cf-95f0494568c7",
+    "name": "Update Conversation",
+    "continueOnFail": true
+   },
+   {
+    "parameters": {
+     "options": {}
+    },
+    "type": "n8n-nodes-base.splitInBatches",
+    "typeVersion": 3,
+    "position": [
+     688,
+     128
+    ],
+    "id": "bb6dcea5-20fe-4644-92de-df3d952f613a",
+    "name": "Loop Over Items"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 3
+      },
+      "conditions": [
+       {
+        "id": "165c2e5c-a709-43d1-9ec8-30453b56a631",
+        "leftValue": "={{ $json.phone }}",
+        "rightValue": "+96569391860",
+        "operator": {
+         "type": "string",
+         "operation": "equals",
+         "name": "filter.operator.equals"
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.3,
+    "position": [
+     480,
+     -32
+    ],
+    "id": "1d0902ff-5c93-424a-8309-115a458374a5",
+    "name": "If"
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 3
+      },
+      "conditions": [
+       {
+        "id": "cfdafd43-f269-4cfc-8d2d-c1faf0fb990e",
+        "leftValue": "={{ Boolean($json.messages?.[0]?.id) }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.3,
+    "position": [
+     2448,
+     112
+    ],
+    "id": "087a93dd-9182-469d-9bb9-736ae7214d4f",
+    "name": "IF WAMID exists"
+   },
+   {
+    "parameters": {
+     "jsCode": "const d = $('Build Update Payload').item.json;\n\nconst TEMPLATE_CONTENT = {\n  followup_eng_48hr: {\n    body:\n      \"Hello {{1}}, we'd like to follow up on your previous message. 😊 \" +\n      \"Do you still need help finding a doctor, a hospital, or scheduling an in-person appointment in Singapore/Malaysia? \" +\n      \"If there’s anything else we can do to help, feel free to reply to this message.\"\n  },\n\n  followup_indo_48hrs: {\n    body:\n      \"Halo {{1}}, kami ingin follow up terkait pesan Anda sebelumnya. 😊 \" +\n      \"Apakah Anda masih membutuhkan bantuan untuk mencari dokter, rumah sakit, atau mengatur janji temu di Singapura dan Malaysia? \" +\n      \"Jika masih ada yang bisa kami bantu, silakan balas pesan ini.\"\n  }\n};\n\nconst template = TEMPLATE_CONTENT[d.templateName];\n\nconst renderedText = template\n  ? template.body.replaceAll('{{1}}', d.name || 'there')\n  : `[Template: ${d.templateName}]`;\n\nreturn [{\n  json: {\n    ...d,\n    renderedText\n  }\n}];"
+    },
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2672,
+     96
+    ],
+    "id": "90ffcc38-f4ca-4060-bbdf-839eb3f35e73",
+    "name": "Render Dashboard Message"
+   },
+   {
+    "parameters": {
+     "jsCode": "const ROLLOUT_DATE = new Date('2026-09-24T16:00:00.000Z');\n// 25 Sep 2026, 00:00 Singapore time\n\nreturn $input.all().filter(item => {\n  const c = item.json;\n\n  const lastIncoming = c.last_incoming_at\n    ? new Date(c.last_incoming_at)\n    : null;\n\n  return (\n    c.follow_up === true &&\n    c.opted_out !== true &&\n    Number(c.follow_up_stage || 0) === 0 &&\n    c.status !== 'completed' &&\n    c.status !== 'inactive' &&\n    lastIncoming &&\n    lastIncoming >= ROLLOUT_DATE\n  );\n});"
+    },
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     352,
+     208
+    ],
+    "id": "f33772bc-841b-42a9-bb24-25b5620aa184",
+    "name": "Apply Follow-up Safety Filter"
+   },
+   {
+    "parameters": {
+     "operation": "getAll",
+     "tableId": "conversations",
+     "limit": 1,
+     "filters": {
+      "conditions": [
+       {
+        "keyName": "id",
+        "condition": "eq",
+        "keyValue": "={{ $('Build Update Payload').item.json.conversationId || $('Build Update Payload').item.json.id }}"
+       }
+      ]
+     }
+    },
+    "type": "n8n-nodes-base.supabase",
+    "typeVersion": 1,
+    "position": [
+     1792,
+     128
+    ],
+    "id": "341993d2-0df2-45b2-bfed-c8fb189e9f51",
+    "name": "Get Current Conversation Before Send",
+    "credentials": {
+     "supabaseApi": {
+      "id": "iSU3bVcu100vjCg4",
+      "name": "Socials Speedbot"
+     }
+    }
+   },
+   {
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 3
+      },
+      "conditions": [
+       {
+        "id": "731c40ee-3b2f-42cc-9eee-8286b6ba7f43",
+        "leftValue": "={{ $json.opted_out }}",
+        "rightValue": "false",
+        "operator": {
+         "type": "boolean",
+         "operation": "false",
+         "singleValue": true
+        }
+       },
+       {
+        "id": "8727a37e-558a-4bfc-958d-a8132a7e8623",
+        "leftValue": "={{ $json.follow_up }}",
+        "rightValue": "true",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       },
+       {
+        "id": "1cc1fbdf-9965-4d75-ab13-c7bfc200b8f8",
+        "leftValue": "={{ $json.follow_up_stage }}",
+        "rightValue": 0,
+        "operator": {
+         "type": "number",
+         "operation": "equals"
+        }
+       },
+       {
+        "id": "92d1441d-514a-4ecd-816f-c7fa587339bf",
+        "leftValue": "={{ $json.status }}",
+        "rightValue": "inactive",
+        "operator": {
+         "type": "string",
+         "operation": "notEquals"
+        }
+       },
+       {
+        "id": "245837cf-5ce4-4140-80c6-92e0a4ed442e",
+        "leftValue": "={{ $json.status }}",
+        "rightValue": "completed",
+        "operator": {
+         "type": "string",
+         "operation": "notEquals"
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.3,
+    "position": [
+     2000,
+     128
+    ],
+    "id": "08169c39-49ac-4f4b-a63d-b32a880d9183",
+    "name": "Final Follow-up Safety Check"
+   }
+  ],
+  "connections": {
+   "Check Follow-up": {
+    "main": [
+     []
+    ]
+   },
+   "Get Eligible Conversations": {
+    "main": [
+     [
+      {
+       "node": "Apply Follow-up Safety Filter",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Get Latest Message": {
+    "main": [
+     [
+      {
+       "node": "Check Follow-Up Logic",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Check Follow-Up Logic": {
+    "main": [
+     [
+      {
+       "node": "If: Should Send?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "If: Should Send?": {
+    "main": [
+     [
+      {
+       "node": "Build Update Payload",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Loop Over Items",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Build Update Payload": {
+    "main": [
+     [
+      {
+       "node": "Get Current Conversation Before Send",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send WA Template": {
+    "main": [
+     [
+      {
+       "node": "IF WAMID exists",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Log FU Message": {
+    "main": [
+     [
+      {
+       "node": "Update Conversation",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Loop Over Items": {
+    "main": [
+     [],
+     [
+      {
+       "node": "Get Latest Message",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Update Conversation": {
+    "main": [
+     [
+      {
+       "node": "Loop Over Items",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "If": {
+    "main": [
+     [
+      {
+       "node": "Loop Over Items",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     []
+    ]
+   },
+   "IF WAMID exists": {
+    "main": [
+     [
+      {
+       "node": "Render Dashboard Message",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Render Dashboard Message": {
+    "main": [
+     [
+      {
+       "node": "Log FU Message",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Apply Follow-up Safety Filter": {
+    "main": [
+     [
+      {
+       "node": "Loop Over Items",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Get Current Conversation Before Send": {
+    "main": [
+     [
+      {
+       "node": "Final Follow-up Safety Check",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Final Follow-up Safety Check": {
+    "main": [
+     [
+      {
+       "node": "Send WA Template",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "Ulink Ltd",
+  "name": "Version c562a338",
+  "description": "",
+  "autosaved": true,
+  "workflowPublishHistory": [
+   {
+    "createdAt": "2026-10-02T09:26:40.111Z",
+    "id": 974,
+    "workflowId": "RWthi8a2tmXBWwyi",
+    "versionId": "c562a338-b0c8-40af-92f2-85abc19fc54d",
+    "event": "activated",
+    "userId": "a8eceafc-f4a6-4557-92cb-0ea205cd2b78"
+   }
+  ]
+ }
+}
