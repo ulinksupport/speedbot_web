@@ -7369,6 +7369,7 @@
         // elsewhere while a fetch was still in flight) can't consume a scroll
         // target that wasn't meant for it. See openChat()/fetchMessagesForChat().
         let _pendingScroll = null;
+        let _msgFetchSeq = 0;   // latest fetchMessagesForChat() request id, see stale-response guard
         let selectionMode = false;
         let selectedChatIds = new Set();
         let _analyticsCache = null;
@@ -8369,6 +8370,15 @@
             // (e.g. the user clicked elsewhere while this one was in flight)
             // can't steal or clear a scroll target that wasn't meant for it.
             _pendingScroll = pendingScrollMsgId ? { chatId: chat.id, msgId: pendingScrollMsgId } : null;
+            // The header/profile above already show THIS chat, so don't leave the previous chat's
+            // messages on screen while the fetch runs (it looked like the wrong chat, then "loaded later").
+            {
+                const mc = document.getElementById("messages");
+                if (mc) {
+                    mc.innerHTML = '<div style="padding:24px;text-align:center;opacity:0.55;font-size:13px;">Loading messages…</div>';
+                    _lastRenderedMsgDate = null;
+                }
+            }
             fetchMessagesForChat();
             checkWindowExpiry();
         }
@@ -8461,19 +8471,26 @@
 
             if (!currentChat || !currentChat.phone) return;
 
+            // Only the newest request may draw. Without this, a slow response for a chat you've
+            // already left (or an older overlapping refresh) could overwrite the chat now open.
+            const _reqPhone = currentChat.phone;
+            const _reqSeq = ++_msgFetchSeq;
+
             const { data, error } = await supabaseClient
 
                 .from('messages')
 
                 .select('*')
 
-                .eq('phone', currentChat.phone)
+                .eq('phone', _reqPhone)
 
                 .order('created_at', {
                     ascending: false
                 })
 
                 .limit(1000);
+
+            if (_reqSeq !== _msgFetchSeq || !currentChat || currentChat.phone !== _reqPhone) return;   // stale response
 
             if (error) {
 
