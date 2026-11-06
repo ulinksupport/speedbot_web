@@ -4760,9 +4760,25 @@
         // decoding the JWT shows "role":"service_role". Never hardcode this;
         // it's entered once via the post-login prompt / Settings and kept
         // only in localStorage. See saveSupabaseKey() / promptForSupabaseKey().
-        let SUPABASE_KEY = localStorage.getItem("sb_key") || "";
+        let SUPABASE_KEY = "";   // set after login (from the Worker); never read from localStorage
 
-        const N8N_BASE = "https://n8n.ulinkassist.com/webhook";
+        // n8n is reached ONLY through the Worker (/n8n/...), which checks the login session and adds the
+        // secret n8n now requires. The browser no longer talks to n8n directly.
+        const N8N_BASE = "https://damp-band-cbd6.supportdesk-a17.workers.dev/n8n";
+        (function () {
+            const _origFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                try {
+                    const url = typeof input === 'string' ? input : (input && input.url) || '';
+                    if (url.startsWith(N8N_BASE)) {
+                        const h = new Headers((init && init.headers) || (typeof input !== 'string' && input.headers) || {});
+                        h.set('X-Channels-Key', window.__wkSession || '');
+                        init = Object.assign({}, init || {}, { headers: h });
+                    }
+                } catch (e) { /* fall through to a plain fetch */ }
+                return _origFetch(input, init);
+            };
+        })();
 
         // const META_WABA_ID = "1521677369178530";
         // const META_PHONE_ID = "1292684077252611";
@@ -4892,6 +4908,9 @@
 
             document.getElementById("loginScreen").style.display = "none";
 
+            META_CHANNELS_API_KEY = result.session || "";
+            window.__wkSession = META_CHANNELS_API_KEY;
+
             if (result.role === "reviewer") {
                 REVIEWER_MODE = true;
                 REVIEWER_TOKEN = result.token;
@@ -4900,7 +4919,13 @@
                 return;
             }
 
-            if (SUPABASE_KEY) {
+            // The Worker hands the admin the database key AFTER a successful login; it lives in memory
+            // only (no longer saved in localStorage, which survived logout and was readable by any script).
+            if (result.supabase_key) {
+                SUPABASE_KEY = result.supabase_key;
+                try { localStorage.removeItem('sb_key'); } catch (e) { }
+                init();
+            } else if (SUPABASE_KEY) {
                 init();
             } else {
                 promptForSupabaseKey();
@@ -4995,8 +5020,8 @@
             }
 
             try {
-                localStorage.setItem('sb_key', val);
-                if (localStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
+                sessionStorage.setItem('sb_key', val);
+                if (sessionStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
             } catch (e) {
                 _savingSupabaseKey = false;
                 btn.disabled = false;
@@ -5016,7 +5041,8 @@
         ========================================================= */
 
         function logout() {
-
+            try { localStorage.removeItem('sb_key'); } catch (e) { }
+            window.__wkSession = "";
             location.reload();
 
         }
@@ -5520,7 +5546,8 @@
             const text =
                 input.value.trim();
 
-            if (!text || !currentChat) return;
+            const chat = currentChat;
+            if (!text || !chat) return;
 
             input.value = "";
             autoResizeTextarea(input);
@@ -5545,18 +5572,18 @@
                 message: text,
                 created_at: sentAt,
                 created_at_sgt: sentAtSgt,
-                phone: currentChat.phone,
+                phone: chat.phone,
                 agent_name: agentName || null
             };
 
             const optimisticBubble = appendMessage(optimisticMessage);
 
             applyLatestMessageMetadata(
-                currentChat,
+                chat,
                 optimisticMessage
             );
 
-            updateSingleConversationUI(currentChat);
+            updateSingleConversationUI(chat);
 
             let sendOk = false;
             try {
@@ -5571,25 +5598,25 @@
 
                     body: JSON.stringify({
 
-                        phone: currentChat.phone,
+                        phone: chat.phone,
 
                         message: text,
 
-                        conversation_id: currentChat.id,
+                        conversation_id: chat.id,
 
                         agent_name: agentName || null,
 
-                        platform: currentChat.platformType || 'whatsapp',
+                        platform: chat.platformType || 'whatsapp',
 
-                        wa_channel: getChatChannel(currentChat),
+                        wa_channel: getChatChannel(chat),
 
-                        meta_psid: currentChat.meta_psid || null
+                        meta_psid: chat.meta_psid || null
 
                     })
 
                 }
             );
-                sendOk = await sendWebhookSucceeded(sendResp, currentChat.platformType);
+                sendOk = await sendWebhookSucceeded(sendResp, chat.platformType);
             } catch (e) {
                 sendOk = false;
             }
@@ -5755,9 +5782,11 @@
 
         let _stagedFile = null;
 
+        let _stagedChat = null;
         function stageMediaFile(file) {
             if (!currentChat) return alert('Open a conversation first.');
             _stagedFile = file;
+            _stagedChat = currentChat;
             const isImage = file.type.startsWith('image/');
             const preview = document.getElementById('mediaStagingPreview');
             if (isImage) {
@@ -5776,6 +5805,7 @@
 
         function clearMediaStaging() {
             _stagedFile = null;
+            _stagedChat = null;
             document.getElementById('mediaStagingArea').style.display = 'none';
             document.getElementById('mediaStagingPreview').innerHTML = '';
             document.getElementById('mediaCaptionInput').value = '';
@@ -5785,6 +5815,10 @@
 
         function sendStagedMedia() {
             if (!_stagedFile) return;
+            if (_stagedChat && _stagedChat !== currentChat) {
+                clearMediaStaging();
+                return alert('You switched to a different conversation, so the file was NOT sent. Attach it again in the right chat.');
+            }
             const caption = document.getElementById('mediaCaptionInput').value.trim();
             const file = _stagedFile;
             clearMediaStaging();
@@ -5792,9 +5826,10 @@
         }
 
         async function sendMediaFile(file, caption = '') {
-            if (!currentChat) return alert('Open a conversation first.');
+            const chat = currentChat;
+            if (!chat) return alert('Open a conversation first.');
 
-            const isMetaPlatform = ['messenger', 'instagram'].includes(currentChat.platformType);
+            const isMetaPlatform = ['messenger', 'instagram'].includes(chat.platformType);
 
             const sgtNow = new Date().toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: true });
             const isImage = file.type.startsWith('image/');
@@ -5814,7 +5849,7 @@
                 mime_type: file.type || '',
                 created_at: sentAt,
                 created_at_sgt: sgtNow,
-                phone: currentChat.phone,
+                phone: chat.phone,
                 agent_name: agentName || null
             };
 
@@ -5822,11 +5857,11 @@
 
             // Update the conversation-list preview immediately.
             applyLatestMessageMetadata(
-                currentChat,
+                chat,
                 optimisticMediaMessage
             );
 
-            updateSingleConversationUI(currentChat);
+            updateSingleConversationUI(chat);
 
             try {
                 // Upload to Supabase Storage through Cloudflare Worker
@@ -5862,17 +5897,17 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            phone: currentChat.phone,
+                            phone: chat.phone,
                             message: caption,
-                            conversation_id: currentChat.id,
+                            conversation_id: chat.id,
                             agent_name: agentName || null,
-                            platform: currentChat.platformType,
-                            meta_psid: currentChat.meta_psid || null,
+                            platform: chat.platformType,
+                            meta_psid: chat.meta_psid || null,
                             media_url: permanentUrl,
                             media_type: mediaType
                         })
                     });
-                    if (!(await sendWebhookSucceeded(metaMediaResp, currentChat.platformType))) {
+                    if (!(await sendWebhookSucceeded(metaMediaResp, chat.platformType))) {
                         showToast('Media was not delivered. Please try again.', 'error', 6000);
                     }
                 } else {
@@ -5881,7 +5916,7 @@
 
                     formData.append('file', file, file.name);
                     formData.append('type', file.type);
-                    formData.append('phone_id', WA_CHANNELS[getChatChannel(currentChat)].phone);
+                    formData.append('phone_id', WA_CHANNELS[getChatChannel(chat)].phone);
 
                     const waUpload = await fetch(
                         META_WORKER_BASE + '/meta-media-upload',
@@ -5915,10 +5950,10 @@
 
                     await metaApi(
                         'POST',
-                        `/${WA_CHANNELS[getChatChannel(currentChat)].phone}/messages`,
+                        `/${WA_CHANNELS[getChatChannel(chat)].phone}/messages`,
                         {
                             messaging_product: 'whatsapp',
-                            to: currentChat.phone.replace('+', ''),
+                            to: chat.phone.replace('+', ''),
                             type: mediaType,
                             [mediaType]: mediaObj
                         }
@@ -5939,9 +5974,9 @@
                                 'X-Channels-Key': META_CHANNELS_API_KEY
                             },
                             body: JSON.stringify({
-                                phone: currentChat.phone,
+                                phone: chat.phone,
                                 message: caption,
-                                conversation_id: currentChat.id,
+                                conversation_id: chat.id,
                                 media_url: permanentUrl,
                                 media_type: mediaType,
                                 created_at_sgt: sgtNow,
@@ -5969,13 +6004,13 @@
 
                     backupForm.append(
                         'username',
-                        currentChat.name ||
-                        currentChat.customer_name ||
-                        currentChat.whatsapp_name ||
+                        chat.name ||
+                        chat.customer_name ||
+                        chat.whatsapp_name ||
                         'Unknown User'
                     );
 
-                    backupForm.append('phone', currentChat.phone);
+                    backupForm.append('phone', chat.phone);
                     backupForm.append('direction', 'outgoing');
                     backupForm.append('platform', 'whatsapp');
                     backupForm.append('original_filename', file.name);
@@ -8083,7 +8118,7 @@
 
     <div class="chat-avatar-wrap">
 
-        <img class="chat-avatar" src="${chat.avatar}" loading="lazy">
+        <img class="chat-avatar" src="${safeUrl(chat.avatar)}" loading="lazy">
         ${getPlatformAvatarIcon(chat.platform)}
 
         ${selectionMode ? `
@@ -8104,7 +8139,7 @@
     ">
 
         <div class="chat-name">
-            ${chat.name}
+            ${escHtml(chat.name)}
             ${accountBadgeHtml(chat)}
             ${waChannelBadgeHtml(chat)}
 
@@ -8325,6 +8360,7 @@
 
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
+            if (currentChat && currentChat !== chat && typeof clearMediaStaging === 'function') clearMediaStaging();
             currentChat = chat;
             updateProfilePanel(currentChat);
             // Fire-and-forget: none of these need to finish before the messages load.
@@ -9149,18 +9185,18 @@
                         lUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/);
                     if (isImage) {
                         mediaHtml = `<div style="margin-bottom:6px;border-radius:6px;overflow:hidden;max-width:280px;">
-  <a href="${msg.media_url}" target="_blank">
-    <img src="${msg.media_url}" style="width:100%;height:auto;display:block;border-radius:6px;" />
+  <a href="${safeUrl(msg.media_url)}" target="_blank">
+    <img src="${safeUrl(msg.media_url)}" style="width:100%;height:auto;display:block;border-radius:6px;" />
   </a>
   <div style="margin-top:4px;font-size:12px;">
-    <a href="${msg.media_url}" download target="_blank" style="color:#60a5fa;text-decoration:none;font-weight:600;">⬇ Download Image</a>
+    <a href="${safeUrl(msg.media_url)}" download target="_blank" style="color:#60a5fa;text-decoration:none;font-weight:600;">⬇ Download Image</a>
   </div>
 </div>`;
                     } else {
                         mediaHtml = `<div style="margin-bottom:6px;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;display:flex;align-items:center;gap:10px;max-width:280px;">
   <div style="font-size:26px;">📄</div>
   <div>
-    <a href="${msg.media_url}" download target="_blank" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;">⬇ Download Document</a>
+    <a href="${safeUrl(msg.media_url)}" download target="_blank" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;">⬇ Download Document</a>
   </div>
 </div>`;
                     }
@@ -9200,7 +9236,7 @@
 
             div.innerHTML = `
 <div style="font-size:10px;font-weight:700;opacity:0.7;margin-bottom:6px;letter-spacing:0.5px;">
-${label}
+${escHtml(label)}
 </div>
 ${referralHtml}${bodyHtml}${failHtml}
 <div class="message-time"><span>${time}</span>${statusHtml}</div>
@@ -9811,8 +9847,8 @@ ${referralHtml}${bodyHtml}${failHtml}
                 card.className = 'template-card';
                 card.dataset.index = i;
                 card.innerHTML = `
-                    <div class="template-card-name">${t.display_name}</div>
-                    <div class="template-card-body">${t.body}</div>
+                    <div class="template-card-name">${escHtml(t.display_name)}</div>
+                    <div class="template-card-body">${escHtml(t.body)}</div>
                     <div class="template-card-meta">
                         <span class="template-card-tag">${t.language.toUpperCase()}</span>
                         ${t.variables.length > 0 ? `<span class="template-card-tag">${t.variables.length} variable${t.variables.length > 1 ? 's' : ''}</span>` : ''}
@@ -10012,6 +10048,7 @@ ${referralHtml}${bodyHtml}${failHtml}
                 return;
             }
 
+            const chat = currentChat;
             const templateToSend = selectedTemplate;
             const vars = getVariableValues('variableInputs', templateToSend.variables.length);
             const btn = document.querySelector('#templateOverlay .modal-btn-primary');
@@ -10023,11 +10060,11 @@ ${referralHtml}${bodyHtml}${failHtml}
 
             try {
                 result = await callTemplateSendWebhook(
-                    currentChat.phone,
+                    chat.phone,
                     templateToSend,
                     vars,
-                    currentChat?.id,
-                    getChatChannel(currentChat)
+                    chat?.id,
+                    getChatChannel(chat)
                 );
             } catch (e) {
                 result = {
@@ -10050,7 +10087,7 @@ ${referralHtml}${bodyHtml}${failHtml}
                             'X-Channels-Key': META_CHANNELS_API_KEY
                         },
                         body: JSON.stringify({
-                            phone: currentChat.phone,
+                            phone: chat.phone,
                             template_name: templateToSend.name,
                             broadcast_id: null,
                             wamid: result.wamid || null,
@@ -10096,7 +10133,7 @@ ${referralHtml}${bodyHtml}${failHtml}
                 // template send (this insert + n8n's insert, same event, two rows).
 
                 // Update sidebar preview
-                const chatObj = chats.find(c => c.phone === currentChat.phone);
+                const chatObj = chats.find(c => c.phone === chat.phone);
 
                 if (chatObj) {
 
@@ -10502,7 +10539,7 @@ ${referralHtml}${bodyHtml}${failHtml}
             <label class="broadcast-contact-item">
                 <input type="checkbox" class="broadcast-check" data-phone="${escHtml(chat.phone)}"
                     onchange="updateBroadcastCount()">
-                <img src="${chat.avatar}" style="width:36px;height:36px;border-radius:50%;">
+                <img src="${safeUrl(chat.avatar)}" style="width:36px;height:36px;border-radius:50%;">
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:13px;">${escHtml(chat.name || chat.phone)}</div>
                     <div style="font-size:12px;color:#6b7280;">${escHtml(chat.phone || '')}</div>
@@ -10751,8 +10788,8 @@ ${referralHtml}${bodyHtml}${failHtml}
             }
 
             try {
-                localStorage.setItem('sb_key', val);
-                if (localStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
+                sessionStorage.setItem('sb_key', val);
+                if (sessionStorage.getItem('sb_key') !== val) throw new Error('readback mismatch');
             } catch (e) {
                 _savingSupabaseKeySettings = false;
                 if (btn) { btn.disabled = false; btn.textContent = originalText; }
@@ -10799,7 +10836,9 @@ ${referralHtml}${bodyHtml}${failHtml}
         const META_OAUTH_REDIRECT_URI = META_WORKER_BASE + "/oauth/callback";
         // Must match CHANNELS_API_KEY in the Cloudflare Worker's env vars — gates
         // /channels/list and /channels/disconnect (see cloudflare-worker.js header).
-        const META_CHANNELS_API_KEY = "fT-0o0rmujKqqtYCrpcSZk8ftblsLdoN";
+        // Per-login session token issued by the Worker (/auth/login). Replaces the old static key that
+        // used to be hardcoded here. Kept only in memory, so it disappears on reload/logout.
+        var META_CHANNELS_API_KEY = "";
         // Facebook Login for Business: the app only offers FLfB, which ignores `scope=` and instead takes a
         // Configuration (assets + permissions) created in the Meta app dashboard. Keep META_OAUTH_SCOPES below
         // as documentation of what that configuration must grant.
@@ -12144,10 +12183,16 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
         function formatPreview(text) {
             if (!text) return '';
             const btn = text.match(/^\[Button:\s*(.+?)\]$/);
-            if (btn) return `👆 ${btn[1]}`;
+            if (btn) return `👆 ${escHtml(btn[1])}`;
             const tmpl = text.match(/^\[Template:\s*(.+?)\]$/);
-            if (tmpl) return `⚡ ${tmpl[1]}`;
-            return text;
+            if (tmpl) return `⚡ ${escHtml(tmpl[1])}`;
+            return escHtml(text);
+        }
+
+        /* Only http(s)/blob URLs may be used in href/src (blocks javascript: and data: payloads). */
+        function safeUrl(u) {
+            const v = String(u || '').trim();
+            return /^(https?:|blob:)/i.test(v) ? escHtml(v) : '';
         }
 
 
