@@ -166,7 +166,8 @@ export default {
     }
 
     const rawBody = await req.text();
-    const sigOk = await verifyMetaSignature(rawBody, req.headers.get('X-Hub-Signature-256'), env);
+    const sigBy = await verifyMetaSignature(rawBody, req.headers.get('X-Hub-Signature-256'), env);
+    const sigOk = !!sigBy;
     if (!sigOk) {
       console.error('[Worker] INVALID webhook signature (mode=' + SIGNATURE_MODE + ')');
       ctx.waitUntil(recordRejected(rawBody, req.headers.get('X-Hub-Signature-256'), env));
@@ -182,7 +183,7 @@ export default {
     // DEBUG: log full payload for every POST
 
     // Respond 200 immediately, process in the background
-    ctx.waitUntil(routeWebhook(body, Object.assign(Object.create(env), { __sigOk: sigOk })));
+    ctx.waitUntil(routeWebhook(body, Object.assign(Object.create(env), { __sigOk: sigOk, __sigBy: sigBy })));
 
     return new Response('ok', { status: 200 });
   },
@@ -1955,15 +1956,15 @@ const SIGNATURE_MODE = 'log';
 const ALLOW_STATIC_KEY = false;
 
 async function verifyMetaSignature(raw, header, env) {
-  const secrets = [env.META_APP_SECRET, env.META_APP_SECRET_SG].filter(Boolean);
-  if (!secrets.length) return true; // verification not configured
+  const named = [['907', env.META_APP_SECRET], ['sg1511', env.META_APP_SECRET_SG]].filter(x => x[1]);
+  if (!named.length) return 'unconfigured'; // verification not configured
   const m = /^sha256=([0-9a-f]{64})$/i.exec(String(header || ''));
-  if (!m) return false;
-  for (const secret of secrets) {
+  if (!m) return null;
+  for (const [label, secret] of named) {
     const expected = (await hmacHex(secret, raw)).toLowerCase();
-    if (timingSafeEqual(expected, m[1].toLowerCase())) return true;
+    if (timingSafeEqual(expected, m[1].toLowerCase())) return label;
   }
-  return false;
+  return null;
 }
 
 async function recordRejected(raw, header, env) {
@@ -2068,7 +2069,7 @@ async function deliverToN8n(kind, targetUrl, bodyObj, env) {
   try {
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/webhook_inbox`, {
       method: 'POST', headers: sbInboxHeaders(env, { 'Prefer': 'return=representation' }),
-      body: JSON.stringify({ kind, payload: bodyObj, status: 'pending', sig_ok: env.__sigOk !== false }),
+      body: JSON.stringify({ kind, payload: bodyObj, status: 'pending', sig_ok: env.__sigOk !== false, sig_by: env.__sigBy || null }),
       signal: AbortSignal.timeout(4000),
     });
     if (r.ok) rowId = (await r.json())?.[0]?.id ?? null;
