@@ -3718,6 +3718,11 @@
 
                     </div>
 
+                    <!-- FULL IG/MESSENGER THREAD (mirror of the real DM) -->
+                    <div class="icon-btn" id="platformThreadBtn" onclick="openPlatformThread()" title="View full Instagram / Messenger thread" style="display:none;">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+
                     <!-- EXPORT CHAT -->
                     <div class="icon-btn" onclick="exportCurrentChat()" title="Export Chat">
                         <i class="fa-solid fa-file-export"></i>
@@ -8444,6 +8449,11 @@
 
             }
 
+            {
+                const _ptb = document.getElementById('platformThreadBtn');
+                const _pt = String(chat.platformType || chat.platform || '').toLowerCase();
+                if (_ptb) _ptb.style.display = (_pt.includes('instagram') || _pt.includes('facebook') || _pt.includes('messenger')) ? '' : 'none';
+            }
             autoDetectChatMeta(chat);
             updateBotButton();
             updateFollowUpButton();
@@ -12666,6 +12676,93 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
 
     <div id="toastContainer"></div>
 
+
+<style>
+#platformThreadOverlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:16px}
+#platformThreadOverlay.open{display:flex}
+#platformThreadModal{background:#fff;color:#0f172a;width:min(560px,100%);max-height:92vh;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#platformThreadModal .pt-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0}
+#platformThreadModal .pt-head h3{margin:0;font-size:15px}
+#platformThreadModal .pt-head small{display:block;color:#64748b;font-size:12px;margin-top:2px}
+#platformThreadModal .pt-x{cursor:pointer;font-size:20px;line-height:1;padding:4px 8px;color:#64748b}
+#platformThreadBody{overflow-y:auto;padding:16px 18px;background:#f8fafc;display:flex;flex-direction:column;gap:8px;min-height:200px}
+.pt-row{display:flex;flex-direction:column;max-width:82%}
+.pt-row.me{align-self:flex-end;align-items:flex-end}
+.pt-row.them{align-self:flex-start;align-items:flex-start}
+.pt-bub{padding:9px 13px;border-radius:18px;font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+.pt-row.me .pt-bub{background:#3797f0;color:#fff;border-bottom-right-radius:5px}
+.pt-row.them .pt-bub{background:#e9ecef;color:#111;border-bottom-left-radius:5px}
+.pt-meta{font-size:11px;color:#64748b;margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}
+.pt-tag{padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600}
+.pt-tag.auto{background:#fef3c7;color:#92400e}
+.pt-tag.saved{background:#dcfce7;color:#166534}
+.pt-day{align-self:center;font-size:11px;color:#64748b;background:#e2e8f0;border-radius:999px;padding:2px 10px;margin:6px 0}
+.pt-att img,.pt-att video{max-width:240px;max-height:260px;border-radius:12px;display:block;margin-top:4px}
+.pt-foot{padding:10px 18px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b}
+</style>
+<div id="platformThreadOverlay" onclick="if(event.target===this)closePlatformThread()">
+  <div id="platformThreadModal">
+    <div class="pt-head"><div><h3 id="ptTitle">Full thread</h3><small id="ptSub"></small></div><span class="pt-x" onclick="closePlatformThread()">&times;</span></div>
+    <div id="platformThreadBody"></div>
+    <div class="pt-foot"><span class="pt-tag saved">in dashboard</span> stored by Speedbot &nbsp; <span class="pt-tag auto">not in dashboard</span> sent by Instagram automation, the IG app, or another tool. Read-only, loaded live from Meta.</div>
+  </div>
+</div>
+<script>
+function closePlatformThread(){ document.getElementById('platformThreadOverlay').classList.remove('open'); }
+async function openPlatformThread(){
+    const chat = currentChat;
+    if (!chat) return;
+    const ov = document.getElementById('platformThreadOverlay'), body = document.getElementById('platformThreadBody');
+    document.getElementById('ptTitle').textContent = 'Full thread - ' + (chat.name || '');
+    document.getElementById('ptSub').textContent = 'Loading from Meta...';
+    body.innerHTML = '<div style="text-align:center;color:#64748b;padding:30px">Loading...</div>';
+    ov.classList.add('open');
+    try {
+        const [res, local] = await Promise.all([
+            fetch(META_WORKER_BASE + '/ig-thread?conversation_id=' + encodeURIComponent(chat.id), { headers: { 'X-Channels-Key': META_CHANNELS_API_KEY } }),
+            supabaseClient.from('messages').select('message').eq('conversation_id', chat.id).limit(2000),
+        ]);
+        const data = await res.json();
+        if (chat !== currentChat) return;
+        if (!res.ok || data.error) throw new Error(data.error || ('HTTP ' + res.status));
+        const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
+        const stored = new Set(((local && local.data) || []).map(m => norm(m.message)).filter(Boolean));
+        const msgs = data.messages || [];
+        document.getElementById('ptSub').textContent = (data.platform === 'instagram' ? '@' : '') + (data.business_name || '') + ' <-> ' + (data.customer_name || '') + ' | ' + msgs.length + ' messages' + (data.truncated ? ' (older truncated)' : '');
+        if (!data.found || !msgs.length) { body.innerHTML = '<div style="text-align:center;color:#64748b;padding:30px">Meta returned no messages for this conversation.</div>'; return; }
+        let html = '', lastDay = '';
+        for (const m of msgs) {
+            const d = new Date(m.created_time);
+            const day = d.toLocaleDateString('en-SG', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' });
+            if (day !== lastDay) { html += '<div class="pt-day">' + escHtml(day) + '</div>'; lastDay = day; }
+            const time = d.toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            let inner = '';
+            if (m.text) inner += escHtml(m.text);
+            let atts = '';
+            for (const a of (m.attachments || [])) {
+                const u = a.url && /^https:\/\//.test(a.url) ? escHtml(a.url) : '';
+                if (a.type === 'image' && u) atts += '<div class="pt-att"><img src="' + u + '" loading="lazy"></div>';
+                else if (a.type === 'video' && u) atts += '<div class="pt-att"><video src="' + u + '" controls preload="metadata"></video></div>';
+                else atts += '<div class="pt-att" style="font-size:12px;opacity:.8">[' + escHtml(a.type || 'attachment') + (a.name ? ': ' + escHtml(a.name) : '') + ']' + (u ? ' <a href="' + u + '" target="_blank" rel="noopener" style="color:inherit">open</a>' : '') + '</div>';
+            }
+            for (const sh of (m.shares || [])) if (sh.link && /^https:\/\//.test(sh.link)) atts += '<div style="font-size:12px"><a href="' + escHtml(sh.link) + '" target="_blank" rel="noopener" style="color:inherit">shared link</a></div>';
+            if (m.sticker) atts += '<div style="font-size:12px;opacity:.8">[sticker]</div>';
+            if (m.story) atts += '<div style="font-size:12px;opacity:.8">[story reply/mention]</div>';
+            if (m.is_unsupported) atts += '<div style="font-size:12px;opacity:.8">[unsupported content]</div>';
+            if (!inner && !atts) inner = '<span style="opacity:.7;font-style:italic">(empty message - template/card with no content)</span>';
+            const mine = m.is_page;
+            const inDb = m.text ? stored.has(norm(m.text)) : null;
+            const tag = mine ? (inDb === true ? '<span class="pt-tag saved">in dashboard</span>' : '<span class="pt-tag auto">not in dashboard</span>') : '';
+            html += '<div class="pt-row ' + (mine ? 'me' : 'them') + '"><div class="pt-bub">' + inner + atts + '</div><div class="pt-meta"><span>' + escHtml(m.from_name || m.from_id || '') + '</span><span>' + escHtml(time) + '</span>' + tag + '</div></div>';
+        }
+        body.innerHTML = html;
+        body.scrollTop = body.scrollHeight;
+    } catch (e) {
+        body.innerHTML = '<div style="text-align:center;color:#b91c1c;padding:30px">Could not load thread: ' + escHtml(e.message) + '</div>';
+        document.getElementById('ptSub').textContent = '';
+    }
+}
+</script>
 </body>
 
 </html>

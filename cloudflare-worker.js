@@ -76,6 +76,9 @@ export default {
     if (url.pathname.startsWith('/n8n/')) {
       return handleN8nProxy(req, env, url, corsOrigin);
     }
+    if (url.pathname === '/ig-thread') {
+      return handleThread(req, env, url, corsOrigin);
+    }
     if (url.pathname === '/auth/login') {
       return handleAuthLogin(req, env, corsOrigin);
     }
@@ -2002,6 +2005,92 @@ async function verifySession(token, env) {
     if (!data.exp || data.exp < Date.now() / 1000) return null;
     return data;
   } catch (e) { return null; }
+}
+
+
+// --- Full platform thread (mirror of the real Instagram / Messenger DM) ---
+// Our own DB only stores customer messages + replies sent through this system. Instagram's
+// built-in automation (welcome message, FAQ/ice-breakers, away messages) and anything sent from
+// the IG app are never stored. This asks Meta for the real conversation so the dashboard can
+// show exactly what the customer sees. Read-only; uses the stored Page token server-side.
+async function handleThread(req, env, url, corsOrigin) {
+  const cors = {
+    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Channels-Key',
+    'Vary': 'Origin',
+  };
+  const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (!(await isAuthorized(req, env))) return json(401, { error: 'Unauthorized' });
+  const convId = (url.searchParams.get('conversation_id') || '').trim();
+  if (!/^\d+$/.test(convId)) return json(400, { error: 'conversation_id required' });
+  const sb = { 'apikey': env.SUPABASE_KEY, 'Authorization': `Bearer ${env.SUPABASE_KEY}` };
+
+  const cr = await fetch(`${env.SUPABASE_URL}/rest/v1/conversations?id=eq.${convId}&select=platform,meta_psid,meta_recipient_id,name&limit=1`, { headers: sb });
+  if (!cr.ok) return json(502, { error: 'Could not load conversation' });
+  const [conv] = await cr.json();
+  if (!conv) return json(404, { error: 'Conversation not found' });
+  const platform = conv.platform;
+  if ((platform !== 'instagram' && platform !== 'facebook' && platform !== 'messenger') || !conv.meta_psid) {
+    return json(400, { error: 'Not an Instagram/Messenger conversation' });
+  }
+  const isIg = platform === 'instagram';
+
+  const col = isIg ? 'ig_business_account_id' : 'page_id';
+  let rows = [];
+  if (conv.meta_recipient_id) {
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/channel_connections?${col}=eq.${encodeURIComponent(conv.meta_recipient_id)}&select=page_id,page_name,ig_business_account_id,ig_username,page_access_token&limit=1`, { headers: sb });
+    if (r.ok) rows = await r.json();
+  }
+  if (!rows.length) return json(404, { error: 'No connected Page/IG account found for this conversation' });
+  const ch = rows[0];
+
+  const fields = 'id,created_time,from,to,message,attachments,shares,reactions,story,sticker,is_unsupported';
+  const first = `https://graph.facebook.com/${GRAPH_VERSION}/${ch.page_id}/conversations`
+    + `?platform=${isIg ? 'instagram' : 'messenger'}&user_id=${encodeURIComponent(conv.meta_psid)}`
+    + `&fields=id,updated_time,messages.limit(100){${fields}}&access_token=${encodeURIComponent(ch.page_access_token)}`;
+  let res;
+  try { res = await fetch(first); } catch (e) { return json(502, { error: 'Meta unreachable: ' + e.message }); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return json(502, { error: (body.error && body.error.message) || 'Meta error ' + res.status });
+  const convo = (body.data || [])[0];
+  if (!convo) return json(200, { ok: true, found: false, messages: [], business_id: isIg ? ch.ig_business_account_id : ch.page_id, business_name: isIg ? ch.ig_username : ch.page_name });
+
+  let raw = (convo.messages && convo.messages.data) || [];
+  let next = convo.messages && convo.messages.paging && convo.messages.paging.next;
+  for (let i = 0; next && i < 9; i++) {
+    const pr = await fetch(next); if (!pr.ok) break;
+    const pj = await pr.json();
+    raw = raw.concat(pj.data || []);
+    next = pj.paging && pj.paging.next;
+  }
+  const businessId = isIg ? ch.ig_business_account_id : ch.page_id;
+  const out = raw.slice().reverse().map(m => {
+    const atts = [];
+    const ad = (m.attachments && m.attachments.data) || [];
+    for (const a of ad) {
+      atts.push({
+        type: (a.image_data && 'image') || (a.video_data && 'video') || (a.mime_type ? a.mime_type.split('/')[0] : 'file'),
+        url: (a.image_data && a.image_data.url) || (a.video_data && a.video_data.url) || a.file_url || null,
+        name: a.name || null, mime: a.mime_type || null,
+      });
+    }
+    const shares = ((m.shares && m.shares.data) || []).map(x => ({ link: x.link || null, name: x.name || null }));
+    return {
+      id: m.id, created_time: m.created_time,
+      from_id: m.from && m.from.id, from_name: m.from && (m.from.username || m.from.name) || null,
+      is_page: !!(m.from && m.from.id === businessId),
+      text: m.message || '', attachments: atts, shares,
+      sticker: m.sticker || null, story: m.story || null,
+      reactions: m.reactions || null, is_unsupported: !!m.is_unsupported,
+    };
+  }).sort((a, b) => new Date(a.created_time) - new Date(b.created_time));
+  return json(200, {
+    ok: true, found: true, platform: isIg ? 'instagram' : 'messenger',
+    business_id: businessId, business_name: isIg ? ch.ig_username : ch.page_name,
+    customer_name: conv.name, count: out.length, truncated: !!next, messages: out,
+  });
 }
 
 async function isAuthorized(req, env) {
