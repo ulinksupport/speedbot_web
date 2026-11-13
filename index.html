@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <script src="supabase-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="suggested-reply.js"></script>
 
     <style>
         /* =========================================================
@@ -3119,6 +3120,23 @@
         /* Reviewer (Meta App Review) session: no key entry, no disconnecting production Pages */
         body.reviewer-mode div:has(> #settingsSupabaseKeyInput) { display: none !important; }
     </style>
+
+    <style>
+        /* Suggested reply bar (above the message box) */
+        #suggestedReplyBar { width:100%; box-sizing:border-box; padding:8px 14px 0; display:flex; flex-direction:column; gap:6px; }
+        .sr-card { background:#f3f4f6; border-radius:14px; padding:8px 12px; }
+        .sr-label { font-size:11px; font-weight:600; color:#6b7280; margin-bottom:2px; }
+        .sr-text { font-size:13px; color:#111827; white-space:pre-wrap; cursor:pointer; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+        .sr-text.expanded { display:block; }
+        .sr-actions { display:flex; gap:6px; margin-top:6px; }
+        .sr-actions .modal-btn-primary, .sr-actions .modal-btn-secondary { height:28px; padding:0 10px; font-size:12px; border-radius:10px; }
+        .sr-actions button:disabled, .sr-chip:disabled { opacity:.45; cursor:not-allowed; }
+        .sr-x { margin-left:auto; background:none; border:none; color:#9ca3af; cursor:pointer; font-size:14px; }
+        .sr-extras { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:11px; color:#9ca3af; }
+        .sr-chip { border:1.5px solid #e5e7eb; background:white; color:#374151; border-radius:999px; padding:2px 10px; font-size:12px; cursor:pointer; }
+        .sr-chip:hover:not(:disabled) { background:#f9fafb; }
+        .sr-note { font-size:11px; color:#9ca3af; }
+    </style>
 </head>
 
 <body>
@@ -3801,6 +3819,8 @@
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
+
+                <div id="suggestedReplyBar" style="display:none;"></div>
 
                 <!-- Normal input row -->
                 <div id="normalInputArea"
@@ -5582,6 +5602,7 @@
             };
 
             const optimisticBubble = appendMessage(optimisticMessage);
+            currentChatMessages.push(optimisticMessage); renderSuggestedReply();
 
             applyLatestMessageMetadata(
                 chat,
@@ -5668,6 +5689,154 @@
             }
             showToast(lastSendError ? 'Not delivered: ' + lastSendError : 'Message was not delivered. Please try again.', 'error', 8000);
         }
+
+        /* =========================================================
+        SUGGESTED REPLY BAR (rules live in suggested-reply.js)
+        ========================================================= */
+
+        let currentChatMessages = [];   // messages of the open chat, as loaded from the DB
+        let _srItems = [];
+        let _srDismissKey = null;
+        let _srCannedTried = false;
+        let _srLastHtml = '';
+
+        function _srKey() {
+            return currentChat ? currentChat.id + '|' + currentChatMessages.length : null;
+        }
+
+        function _srHide() {
+            const bar = document.getElementById('suggestedReplyBar');
+            if (bar) { bar.style.display = 'none'; bar.innerHTML = ''; }
+            _srItems = [];
+            _srLastHtml = '';
+        }
+
+        // Never touch the message box while the agent has typed something, or it can't be used.
+        function _srLocked() {
+            const input = document.getElementById('messageInput');
+            const normalArea = document.getElementById('normalInputArea');
+            return !input || input.disabled || input.value.trim() !== '' ||
+                (normalArea && normalArea.style.display === 'none');
+        }
+
+        function _srSyncLock() {
+            const locked = _srLocked();
+            document.querySelectorAll('#suggestedReplyBar .sr-lock').forEach(b => {
+                b.disabled = locked || b.dataset.sent === '1';
+                b.title = locked ? 'Message box has text or is disabled' : (b.dataset.tip || '');
+            });
+        }
+
+        function renderSuggestedReply() {
+            try {
+                const bar = document.getElementById('suggestedReplyBar');
+                if (!bar || !currentChat || !window.SuggestedReply || _srDismissKey === _srKey()) return _srHide();
+
+                if (!cannedResponsesCache.length && !_srCannedTried) {
+                    _srCannedTried = true;
+                    loadCannedResponses().then(renderSuggestedReply, () => { });
+                    return _srHide();
+                }
+
+                // Database names/values; currentChat.name falls back to the phone / "Unknown User".
+                const c = currentChat;
+                const conv = {
+                    lang: c.lang,
+                    name: (c.name === c.phone || c.name === 'Unknown User') ? '' : c.name,
+                    opted_out: c.opted_out,
+                    opted_out_at: c.opted_out_at,
+                    is_spam: c.is_spam,
+                    status: c.status,
+                    follow_up_stage: c.follow_up_stage
+                };
+
+                const r = window.SuggestedReply.getSuggestedReplies(conv, currentChatMessages, cannedResponsesCache) || {};
+                const note = r.note === '24h window closed' ? r.note : '';
+                // Window closed: only templates can go out, so show just the note.
+                const primary = c.windowExpired ? [] : (r.primary || []);
+                const extras = c.windowExpired ? [] : (r.extras || []);
+                if (!primary.length && !extras.length && !note) return _srHide();
+
+                _srItems = primary.concat(extras);
+                let xBtn = '<button class="sr-x" title="Hide" onclick="srDismiss()">✕</button>';
+                const takeX = () => { const x = xBtn; xBtn = ''; return x; };
+
+                let html = primary.map((p, i) => `
+            <div class="sr-card">
+                <div class="sr-label">Suggested reply · ${escHtml(p.label)}</div>
+                <div class="sr-text" title="Click to expand" onclick="this.classList.toggle('expanded')">${escHtml(p.text)}</div>
+                <div class="sr-actions">
+                    <button class="modal-btn-primary sr-lock" onclick="srSend(${i}, this)">Send</button>
+                    <button class="modal-btn-secondary sr-lock" onclick="srEdit(${i})">Edit</button>
+                    ${takeX()}
+                </div>
+            </div>`).join('');
+
+                if (extras.length) {
+                    html += `<div class="sr-extras"><span>Other options:</span>${extras.map((e, j) =>
+                        `<button class="sr-chip sr-lock" data-tip="${escHtml(e.text)}" onclick="srEdit(${primary.length + j})">${escHtml(e.label)}</button>`
+                    ).join('')}${takeX()}</div>`;
+                }
+
+                if (note) html += `<div class="sr-extras"><span class="sr-note">${escHtml(note)}</span>${takeX()}</div>`;
+
+                if (html !== _srLastHtml) {
+                    bar.innerHTML = html;
+                    _srLastHtml = html;
+                }
+                bar.style.display = 'flex';
+                _srSyncLock();
+            } catch (e) {
+                _srHide();
+            }
+        }
+
+        // Same checks as sendCannedResponse(), but sends the name-filled text through sendMessage().
+        async function srSend(i, btn) {
+            const item = _srItems[i];
+            if (!item || _srLocked()) return;
+            if (btn) { btn.disabled = true; btn.dataset.sent = '1'; }
+            const retry = () => { if (btn) { delete btn.dataset.sent; btn.disabled = false; } };
+
+            if (!currentChat) {
+                alert('Please select a conversation first.');
+                retry();
+                return;
+            }
+
+            if (currentChat.windowExpired) {
+                alert('This WhatsApp 24-hour window has expired. Use an approved Meta template instead.');
+                retry();
+                return;
+            }
+
+            if (currentChat.bot_enabled !== false) {
+                alert('Please switch the conversation to Human Active before sending a canned response.');
+                retry();
+                return;
+            }
+
+            const input = document.getElementById('messageInput');
+            input.value = item.text;
+            await sendMessage();
+        }
+
+        function srEdit(i) {
+            const item = _srItems[i];
+            if (!item || _srLocked()) return;
+            const input = document.getElementById('messageInput');
+            input.value = item.text;
+            input.focus();
+            autoResizeTextarea(input);
+            _srSyncLock();
+        }
+
+        function srDismiss() {
+            _srDismissKey = _srKey();
+            _srHide();
+        }
+
+        document.getElementById('messageInput')?.addEventListener('input', _srSyncLock);
 
         /* =========================================================
         ENTER KEY SEND
@@ -7595,6 +7764,7 @@
                     last_incoming_at: conv.last_incoming_at || null,
                     windowExpired: isWindowExpired(conv.last_incoming_at),
                     opted_out: conv.opted_out || false,
+                    lang: conv.lang || null,
                     opted_out_at: conv.opted_out_at || null,
                     is_spam: conv.is_spam || false,
                     spam_at: conv.spam_at || null,
@@ -8367,6 +8537,7 @@
             if (!chat) return;
             if (currentChat && currentChat !== chat && typeof clearMediaStaging === 'function') clearMediaStaging();
             currentChat = chat;
+            currentChatMessages = []; renderSuggestedReply();
             updateProfilePanel(currentChat);
             // Fire-and-forget: none of these need to finish before the messages load.
             loadLastProgressComment();
@@ -8616,6 +8787,7 @@
             // always get the most recent messages, not the oldest, for
             // conversations with more than 1000 total messages.
             data.reverse();
+            currentChatMessages = data; renderSuggestedReply();
 
             const messagesContainer =
                 document.getElementById("messages");
@@ -8849,6 +9021,7 @@
                                     fetchMessagesForChat();
                                 } else {
                                     appendMessage(msg);
+                                    currentChatMessages.push(msg); renderSuggestedReply();
                                 }
 
                             }
@@ -9019,6 +9192,7 @@
                                     sendBtn.disabled = false;
                                     input.placeholder = "Type message...";
                                 }
+                                renderSuggestedReply();
 
                             }
 
@@ -12261,6 +12435,7 @@ CREATE INDEX IF NOT EXISTS ON template_sends(wamid);</pre></div>`
                     if (sendBtn) sendBtn.disabled = false;
                 }
             }
+            renderSuggestedReply();
         }
 
         function showToast(message, type = 'info', duration = 4000) {
