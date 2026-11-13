@@ -5728,6 +5728,8 @@
         }
 
         function renderSuggestedReply() {
+            // TEMP: hidden launch. Remove this line to show the bar to everyone.
+            if (new URLSearchParams(location.search).get('sr') !== '1') return _srHide();
             try {
                 const bar = document.getElementById('suggestedReplyBar');
                 if (!bar || !currentChat || !window.SuggestedReply || _srDismissKey === _srKey()) return _srHide();
