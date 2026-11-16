@@ -5742,8 +5742,13 @@
 
                 // Database names/values; currentChat.name falls back to the phone / "Unknown User".
                 const c = currentChat;
+                // English only on a positive non-ID signal: chat-list label contains "-sg" / "non-id",
+                // or a WhatsApp chat whose wa_channel is set to the SG number. Everything else uses
+                // conversations.lang, which suggested-reply.js treats as Indonesian unless it says English.
+                const nonId = /-sg|non-id/i.test(String(c.account || '')) ||
+                    (c.platformType === 'whatsapp' && !!c.wa_channel && getChatChannel(c) !== 'id');
                 const conv = {
-                    lang: c.lang,
+                    lang: nonId ? 'en' : c.lang,
                     name: (c.name === c.phone || c.name === 'Unknown User') ? '' : c.name,
                     opted_out: c.opted_out,
                     opted_out_at: c.opted_out_at,
@@ -8538,6 +8543,7 @@
             const chat = chats.find(c => c.id === id);
             if (!chat) return;
             if (currentChat && currentChat !== chat && typeof clearMediaStaging === 'function') clearMediaStaging();
+            if (!currentChat || currentChat.id !== chat.id) _srDismissKey = null;
             currentChat = chat;
             currentChatMessages = []; renderSuggestedReply();
             updateProfilePanel(currentChat);

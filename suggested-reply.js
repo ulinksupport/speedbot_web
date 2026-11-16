@@ -210,7 +210,8 @@
       return result;
     }
 
-    if (route === 'unknown' && !sent('clarify_intent')) {
+    // Scenario 4 only makes sense before Q1. If an agent already asked Q1, don't go back to it.
+    if (route === 'unknown' && !sent('clarify_intent') && !sent('q1_health')) {
       push(result.primary, build('clarify_intent', 'Scenario 4 – confirm intent'));
       return result;
     }
