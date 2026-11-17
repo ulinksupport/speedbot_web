@@ -2046,7 +2046,9 @@ async function handleThread(req, env, url, corsOrigin) {
   if (!rows.length) return json(404, { error: 'No connected Page/IG account found for this conversation' });
   const ch = rows[0];
 
-  const fields = 'id,created_time,from,to,message,attachments,shares,reactions,story,sticker,is_unsupported';
+  const fields = isIg
+    ? 'id,created_time,from,to,message,attachments,shares,reactions,story,sticker,is_unsupported'
+    : 'id,created_time,from,to,message,attachments,shares,sticker';
   const first = `https://graph.facebook.com/${GRAPH_VERSION}/${ch.page_id}/conversations`
     + `?platform=${isIg ? 'instagram' : 'messenger'}&user_id=${encodeURIComponent(conv.meta_psid)}`
     + `&fields=id,updated_time,messages.limit(100){${fields}}&access_token=${encodeURIComponent(ch.page_access_token)}`;
