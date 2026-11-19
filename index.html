@@ -3126,8 +3126,13 @@
         #suggestedReplyBar { width:100%; box-sizing:border-box; padding:8px 14px 0; display:flex; flex-direction:column; gap:6px; }
         .sr-card { background:#f3f4f6; border-radius:14px; padding:8px 12px; }
         .sr-label { font-size:11px; font-weight:600; color:#6b7280; margin-bottom:2px; }
-        .sr-text { font-size:13px; color:#111827; white-space:pre-wrap; cursor:pointer; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-        .sr-text.expanded { display:block; }
+        .sr-text { font-size:13px; color:#111827; white-space:pre-wrap; }
+        .sr-head { display:flex; align-items:center; gap:6px; font-size:12px; color:#6b7280; }
+        .sr-head.collapsed { cursor:pointer; background:#f3f4f6; border-radius:14px; padding:6px 12px; }
+        .sr-head-title { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-head-title b { font-weight:600; color:#374151; }
+        .sr-snip { color:#9ca3af; }
+        .sr-tog { background:none; border:none; color:#9ca3af; cursor:pointer; font-size:14px; padding:0 2px; }
         .sr-actions { display:flex; gap:6px; margin-top:6px; }
         .sr-actions .modal-btn-primary, .sr-actions .modal-btn-secondary { height:28px; padding:0 10px; font-size:12px; border-radius:10px; }
         .sr-actions button:disabled, .sr-chip:disabled { opacity:.45; cursor:not-allowed; }
@@ -5699,6 +5704,9 @@
         let _srDismissKey = null;
         let _srCannedTried = false;
         let _srLastHtml = '';
+        let _srCollapsed = false;      // per-agent preference, localStorage "srCollapsed"
+        try { _srCollapsed = localStorage.getItem('srCollapsed') === '1'; } catch (e) { _srCollapsed = false; }
+        let _srSent = { key: null, idx: new Set() };   // Send buttons already clicked, kept across redraws
 
         function _srKey() {
             return currentChat ? currentChat.id + '|' + currentChatMessages.length : null;
@@ -5763,31 +5771,60 @@
                 if (!primary.length && !extras.length && !note) return _srHide();
 
                 _srItems = primary.concat(extras);
-                let xBtn = '<button class="sr-x" title="Hide" onclick="srDismiss()">✕</button>';
-                const takeX = () => { const x = xBtn; xBtn = ''; return x; };
+                const xBtn = '<button class="sr-x" title="Hide" onclick="event.stopPropagation(); srDismiss()">✕</button>';
+                const noteHtml = note ? `<div class="sr-extras"><span class="sr-note">${escHtml(note)}</span></div>` : '';
+                let html;
 
-                let html = primary.map((p, i) => `
+                if (!_srItems.length) {
+                    // Only the "24h window closed" note: render as before, no toggle.
+                    html = `<div class="sr-extras"><span class="sr-note">${escHtml(note)}</span>${xBtn}</div>`;
+                } else {
+                    const collapsed = _srCollapsed;
+                    const headLabel = primary.length ? primary[0].label : 'Other options';
+                    let snip = '';
+                    if (collapsed) {
+                        const t = String(_srItems[0].text || '').replace(/\s+/g, ' ').trim();
+                        snip = ' — ' + (t.length > 60 ? t.slice(0, 60).trimEnd() + '…' : t);
+                    }
+                    html = `
+            <div class="sr-head${collapsed ? ' collapsed' : ''}"${collapsed ? ' title="Show suggested reply" onclick="srToggle()"' : ''}>
+                <span class="sr-head-title">💡 Suggested reply · <b>${escHtml(headLabel)}</b>${snip ? `<span class="sr-snip">${escHtml(snip)}</span>` : ''}</span>
+                <button class="sr-tog" title="${collapsed ? 'Expand' : 'Collapse'}" onclick="event.stopPropagation(); srToggle()">${collapsed ? '▾' : '▴'}</button>
+                ${xBtn}
+            </div>`;
+
+                    if (!collapsed) {
+                        const showLabels = primary.length > 1;
+                        html += primary.map((p, i) => `
             <div class="sr-card">
-                <div class="sr-label">Suggested reply · ${escHtml(p.label)}</div>
-                <div class="sr-text" title="Click to expand" onclick="this.classList.toggle('expanded')">${escHtml(p.text)}</div>
+                ${showLabels ? `<div class="sr-label">${escHtml(p.label)}</div>` : ''}
+                <div class="sr-text">${escHtml(p.text)}</div>
                 <div class="sr-actions">
-                    <button class="modal-btn-primary sr-lock" onclick="srSend(${i}, this)">Send</button>
+                    <button class="modal-btn-primary sr-lock" data-i="${i}" onclick="srSend(${i}, this)">Send</button>
                     <button class="modal-btn-secondary sr-lock" onclick="srEdit(${i})">Edit</button>
-                    ${takeX()}
                 </div>
             </div>`).join('');
 
-                if (extras.length) {
-                    html += `<div class="sr-extras"><span>Other options:</span>${extras.map((e, j) =>
-                        `<button class="sr-chip sr-lock" data-tip="${escHtml(e.text)}" onclick="srEdit(${primary.length + j})">${escHtml(e.label)}</button>`
-                    ).join('')}${takeX()}</div>`;
+                        if (extras.length) {
+                            html += `<div class="sr-extras"><span>Other options:</span>${extras.map((e, j) =>
+                                `<button class="sr-chip sr-lock" data-tip="${escHtml(e.text)}" onclick="srEdit(${primary.length + j})">${escHtml(e.label)}</button>`
+                            ).join('')}</div>`;
+                        }
+                        html += noteHtml;
+                    }
                 }
 
-                if (note) html += `<div class="sr-extras"><span class="sr-note">${escHtml(note)}</span>${takeX()}</div>`;
-
                 if (html !== _srLastHtml) {
+                    // Keep the sent-button lock across redraws (e.g. collapse → expand) for the same chat state.
+                    // The current DOM belongs to _srSent.key; record its sent buttons first, then reset on a new key.
+                    const key = _srKey();
+                    bar.querySelectorAll('.sr-lock[data-sent="1"][data-i]').forEach(b => _srSent.idx.add(b.dataset.i));
+                    if (_srSent.key !== key) _srSent = { key, idx: new Set() };
                     bar.innerHTML = html;
                     _srLastHtml = html;
+                    bar.querySelectorAll('.sr-lock[data-i]').forEach(b => {
+                        if (_srSent.idx.has(b.dataset.i)) b.dataset.sent = '1';
+                    });
                 }
                 bar.style.display = 'flex';
                 _srSyncLock();
@@ -5801,7 +5838,7 @@
             const item = _srItems[i];
             if (!item || _srLocked()) return;
             if (btn) { btn.disabled = true; btn.dataset.sent = '1'; }
-            const retry = () => { if (btn) { delete btn.dataset.sent; btn.disabled = false; } };
+            const retry = () => { if (btn) { delete btn.dataset.sent; btn.disabled = false; } if (_srSent.key === _srKey()) _srSent.idx.delete(String(i)); };
 
             if (!currentChat) {
                 alert('Please select a conversation first.');
@@ -5839,6 +5876,14 @@
         function srDismiss() {
             _srDismissKey = _srKey();
             _srHide();
+        }
+
+        // Collapse/expand is a per-agent preference, independent of ✕ (per chat).
+        function srToggle() {
+            _srCollapsed = !_srCollapsed;
+            try { localStorage.setItem('srCollapsed', _srCollapsed ? '1' : '0'); } catch (e) { }
+            _srLastHtml = '';
+            renderSuggestedReply();
         }
 
         document.getElementById('messageInput')?.addEventListener('input', _srSyncLock);
