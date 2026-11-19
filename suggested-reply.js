@@ -38,8 +38,26 @@
     clarify_intent: ['may i confirm whether you are', 'boleh kami konfirmasi, apakah']
   };
 
-  var PREFIX_INGIN = 'saya ingin';
-  var PREFIX_TERTARIK = 'saya tertarik';
+  // Route openers. Indonesian from the ad buttons; English equivalents so an English opener
+  // follows the same deck route instead of falling into Scenario 4.
+  var PREFIXES_INGIN = ['saya ingin', 'i want', 'i would like', "i'd like", 'id like'];
+  var PREFIXES_TERTARIK = ['saya tertarik', "i'm interested", 'im interested', 'i am interested'];
+
+  // Words that mark a customer message as Indonesian or English. Used to switch the
+  // suggestion language per message (6A, 18 Nov call). "hi"/"hello"/"ok" are left out on purpose:
+  // Indonesian customers use them too, so they keep the current language.
+  var ID_WORDS = ('saya aku ingin mau tertarik untuk di ke dan yang apa apakah bisa tidak tak gak nggak enggak ada berapa harga ' +
+    'dokter rumah sakit janji temu medis terima kasih ya iya iyah iya boleh sendiri kak pak bu ibu bapak sudah belum dengan ' +
+    'ini itu kami anda mohon tolong lutut pesan telepon telpon halo selamat pagi siang sore malam kalau bagaimana gimana dari ' +
+    'saja aja juga mana orang lain berobat periksa kapan biaya mahal murah sehat keluhan jantung kanker ' +
+    'yg sy ia makasih mlm slmt kk ka kakak obat asam urat nyeri bengkak mantap kawan baik tanya lokasi alamat sekarang udh').split(' ');
+  var EN_WORDS = ("i i'm im want would like to the a an is are am my me you your can could please how what where when much " +
+    'cost price doctor appointment hospital interested in for and of with yes no thank thanks good morning afternoon ' +
+    "evening need help know about do does have has it this that myself someone else call chat message phone number knee " +
+    "treatment check if not just will be there here which who").split(' ');
+  var ID_SET = {}, EN_SET = {};
+  ID_WORDS.forEach(function (w) { ID_SET[w] = true; });
+  EN_WORDS.forEach(function (w) { EN_SET[w] = true; });
 
   function normalize(s) {
     return String(s || '')
@@ -72,10 +90,25 @@
     return normalize(m && m.message).length > 0;
   }
 
+  function startsWithAny(n, list) {
+    for (var i = 0; i < list.length; i++) if (n.indexOf(list[i]) === 0) return true;
+    return false;
+  }
+
   function startsWithPrefix(text) {
     var n = normalize(text).replace(/^[^a-z0-9]+/, '');
-    if (n.indexOf(PREFIX_INGIN) === 0) return 'ingin';
-    if (n.indexOf(PREFIX_TERTARIK) === 0) return 'tertarik';
+    if (startsWithAny(n, PREFIXES_INGIN)) return 'ingin';
+    if (startsWithAny(n, PREFIXES_TERTARIK)) return 'tertarik';
+    return null;
+  }
+
+  // 'en', 'id', or null when the message doesn't clearly lean either way (e.g. "ok", a number, an emoji).
+  function detectLang(text) {
+    var words = normalize(text).replace(/[^a-z' ]+/g, ' ').split(' ').filter(Boolean);
+    var id = 0, en = 0;
+    words.forEach(function (w) { if (ID_SET[w]) id++; if (EN_SET[w]) en++; });
+    if (id > en) return 'id';
+    if (en > id) return 'en';
     return null;
   }
 
@@ -111,8 +144,6 @@
     var result = { primary: [], extras: [], note: null, debug: {} };
     conversation = conversation || {};
     var nowMs = now ? toTime(now) : Date.now();
-    var lang = pickLang(conversation);
-    var otherLang = lang === 'en' ? 'id' : 'en';
     var byKey = indexCanned(canned);
 
     var msgs = (messages || []).slice().sort(function (a, b) {
@@ -120,6 +151,16 @@
     });
 
     var incoming = msgs.filter(function (m) { return m.sender === 'incoming' && hasText(m); });
+
+    // Language: follow the customer's latest message that clearly leans one way; if none do,
+    // use the channel default (ID channels Indonesian, non-ID English).
+    var channelLang = pickLang(conversation);
+    var lang = channelLang, langFrom = 'channel';
+    for (var li = incoming.length - 1; li >= 0; li--) {
+      var dl = detectLang(incoming[li].message);
+      if (dl) { lang = dl; langFrom = 'customer message'; break; }
+    }
+    var otherLang = lang === 'en' ? 'id' : 'en';
     // Only replies typed by agents decide whose turn it is. The automatic acknowledgement is stored as
     // outgoing with sender_type null, and must not count as "we replied".
     var humanOut = msgs.filter(function (m) { return m.sender === 'outgoing' && m.sender_type === 'human'; });
@@ -174,7 +215,14 @@
     var lastHumanOutMs = humanOut.length ? toTime(humanOut[humanOut.length - 1].created_at) : 0;
     var customerWaiting = lastInMs > lastHumanOutMs; // customer spoke after our last typed reply
 
-    result.debug = { lang: lang, route: route, customerWaiting: customerWaiting };
+    result.debug = { lang: lang, langFrom: langFrom, route: route, customerWaiting: customerWaiting };
+
+    function isKey(m, key) {
+      if (!m) return false;
+      var n = normalize(m.message);
+      return fingerprintsFor(key, canned).some(function (fp) { return n.indexOf(fp) !== -1; });
+    }
+    var lastHumanOut = humanOut.length ? humanOut[humanOut.length - 1] : null;
 
     // Other options: PDP first (if not sent), then every active canned response outside the sequence.
     var extraKeys = [];
@@ -187,6 +235,13 @@
 
     if (conversation.status === 'completed') {
       result.note = 'Conversation completed';
+      return result;
+    }
+
+    // Consent is passive (no reply needed), so right after it goes out, suggest the phone number.
+    if (!customerWaiting && isKey(lastHumanOut, 'pdp_consent') && !sent('contact_number')
+        && (nowMs - lastInMs) / 36e5 < CONFIG.WINDOW_HOURS) {
+      push(result.primary, build('contact_number', 'Phone number (after consent)'));
       return result;
     }
 
@@ -244,8 +299,14 @@
       }
     }
 
+    // Customer replied after the "continue by call or chat" question: consent first, then phone number.
+    if (!sent('pdp_consent')) {
+      push(result.primary, build('pdp_consent', 'Consent (no reply needed)'));
+      result.extras = result.extras.filter(function (e) { return e.key !== 'pdp_consent'; });
+      return result;
+    }
     if (!sent('contact_number')) {
-      push(result.primary, build('contact_number', 'If customer prefers a call'));
+      push(result.primary, build('contact_number', 'Phone number'));
       return result;
     }
 
@@ -253,7 +314,7 @@
     return result;
   }
 
-  var api = { getSuggestedReplies: getSuggestedReplies, CONFIG: CONFIG, _normalize: normalize, _startsWithPrefix: startsWithPrefix };
+  var api = { getSuggestedReplies: getSuggestedReplies, CONFIG: CONFIG, _normalize: normalize, _startsWithPrefix: startsWithPrefix, _detectLang: detectLang };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SuggestedReply = api;
 })(typeof window !== 'undefined' ? window : this);
