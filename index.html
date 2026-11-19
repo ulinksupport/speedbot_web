@@ -8566,6 +8566,8 @@
             document.getElementById(
                 "mainLayout"
             ).classList.remove("welcome-mode");
+            // Profile panel starts collapsed on every chat open; the "i" button (toggleProfile) reopens it.
+            document.getElementById("mainLayout").classList.add("profile-hidden");
 
             document.getElementById(
                 "chatInputArea"
