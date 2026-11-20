@@ -19,7 +19,9 @@
     PDP_AS_PRIMARY: false,        // false = PDP consent offered as the first chip, not the main suggestion
     FOLLOW_UP_MIN_HOURS: 2,       // suggest follow-up only after this long with no customer reply
     WINDOW_HOURS: 24,             // deck: follow-up only within 24h of the customer's last message
-    FINGERPRINT_CHARS: 40         // length of canned text used to recognise it was already sent
+    FINGERPRINT_CHARS: 40,        // length of canned text used to recognise it was already sent
+    OWN_ANSWER_MIN_CHARS: 30,     // an agent's own reply this long after a FAQ question counts as answering it
+    MAX_CARDS: 3                  // most suggestion cards shown at once (FAQ answers + scripted step)
   };
 
   // Keys that make up the scripted sequence (main suggestions). Everything else is an "other option".
@@ -35,8 +37,31 @@
     pdp_consent: ['dengan melanjutkan ini', 'by proceeding, you consent'],
     re_optin: ['tidak berlangganan layanan pesan', 'previously opted out'],
     follow_up: ['ingin follow up', 'like to follow up'],
-    clarify_intent: ['may i confirm whether you are', 'boleh kami konfirmasi, apakah']
+    clarify_intent: ['may i confirm whether you are', 'boleh kami konfirmasi, apakah'],
+    faq_cost: ['treatment costs vary', 'biaya pengobatan berbeda'],
+    faq_fees: ['arrangement and assistance services are completely', 'pengaturan janji temu dari kami sepenuhnya'],
+    faq_teleconsult: ['does not directly provide teleconsultation', 'bukan lembaga yang secara langsung'],
+    faq_booking: ["check the doctor's availability", 'ketersediaan jadwal dokter']
   };
+  function isFaqKey(k) { return String(k).indexOf('faq_') === 0; }
+
+  // FAQ answers (Dr Galvin's FAQ, wording from Devin, 20 Nov 2026). When the customer's latest
+  // messages ask one of these, the matching FAQ is shown first, above the scripted step.
+  // Checked in this order. Word-boundary patterns, so "menghargai" or "berapa lama" don't count as a cost question.
+  var FAQ_RULES = [
+    { key: 'faq_teleconsult', label: 'FAQ – teleconsultation / medical advice',
+      re: /\b(tele ?kon?sul\w*|tele ?consult\w*|kon?sul(tasi)? (dokter )?(secara )?(online|via video|lewat video)|online (consult\w*|doctor)|video call|(konsul\w*|consult\w*) (via|lewat|by) (wa|whatsapp|zoom|video|phone|telepon)|saran medis|nasihat medis|medical advice)\b/ },
+    { key: 'faq_fees', label: 'FAQ – Ulink Assist charges',
+      re: /(\bulink\b.*\b(biaya|bayar|charge|fees?|gratis|free|cost)\b|\b(biaya|charge|fees?)\b.*\bulink\b|\bbiaya layanan\b|\bservice (fees?|charges?)\b|\bdo you charge\b|\b(apakah|apa|benar|beneran) (ini |layanan(nya)? )?gratis\b|\bgratis (kah|ya|ga|gak|nggak|tidak)\b|\bgratis ?\?|\bfree ?\?|\bis (it|this|the service) (really )?free\b|\bharus bayar\b|\bdikenakan biaya\b)/ },
+    { key: 'faq_cost', label: 'FAQ – treatment cost',
+      re: /\b(biaya(nya)?|biyaya|harga(nya|na)?|hrg(nya)?|tarif(nya)?|ongkos(nya)?|cost|costs|price|prices|how much|(berapa|brp) (uang|bayar|duit|byr))\b/ },
+    { key: 'faq_booking', label: 'FAQ – how booking works',
+      re: /\b(cara (membuat|buat|bikin|booking|book|daftar)|bagaimana (cara|proses)\b.*\b(janji|jadwal|booking|daftar)|proses penjadwalan|how (do|can|to) (i |we )?(make an? )?(book|appointment|schedule)|how to book|reschedule|ubah jadwal|ganti jadwal|ganti tanggal)\b/ }
+  ];
+  // The ad buttons ("Saya tertarik untuk mengatur janji medis gratis…") mention "gratis" and
+  // "appointment" themselves, so on an opener message only these FAQs are checked.
+  var FAQ_ON_OPENER = ['faq_teleconsult', 'faq_cost'];
+  var FAQ_MAX = 2;
 
   // Route openers. Indonesian from the ad buttons; English equivalents so an English opener
   // follows the same deck route instead of falling into Scenario 4.
@@ -163,8 +188,10 @@
     var otherLang = lang === 'en' ? 'id' : 'en';
     // Only replies typed by agents decide whose turn it is. The automatic acknowledgement is stored as
     // outgoing with sender_type null, and must not count as "we replied".
-    var humanOut = msgs.filter(function (m) { return m.sender === 'outgoing' && m.sender_type === 'human'; });
-    var anyOut = msgs.filter(function (m) { return m.sender === 'outgoing'; });
+    // A message WhatsApp rejected never reached the customer, so it doesn't count as sent or as "we replied".
+    function delivered(m) { return m.status !== 'failed' && !m.failed_at; }
+    var humanOut = msgs.filter(function (m) { return m.sender === 'outgoing' && m.sender_type === 'human' && delivered(m); });
+    var anyOut = msgs.filter(function (m) { return m.sender === 'outgoing' && delivered(m); });
 
     function build(key, label) {
       var row = byKey[key + '|' + lang];
@@ -199,10 +226,42 @@
     var sessionStartMs = toTime(sessionStart.created_at);
     var route = startsWithPrefix(sessionStart.message) || 'unknown';
 
+    var FAQ_KEYS = FAQ_RULES.map(function (r) { return r.key; });
+    function matchesKey(m, key) {
+      if (!m) return false;
+      var n = normalize(m.message);
+      return fingerprintsFor(key, canned).some(function (fp) { return n.indexOf(fp) !== -1; });
+    }
+    function isFaqMsg(m) { return FAQ_KEYS.some(function (k) { return matchesKey(m, k); }); }
+    // Outgoing that counts for the scripted steps: FAQ answers are left out, because their wording can
+    // overlap a step's phrases (FAQ 1 in Indonesian says "kondisi medis", which also marks Q1).
+    var stepOut = anyOut.filter(function (m) { return !isFaqMsg(m); });
+    // Some FAQ answers also ask a step's question: FAQ 1 ends by asking about the condition, which is Q1.
+    // Sent before that step, such a FAQ counts as the step (so Q1 isn't asked twice and the bar waits for
+    // the customer's answer). Sent after the step was already asked, it is just an answer.
+    var FAQ_COVERS = { faq_cost: 'q1_health' };
+    var coverMsgs = []; // [{ m, step }]
+    anyOut.forEach(function (m) {
+      Object.keys(FAQ_COVERS).forEach(function (fk) {
+        var step = FAQ_COVERS[fk];
+        if (toTime(m.created_at) < sessionStartMs || !matchesKey(m, fk)) return;
+        var stepBefore = stepOut.some(function (o) {
+          var t = toTime(o.created_at);
+          return t >= sessionStartMs && t < toTime(m.created_at) && matchesKey(o, step);
+        });
+        if (!stepBefore) coverMsgs.push({ m: m, step: step });
+      });
+    });
+    function coveredSince(key, sinceMs) {
+      return coverMsgs.some(function (c) { return c.step === key && toTime(c.m.created_at) >= sinceMs; });
+    }
+    function isCoverMsg(m) { return coverMsgs.some(function (c) { return c.m === m; }); }
+
     function sentSince(key, sinceMs) {
+      if (!isFaqKey(key) && coveredSince(key, sinceMs)) return true;
       var fps = fingerprintsFor(key, canned);
       if (!fps.length) return false;
-      return anyOut.some(function (m) {
+      return (isFaqKey(key) ? anyOut : stepOut).some(function (m) {
         if (toTime(m.created_at) < sinceMs) return false;
         var n = normalize(m.message);
         return fps.some(function (fp) { return n.indexOf(fp) !== -1; });
@@ -213,16 +272,58 @@
     var lastIn = incoming[incoming.length - 1];
     var lastInMs = toTime(lastIn.created_at);
     var lastHumanOutMs = humanOut.length ? toTime(humanOut[humanOut.length - 1].created_at) : 0;
-    var customerWaiting = lastInMs > lastHumanOutMs; // customer spoke after our last typed reply
+    // Sending a FAQ answer doesn't move the script on, so the customer is still waiting for the next step.
+    var stepHumanOut = humanOut.filter(function (m) { return !isFaqMsg(m) || isCoverMsg(m); });
+    var lastStepOut = stepHumanOut.length ? stepHumanOut[stepHumanOut.length - 1] : null;
+    var lastStepOutMs = lastStepOut ? toTime(lastStepOut.created_at) : 0;
+    var customerWaiting = lastInMs > lastStepOutMs; // customer spoke after our last typed (non-FAQ) reply
 
     result.debug = { lang: lang, langFrom: langFrom, route: route, customerWaiting: customerWaiting };
 
-    function isKey(m, key) {
-      if (!m) return false;
-      var n = normalize(m.message);
-      return fingerprintsFor(key, canned).some(function (fp) { return n.indexOf(fp) !== -1; });
+    function isKey(m, key) { return matchesKey(m, key); }
+    var lastHumanOut = lastStepOut;
+
+    // FAQ check. The customer's latest burst = their messages since our last typed reply before them.
+    // A FAQ stays suggested until it is sent, whatever order the agent sends things in. If the agent
+    // answered in their own words (a reply that is neither a FAQ nor a scripted step), it is dropped.
+    var faqItems = [];
+    var prevOut = humanOut.filter(function (m) { return toTime(m.created_at) < lastInMs; });
+    var burstStartMs = prevOut.length ? toTime(prevOut[prevOut.length - 1].created_at) : 0;
+    var burst = incoming.filter(function (m) { return toTime(m.created_at) > burstStartMs; });
+    var burstFirstMs = burst.length ? toTime(burst[0].created_at) : 0;
+    var stepKeys = Object.keys(byKey).map(function (k) { return k.split('|')[0]; })
+      .filter(function (k) { return !isFaqKey(k); });
+    var answeredFreeText = humanOut.some(function (m) {
+      return toTime(m.created_at) > lastInMs && !isFaqMsg(m)
+        && normalize(m.message).length >= CONFIG.OWN_ANSWER_MIN_CHARS // "halo pak" isn't an answer
+        && !stepKeys.some(function (k) { return matchesKey(m, k); });
+    });
+    if (!answeredFreeText) {
+      FAQ_RULES.forEach(function (rule) {
+        if (faqItems.length >= FAQ_MAX) return;
+        // A question about Ulink's own fees isn't also a treatment-cost question.
+        if (rule.key === 'faq_cost' && faqItems.some(function (f) { return f.key === 'faq_fees'; })) return;
+        var hit = burst.some(function (m) {
+          if (startsWithPrefix(m.message) && FAQ_ON_OPENER.indexOf(rule.key) === -1) return false;
+          return rule.re.test(normalize(m.message));
+        });
+        if (!hit || sentSince(rule.key, burstFirstMs)) return;
+        var item = build(rule.key, rule.label);
+        if (item) faqItems.push(item);
+      });
     }
-    var lastHumanOut = humanOut.length ? humanOut[humanOut.length - 1] : null;
+    result.debug.faq = faqItems.map(function (f) { return f.key; });
+    function done() {
+      if (faqItems.length) {
+        // At most MAX_CARDS cards. At least one FAQ shows; any FAQ that doesn't fit stays under "Other options".
+        var shown = faqItems.slice(0, Math.max(1, CONFIG.MAX_CARDS - result.primary.length));
+        result.extras = result.extras.filter(function (e) {
+          return !shown.some(function (f) { return f.key === e.key; });
+        });
+        result.primary = shown.concat(result.primary);
+      }
+      return result;
+    }
 
     // Other options: PDP first (if not sent), then every active canned response outside the sequence.
     var extraKeys = [];
@@ -242,7 +343,7 @@
     if (!customerWaiting && isKey(lastHumanOut, 'pdp_consent') && !sent('contact_number')
         && (nowMs - lastInMs) / 36e5 < CONFIG.WINDOW_HOURS) {
       push(result.primary, build('contact_number', 'Phone number (after consent)'));
-      return result;
+      return done();
     }
 
     // Follow-up: our side has replied and the customer has gone quiet.
@@ -252,41 +353,43 @@
       var followUpUsed = Number(conversation.follow_up_stage || 0) > 0 || sentSince('follow_up', 0); // max 1 per user
       if (hoursSinceIn >= CONFIG.WINDOW_HOURS) {
         result.note = '24h window closed';
-      } else if (!followUpUsed && hoursSinceOut >= CONFIG.FOLLOW_UP_MIN_HOURS) {
+        return result; // only templates can go out now, so no FAQ either
+      } else if (!followUpUsed && !faqItems.length && hoursSinceOut >= CONFIG.FOLLOW_UP_MIN_HOURS) {
         push(result.primary, build('follow_up', 'Follow-up (no reply yet)'));
       }
-      return result;
+      return done();
     }
 
     // Customer is waiting for us from here on.
+
     var optedOutMs = conversation.opted_out_at ? toTime(conversation.opted_out_at) : 0;
     if (conversation.opted_out === true && !sentSince('re_optin', optedOutMs)) {
       push(result.primary, build('re_optin', 'Re opt-in (must send first)'));
-      return result;
+      return result; // re opt-in must go first, so no FAQ above it
     }
 
     // Scenario 4 only makes sense before Q1. If an agent already asked Q1, don't go back to it.
     if (route === 'unknown' && !sent('clarify_intent') && !sent('q1_health')) {
       push(result.primary, build('clarify_intent', 'Scenario 4 – confirm intent'));
-      return result;
+      return done();
     }
 
     if (CONFIG.PDP_AS_PRIMARY && !sent('pdp_consent')) {
       push(result.primary, build('pdp_consent', 'PDP consent'));
       if (!sent('q1_health')) push(result.primary, build('q1_health'));
-      return result;
+      return done();
     }
 
     if (!sent('q1_health')) {
       push(result.primary, build('q1_health'));
-      return result;
+      return done();
     }
 
     if (route === 'unknown') {
       if (!sent('ingin_q2_patient') && !sent('check_db')) {
         push(result.primary, build('ingin_q2_patient', 'If customer chose (i) – learn more'));
         push(result.primary, build('check_db', 'If customer chose (ii) – ready to book'));
-        return result;
+        return done();
       }
       route = sent('ingin_q2_patient') ? 'ingin' : 'tertarik';
     }
@@ -295,7 +398,7 @@
     for (var s = 0; s < sequence.length; s++) {
       if (!sent(sequence[s])) {
         push(result.primary, build(sequence[s]));
-        return result;
+        return done();
       }
     }
 
@@ -303,15 +406,15 @@
     if (!sent('pdp_consent')) {
       push(result.primary, build('pdp_consent', 'Consent (no reply needed)'));
       result.extras = result.extras.filter(function (e) { return e.key !== 'pdp_consent'; });
-      return result;
+      return done();
     }
     if (!sent('contact_number')) {
       push(result.primary, build('contact_number', 'Phone number'));
-      return result;
+      return done();
     }
 
     result.note = 'Scripted steps done – free text';
-    return result;
+    return done();
   }
 
   var api = { getSuggestedReplies: getSuggestedReplies, CONFIG: CONFIG, _normalize: normalize, _startsWithPrefix: startsWithPrefix, _detectLang: detectLang };

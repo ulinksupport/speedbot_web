@@ -5655,7 +5655,12 @@
             // The reply workflow answers non-2xx when Facebook/Instagram/WhatsApp
             // rejects the send. Without this the optimistic bubble looked "sent"
             // even though nothing was delivered.
-            if (!sendOk) markBubbleSendFailed(optimisticBubble);
+            if (!sendOk) {
+                markBubbleSendFailed(optimisticBubble);
+                // Tell the suggested-reply bar too, so it offers the step again instead of treating it as sent.
+                optimisticMessage.status = 'failed';
+                renderSuggestedReply();
+            }
 
         }
 
@@ -9093,6 +9098,18 @@
                         (payload) => {
 
                             const msg = payload.new;
+
+                            // Keep the suggested-reply bar's copy in step, so a message Meta later
+                            // reports as failed stops counting as sent.
+                            if (currentChat && currentChat.phone === msg.phone && msg.id) {
+                                const local = currentChatMessages.find(m => m.id === msg.id);
+                                if (local && (local.status !== msg.status || local.failed_at !== msg.failed_at)) {
+                                    const becameFailed = msg.status === 'failed' || (msg.failed_at && !local.failed_at);
+                                    local.status = msg.status;
+                                    local.failed_at = msg.failed_at;
+                                    if (becameFailed) renderSuggestedReply();
+                                }
+                            }
 
                             // Every UPDATE on messages is a delivery/read status tick
                             // (see updateMessageStatusInPlace) — never new content, since
