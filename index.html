@@ -1844,6 +1844,29 @@
             margin-top: 6px;
         }
 
+        .contact-pref-wa-row {
+            margin: -2px 0 8px;
+            font-size: 12px;
+        }
+
+        .contact-pref-same-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: #e6f4ea;
+            color: #137333;
+            font-weight: 600;
+        }
+
+        #useWaNumberBtn {
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
         /* =========================================================
         ASSIGN MODAL
         ========================================================= */
@@ -3997,6 +4020,15 @@
 
                 <input id="contactPrefPhone" type="tel" placeholder="Contact number"
                     onchange="saveContactPref()">
+
+                <div class="contact-pref-wa-row" id="contactPrefWaRow" style="display:none;">
+                    <span id="contactPrefSameTag" class="contact-pref-same-tag" style="display:none;">
+                        ✓ Same as WhatsApp number
+                    </span>
+                    <button id="useWaNumberBtn" type="button" onclick="useWhatsAppNumber()" style="display:none;">
+                        Use WhatsApp number
+                    </button>
+                </div>
 
                 <button id="callDoneBtn" onclick="markCallDone()" style="display:none;">
                     ✓ Call done
@@ -7052,6 +7084,18 @@
             select.value = chat.preferred_contact || "";
             phoneInput.value = chat.preferred_contact_phone || "";
 
+            // WhatsApp chats: tag when the contact number is the number they chat from,
+            // or offer a one-click fill. Instagram / Messenger chats have no phone number.
+            const waRow = document.getElementById("contactPrefWaRow");
+            const sameTag = document.getElementById("contactPrefSameTag");
+            const useWaBtn = document.getElementById("useWaNumberBtn");
+            const waNumber = chatWhatsAppNumber(chat);
+            const isSame = !!waNumber && samePhoneNumber(chat.preferred_contact_phone, waNumber);
+
+            waRow.style.display = waNumber ? "block" : "none";
+            sameTag.style.display = isSame ? "inline-block" : "none";
+            useWaBtn.style.display = waNumber && !isSame ? "inline-block" : "none";
+
             if (chat.preferred_contact_source === "ai") {
                 sourceEl.innerText = "🤖 AI suggestion, please confirm";
             } else if (chat.preferred_contact_source === "ops") {
@@ -7075,6 +7119,37 @@
             } else {
                 doneInfo.innerText = "";
             }
+        }
+
+        // The number a WhatsApp chat comes from (null for Instagram / Messenger)
+        function chatWhatsAppNumber(chat) {
+            if (!chat || normalisePlatform(chat.platform) !== "whatsapp") return null;
+            const phone = String(chat.phone || "").trim();
+            return phone.replace(/\D/g, "").length >= 8 ? phone : null;
+        }
+
+        // Same number in different formats? e.g. 0812-3456-7890 vs +6281234567890, 012-345 6789 vs +60123456789
+        function samePhoneNumber(a, b) {
+            const norm = (v) => {
+                let d = String(v || "").replace(/\D/g, "");
+                if (d.startsWith("00")) d = d.slice(2);
+                return d;
+            };
+            const x = norm(a);
+            const y = norm(b);
+            if (x.length < 8 || y.length < 8) return false;
+            if (x === y) return true;
+            // Local vs international format: compare without the leading 0 / country code
+            // (SG numbers are only 8 digits, so never compare more digits than the shorter number has)
+            const tail = Math.min(9, x.length, y.length);
+            return x.slice(-tail) === y.slice(-tail);
+        }
+
+        function useWhatsAppNumber() {
+            const waNumber = chatWhatsAppNumber(currentChat);
+            if (!waNumber) return;
+            document.getElementById("contactPrefPhone").value = waNumber;
+            saveContactPref();
         }
 
         function applyContactPrefLocally(update) {
