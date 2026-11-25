@@ -1785,6 +1785,65 @@
             cursor: not-allowed;
         }
 
+        /* Preferred contact (call / WhatsApp / same channel) */
+        .contact-pref-section {
+            margin: 14px 0 6px;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+        }
+
+        .contact-pref-section.needs-call {
+            border-color: #d93025;
+            background: #fdecea;
+        }
+
+        .contact-pref-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .contact-pref-source {
+            font-weight: 500;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .contact-pref-section select,
+        .contact-pref-section input {
+            width: 100%;
+            height: 36px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 0 10px;
+            font-size: 13px;
+            margin-bottom: 8px;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        #callDoneBtn {
+            width: 100%;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            background: #d93025;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #callDoneInfo {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
         /* =========================================================
         ASSIGN MODAL
         ========================================================= */
@@ -3919,6 +3978,31 @@
             <div class="profile-row" onclick="openEditModal('language')">
                 <div>Language</div>
                 <div class="profile-value" id="languageValue">N/A</div>
+            </div>
+
+            <!-- PREFERRED CONTACT -->
+
+            <div class="contact-pref-section" id="contactPrefSection">
+                <div class="contact-pref-title">
+                    <span>Preferred contact</span>
+                    <span class="contact-pref-source" id="contactPrefSource"></span>
+                </div>
+
+                <select id="contactPrefSelect" onchange="saveContactPref()">
+                    <option value="">Not set</option>
+                    <option value="call">📞 Call</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="same_channel">Same channel (keep chatting here)</option>
+                </select>
+
+                <input id="contactPrefPhone" type="tel" placeholder="Contact number"
+                    onchange="saveContactPref()">
+
+                <button id="callDoneBtn" onclick="markCallDone()" style="display:none;">
+                    ✓ Call done
+                </button>
+
+                <div id="callDoneInfo"></div>
             </div>
 
             <!-- MEDIA -->
@@ -6945,6 +7029,125 @@
 
             document.getElementById("progressCommentInput").value = chat.progress_comment || "";
             document.getElementById("saveProgressCommentBtn").disabled = true;
+
+            renderContactPref(chat);
+        }
+
+        // ---------- Preferred contact (call / WhatsApp / same channel) ----------
+        // AI (n8n "Medical Tourism - Contact Preference AI") pre-fills these; anything ops sets here
+        // is marked source = 'ops' and the AI never overwrites it. "Call done" clears the
+        // "Call the customer" reminder in the 30-min ops email.
+        let contactPrefSaving = false;
+
+        function renderContactPref(chat) {
+            if (!chat) return;
+
+            const select = document.getElementById("contactPrefSelect");
+            const phoneInput = document.getElementById("contactPrefPhone");
+            const sourceEl = document.getElementById("contactPrefSource");
+            const doneBtn = document.getElementById("callDoneBtn");
+            const doneInfo = document.getElementById("callDoneInfo");
+            const section = document.getElementById("contactPrefSection");
+
+            select.value = chat.preferred_contact || "";
+            phoneInput.value = chat.preferred_contact_phone || "";
+
+            if (chat.preferred_contact_source === "ai") {
+                sourceEl.innerText = "🤖 AI suggestion, please confirm";
+            } else if (chat.preferred_contact_source === "ops") {
+                sourceEl.innerText = "✓ Confirmed by ops";
+            } else {
+                sourceEl.innerText = "";
+            }
+
+            const isCall = chat.preferred_contact === "call";
+            const waitingForCall = isCall && !chat.call_done_at;
+
+            doneBtn.style.display = waitingForCall ? "block" : "none";
+            section.classList.toggle("needs-call", waitingForCall);
+
+            if (isCall && chat.call_done_at) {
+                doneInfo.innerText = "Call done: " + new Date(chat.call_done_at).toLocaleString("en-SG", {
+                    timeZone: "Asia/Singapore", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+                });
+            } else if (waitingForCall) {
+                doneInfo.innerText = "Reminder shows in the 30-min ops email until you tick Call done.";
+            } else {
+                doneInfo.innerText = "";
+            }
+        }
+
+        function applyContactPrefLocally(update) {
+            Object.assign(currentChat, update);
+            const chatIndex = chats.findIndex(c => c.id === currentChat.id);
+            if (chatIndex !== -1) Object.assign(chats[chatIndex], update);
+            renderContactPref(currentChat);
+        }
+
+        async function saveContactPref() {
+            if (!currentChat) return;
+
+            const pref = document.getElementById("contactPrefSelect").value || null;
+            const phone = document.getElementById("contactPrefPhone").value.trim() || null;
+            const nowIso = new Date().toISOString();
+
+            const update = {
+                preferred_contact: pref,
+                preferred_contact_phone: phone,
+                preferred_contact_source: (pref || phone) ? "ops" : null,
+                preferred_contact_at: (pref !== currentChat.preferred_contact || phone !== currentChat.preferred_contact_phone)
+                    ? nowIso
+                    : (currentChat.preferred_contact_at || nowIso)
+            };
+
+            // Switching to Call (again) starts a new reminder
+            if (pref === "call" && currentChat.preferred_contact !== "call") {
+                update.call_done_at = null;
+            }
+
+            contactPrefSaving = true;
+            const { error } = await supabaseClient
+                .from("conversations")
+                .update(update)
+                .eq("id", currentChat.id);
+            contactPrefSaving = false;
+
+            if (error) {
+                console.error("Preferred contact update failed:", error);
+                showToast("Preferred contact update failed", "error");
+                renderContactPref(currentChat);
+                return;
+            }
+
+            applyContactPrefLocally(update);
+            showToast("Preferred contact saved", "success");
+        }
+
+        async function markCallDone() {
+            if (!currentChat) return;
+
+            if (!confirm("Mark the call to this patient as done? This stops the reminder in the ops email.")) return;
+
+            const update = {
+                call_done_at: new Date().toISOString(),
+                preferred_contact_source: "ops"
+            };
+
+            contactPrefSaving = true;
+            const { error } = await supabaseClient
+                .from("conversations")
+                .update(update)
+                .eq("id", currentChat.id);
+            contactPrefSaving = false;
+
+            if (error) {
+                console.error("Call done update failed:", error);
+                showToast("Could not mark call done", "error");
+                return;
+            }
+
+            applyContactPrefLocally(update);
+            showToast("Call marked done", "success");
         }
 
         function formatCommentTime(iso) {
@@ -7812,6 +8015,11 @@
                     country: conv.country || "Unknown",
                     language: conv.language || "Unknown",
                     progress_comment: conv.progress_comment || "",
+                    preferred_contact: conv.preferred_contact || null,
+                    preferred_contact_phone: conv.preferred_contact_phone || null,
+                    preferred_contact_source: conv.preferred_contact_source || null,
+                    preferred_contact_at: conv.preferred_contact_at || null,
+                    call_done_at: conv.call_done_at || null,
                     escalate: conv.escalate || false,
                     escalate_reason: conv.escalate_reason || null,
                     messages: [],
@@ -8699,6 +8907,7 @@
             document.getElementById("emailValue").innerText = chat.email;
             document.getElementById("countryValue").innerText = chat.country;
             document.getElementById("languageValue").innerText = chat.language;
+            renderContactPref(chat);
 
             // Set immediately before the fetch (no await between) and scoped
             // to this chat's id — fetchMessagesForChat() only consumes it if
@@ -9210,6 +9419,24 @@
                                 if (currentChat && currentChat.id === conv.id) {
                                     currentChat.progress_comment = conv.progress_comment || "";
                                     updateProfilePanel(currentChat);
+                                }
+                            }
+                            if (conv.preferred_contact !== undefined || conv.call_done_at !== undefined) {
+                                existing.preferred_contact = conv.preferred_contact || null;
+                                existing.preferred_contact_phone = conv.preferred_contact_phone || null;
+                                existing.preferred_contact_source = conv.preferred_contact_source || null;
+                                existing.preferred_contact_at = conv.preferred_contact_at || null;
+                                existing.call_done_at = conv.call_done_at || null;
+
+                                if (currentChat && currentChat.id === conv.id && !contactPrefSaving) {
+                                    Object.assign(currentChat, {
+                                        preferred_contact: existing.preferred_contact,
+                                        preferred_contact_phone: existing.preferred_contact_phone,
+                                        preferred_contact_source: existing.preferred_contact_source,
+                                        preferred_contact_at: existing.preferred_contact_at,
+                                        call_done_at: existing.call_done_at
+                                    });
+                                    renderContactPref(currentChat);
                                 }
                             }
                             if (conv.follow_up_stage !== undefined) {
